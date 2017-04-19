@@ -33,9 +33,9 @@ void TDecimate::blend_MMX_8(unsigned char* dstp, const unsigned char* srcp,
   const unsigned char* nxtp, int width, int height, int dst_pitch,
   int src_pitch, int nxt_pitch, double w1, double w2)
 {
-  int iw1t = (int)(w1*65536.0); iw1t += (iw1t << 16);
+  unsigned int iw1t = (int)(w1*65536.0); iw1t += (iw1t << 16); // pf fix: unsigned int
   __int64 iw1 = (__int64)iw1t; iw1 += (iw1 << 32);
-  int iw2t = (int)(w2*65536.0); iw2t += (iw2t << 16);
+  unsigned int iw2t = (int)(w2*65536.0); iw2t += (iw2t << 16); // pf fix: unsigned int
   __int64 iw2 = (__int64)iw2t; iw2 += (iw2 << 32);
   __asm
   {
@@ -119,10 +119,11 @@ void TDecimate::blend_SSE2_16(unsigned char* dstp, const unsigned char* srcp,
   const unsigned char* nxtp, int width, int height, int dst_pitch,
   int src_pitch, int nxt_pitch, double w1, double w2)
 {
-  int iw1t = (int)(w1*65536.0); iw1t += (iw1t << 16);
-  __int64 iw1t2 = (__int64)iw1t; iw1t2 += (iw1t2 << 32);
-  int iw2t = (int)(w2*65536.0); iw2t += (iw2t << 16);
-  __int64 iw2t2 = (__int64)iw2t; iw2t2 += (iw2t2 << 32);
+  unsigned int iw1t = (int)(w1*65536.0); iw1t += (iw1t << 16);
+  unsigned __int64 iw1t2 = (unsigned __int64)iw1t; iw1t2 += (iw1t2 << 32);
+  // P.F. 170418: fix bug! when iw1t = 0xe000, then 0xe000e000, then iw1t2 is sign extended, and the result is 0xe000 dfff e000 dfff instead of e000 e000 e000 e000!
+  unsigned int iw2t = (unsigned int)(w2*65536.0); iw2t += (iw2t << 16);
+  unsigned __int64 iw2t2 = (unsigned __int64)iw2t; iw2t2 += (iw2t2 << 32);
   __int64 iw1[] = { iw1t2, iw1t2 };
   __int64 iw2[] = { iw2t2, iw2t2 };
   __asm
