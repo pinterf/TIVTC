@@ -22,8 +22,9 @@
 **   along with this program; if not, write to the Free Software
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
+#ifndef _M_X64
 #include "FieldDiff.h"
+#include <xmmintrin.h>
 
 FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _debug,
   bool _sse, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child), nt(_nt),
@@ -105,7 +106,12 @@ __int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, in
   const int inc = (np == 1 && !chromaIn) ? 2 : 1;
   const unsigned char *srcp, *srcpp, *src2p, *srcpn, *src2n;
   int src_pitch, width, widtha, widtha1, widtha2, height, temp;
-  __int64 diff = 0, nt64[2];
+  __int64 diff = 0;
+#ifndef _M_X64
+  __int64 nt64[2];
+#else
+  __m128i nt64;
+#endif
   if (ntIn > 255) ntIn = 255;
   else if (ntIn < 0) ntIn = 0;
   const int nt6 = ntIn * 6;
@@ -120,9 +126,13 @@ __int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, in
   }
   if ((cpu&CPUF_MMX) || (cpu&CPUF_SSE2))
   {
+#ifndef _M_X64
     nt64[0] = (nt6 << 16) + nt6;
     nt64[0] += (nt64[0] << 32);
     nt64[1] = nt64[0];
+#else
+    nt64 = _mm_set1_epi16(nt6);
+#endif
   }
   for (b = 0; b < stop; ++b)
   {
@@ -160,18 +170,23 @@ __int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, in
     {
       if ((cpu&CPUF_SSE2) && !((int(srcp) | src_pitch) & 15) && widtha2 >= 16)
       {
+#ifdef _M_X64
+        __m128 nt128 = _mm_castsi128_ps(nt64);
+#else
         __m128 nt128;
         __asm
         {
           movups xmm1, xmmword ptr[nt64]
           movaps nt128, xmm1
         }
+#endif
         if (inc == 1)
           calcFieldDiff_SAD_SSE2(src2p, src_pitch, widtha2, height - 4, nt128, diff);
         else
           calcFieldDiff_SAD_SSE2_Luma(src2p, src_pitch, widtha2, height - 4, nt128, diff);
         widtha = widtha2;
       }
+#ifndef _M_X64
       else if (cpu&CPUF_MMX)
       {
         if (inc == 1)
@@ -180,6 +195,7 @@ __int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, in
           calcFieldDiff_SAD_MMX_Luma(src2p, src_pitch, widtha1, height - 4, nt64[0], diff);
         widtha = widtha1;
       }
+#endif
       else env->ThrowError("FieldDiff:  internal error!");
       for (y = 2; y < height - 2; ++y)
       {
@@ -238,7 +254,12 @@ __int64 FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
   const int inc = (np == 1 && !chromaIn) ? 2 : 1;
   const unsigned char *srcp, *srcpp, *src2p, *srcpn, *src2n;
   int src_pitch, width, widtha, widtha1, widtha2, height, temp;
-  __int64 diff = 0, nt64[2];
+  __int64 diff = 0;
+#ifdef _M_X64
+  __m128i nt64;
+#else
+  __int64 nt64[2];
+#endif
   if (ntIn > 255) ntIn = 255;
   else if (ntIn < 0) ntIn = 0;
   const int nt6 = ntIn * 6;
@@ -253,9 +274,13 @@ __int64 FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
   }
   if ((cpu&CPUF_MMX) || (cpu&CPUF_SSE2))
   {
+#ifdef _M_X64
+    nt64 = _mm_set1_epi16(nt6);
+#else
     nt64[0] = (nt6 << 16) + nt6;
     nt64[0] += (nt64[0] << 32);
     nt64[1] = nt64[0];
+#endif
   }
   for (b = 0; b < stop; ++b)
   {
@@ -294,17 +319,22 @@ __int64 FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
       if ((cpu&CPUF_SSE2) && !((int(srcp) | src_pitch) & 15) && widtha2 >= 16)
       {
         __m128 nt128;
+#ifdef _M_X64
+        nt128 = _mm_castsi128_ps(nt64);
+#else
         __asm
         {
           movups xmm1, xmmword ptr[nt64]
           movaps nt128, xmm1
         }
+#endif
         if (inc == 1)
           calcFieldDiff_SSE_SSE2(src2p, src_pitch, widtha2, height - 4, nt128, diff);
         else
           calcFieldDiff_SSE_SSE2_Luma(src2p, src_pitch, widtha2, height - 4, nt128, diff);
         widtha = widtha2;
       }
+#ifndef _M_X64
       else if (cpu&CPUF_MMX)
       {
         if (inc == 1)
@@ -313,6 +343,7 @@ __int64 FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
           calcFieldDiff_SSE_MMX_Luma(src2p, src_pitch, widtha1, height - 4, nt64[0], diff);
         widtha = widtha1;
       }
+#endif
       else env->ThrowError("FieldDiff:  internal error!");
       for (y = 2; y < height - 2; ++y)
       {
@@ -479,6 +510,7 @@ void FieldDiff::calcFieldDiff_SAD_SSE2(const unsigned char *src2p, int src_pitch
   }
 }
 
+#ifndef _M_X64
 void FieldDiff::calcFieldDiff_SAD_MMX(const unsigned char *src2p, int src_pitch,
   int width, int height, __int64 nt, __int64 &diff)
 {
@@ -573,6 +605,7 @@ void FieldDiff::calcFieldDiff_SAD_MMX(const unsigned char *src2p, int src_pitch,
       emms
   }
 }
+#endif
 
 void FieldDiff::calcFieldDiff_SAD_SSE2_Luma(const unsigned char *src2p, int src_pitch,
   int width, int height, __m128 nt, __int64 &diff)
@@ -668,6 +701,7 @@ void FieldDiff::calcFieldDiff_SAD_SSE2_Luma(const unsigned char *src2p, int src_
   }
 }
 
+#ifndef _M_X64
 void FieldDiff::calcFieldDiff_SAD_MMX_Luma(const unsigned char *src2p, int src_pitch,
   int width, int height, __int64 nt, __int64 &diff)
 {
@@ -764,6 +798,7 @@ void FieldDiff::calcFieldDiff_SAD_MMX_Luma(const unsigned char *src2p, int src_p
       emms
   }
 }
+#endif
 
 void FieldDiff::calcFieldDiff_SSE_SSE2(const unsigned char *src2p, int src_pitch,
   int width, int height, __m128 nt, __int64 &diff)
@@ -855,6 +890,7 @@ void FieldDiff::calcFieldDiff_SSE_SSE2(const unsigned char *src2p, int src_pitch
   }
 }
 
+#ifndef _M_X64
 void FieldDiff::calcFieldDiff_SSE_MMX(const unsigned char *src2p, int src_pitch,
   int width, int height, __int64 nt, __int64 &diff)
 {
@@ -947,6 +983,7 @@ void FieldDiff::calcFieldDiff_SSE_MMX(const unsigned char *src2p, int src_pitch,
       emms
   }
 }
+#endif
 
 void FieldDiff::calcFieldDiff_SSE_SSE2_Luma(const unsigned char *src2p, int src_pitch,
   int width, int height, __m128 nt, __int64 &diff)
@@ -1040,6 +1077,7 @@ void FieldDiff::calcFieldDiff_SSE_SSE2_Luma(const unsigned char *src2p, int src_
   }
 }
 
+#ifndef _M_X64
 void FieldDiff::calcFieldDiff_SSE_MMX_Luma(const unsigned char *src2p, int src_pitch,
   int width, int height, __int64 nt, __int64 &diff)
 {
@@ -1134,3 +1172,6 @@ void FieldDiff::calcFieldDiff_SSE_MMX_Luma(const unsigned char *src2p, int src_p
       emms
   }
 }
+#endif
+
+#endif
