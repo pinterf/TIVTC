@@ -24,6 +24,7 @@
 */
 
 #include "TFM.h"
+#include "TFMasm.h"
 #include "avs/alignment.h"
 
 #ifdef _M_X64

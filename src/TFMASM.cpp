@@ -23,7 +23,8 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include "TFM.h"
+#include "TFMasm.h"
+#include "emmintrin.h"
 
 #ifdef _M_X64
 #define USE_INTR
@@ -46,7 +47,7 @@ __declspec(align(16)) const __int64 threeMask[2] = { 0x0003000300030003, 0x00030
 __declspec(align(16)) const __int64 ffMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
 #endif
 
-void TFM::checkSceneChangeYV12_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYV12_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
 #ifdef USE_INTR
@@ -97,7 +98,7 @@ void TFM::checkSceneChangeYV12_1_SSE2(const unsigned char *prvp, const unsigned 
 }
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYV12_1_ISSE(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYV12_1_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
   __asm
@@ -135,7 +136,7 @@ void TFM::checkSceneChangeYV12_1_ISSE(const unsigned char *prvp, const unsigned 
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYV12_1_MMX(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYV12_1_MMX(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
   __asm
@@ -197,7 +198,7 @@ void TFM::checkSceneChangeYV12_1_MMX(const unsigned char *prvp, const unsigned c
 }
 #endif
 
-void TFM::checkSceneChangeYV12_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYV12_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
@@ -267,7 +268,7 @@ void TFM::checkSceneChangeYV12_2_SSE2(const unsigned char *prvp, const unsigned 
 }
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYV12_2_ISSE(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYV12_2_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
@@ -316,7 +317,7 @@ void TFM::checkSceneChangeYV12_2_ISSE(const unsigned char *prvp, const unsigned 
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYV12_2_MMX(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYV12_2_MMX(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
@@ -408,7 +409,7 @@ void TFM::checkSceneChangeYV12_2_MMX(const unsigned char *prvp, const unsigned c
 }
 #endif
 
-void TFM::checkSceneChangeYUY2_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYUY2_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
 #ifdef USE_INTR
@@ -467,7 +468,7 @@ void TFM::checkSceneChangeYUY2_1_SSE2(const unsigned char *prvp, const unsigned 
 }
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYUY2_1_ISSE(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYUY2_1_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
   __asm
@@ -513,7 +514,7 @@ void TFM::checkSceneChangeYUY2_1_ISSE(const unsigned char *prvp, const unsigned 
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYUY2_1_MMX(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYUY2_1_MMX(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
   __asm
@@ -569,7 +570,7 @@ void TFM::checkSceneChangeYUY2_1_MMX(const unsigned char *prvp, const unsigned c
 }
 #endif
 
-void TFM::checkSceneChangeYUY2_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYUY2_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
@@ -648,7 +649,7 @@ void TFM::checkSceneChangeYUY2_2_SSE2(const unsigned char *prvp, const unsigned 
 }
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYUY2_2_ISSE(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYUY2_2_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
@@ -705,7 +706,7 @@ void TFM::checkSceneChangeYUY2_2_ISSE(const unsigned char *prvp, const unsigned 
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::checkSceneChangeYUY2_2_MMX(const unsigned char *prvp, const unsigned char *srcp,
+void checkSceneChangeYUY2_2_MMX(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
@@ -789,7 +790,7 @@ void TFM::checkSceneChangeYUY2_2_MMX(const unsigned char *prvp, const unsigned c
 
 // aligned. 
 // different path if not mod16, but only for remaining 8 bytes
-void TFM::buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
+void buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
@@ -908,7 +909,7 @@ void TFM::buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *
 }
 
 #ifdef ALLOW_MMX
-void TFM::buildABSDiffMask_MMX(const unsigned char *prvp, const unsigned char *nxtp,
+void buildABSDiffMask_MMX(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
@@ -999,7 +1000,7 @@ void TFM::buildABSDiffMask_MMX(const unsigned char *prvp, const unsigned char *n
 }
 #endif
 
-void TFM::buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
+void buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
@@ -1179,7 +1180,7 @@ void TFM::buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char 
 }
 
 #ifdef ALLOW_MMX
-void TFM::buildABSDiffMask2_MMX(const unsigned char *prvp, const unsigned char *nxtp,
+void buildABSDiffMask2_MMX(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
@@ -1408,15 +1409,15 @@ static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned 
 
 
 // instantiate
-template void TFM::check_combing_SSE2<false>(const unsigned char *srcp, unsigned char *dstp, int width,
+template void check_combing_SSE2<false>(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
-template void TFM::check_combing_SSE2<true>(const unsigned char *srcp, unsigned char *dstp, int width,
+template void check_combing_SSE2<true>(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
 
 // todo: this one needs an unaligned version, too
 // src_pitch2: src_pitch*2 for inline asm speed reasons
 template<bool aligned>
-void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
+void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
 #ifdef USE_INTR
@@ -1552,7 +1553,7 @@ void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int
 }
 
 #ifdef ALLOW_MMX
-void TFM::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
+void check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
   __asm
@@ -1670,7 +1671,7 @@ void TFM::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
+void check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
   __asm
@@ -1823,7 +1824,7 @@ void TFM::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int 
 #endif
 
 template<bool aligned>
-void TFM::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
+void check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
 #ifdef USE_INTR
@@ -1952,14 +1953,14 @@ void TFM::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp
 }
 
 // instantiate
-template void TFM::check_combing_SSE2_Luma<false>(const unsigned char *srcp, unsigned char *dstp, int width,
+template void check_combing_SSE2_Luma<false>(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
-template void TFM::check_combing_SSE2_Luma<true>(const unsigned char *srcp, unsigned char *dstp, int width,
+template void check_combing_SSE2_Luma<true>(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
 
 
 #ifdef ALLOW_MMX
-void TFM::check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
+void check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
   __asm
@@ -2078,7 +2079,7 @@ void TFM::check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
+void check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
   __asm
@@ -2232,7 +2233,7 @@ void TFM::check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp,
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
+void check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
 {
   __asm
@@ -2307,7 +2308,7 @@ void TFM::check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
 #endif
 
 template<bool aligned>
-void TFM::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
+void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
 #ifdef USE_INTR
@@ -2443,14 +2444,14 @@ void TFM::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
 }
 
 // instantiate
-template void TFM::check_combing_SSE2_M1<false>(const unsigned char *srcp, unsigned char *dstp,
+template void check_combing_SSE2_M1<false>(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-template void TFM::check_combing_SSE2_M1<true>(const unsigned char *srcp, unsigned char *dstp,
+template void check_combing_SSE2_M1<true>(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
 
 
 #ifdef ALLOW_MMX
-void TFM::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
+void check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
 {
   __asm
@@ -2506,7 +2507,7 @@ void TFM::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *ds
 
 
 template<bool aligned>
-void TFM::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
+void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
 #ifdef USE_INTR
@@ -2596,9 +2597,9 @@ void TFM::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *d
 }
 
 // instantiate
-template void TFM::check_combing_SSE2_Luma_M1<false>(const unsigned char *srcp, unsigned char *dstp,
+template void check_combing_SSE2_Luma_M1<false>(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-template void TFM::check_combing_SSE2_Luma_M1<true>(const unsigned char *srcp, unsigned char *dstp,
+template void check_combing_SSE2_Luma_M1<true>(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
 
 
@@ -2607,7 +2608,7 @@ template void TFM::check_combing_SSE2_Luma_M1<true>(const unsigned char *srcp, u
 // that calls these individual functions.
 
 // no alignment needed for 8 bytes
-void TFM::compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
 {
   // sums masks
   // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;
@@ -2697,7 +2698,7 @@ void TFM::compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
 #pragma warning(disable:4799)	// disable no emms warning message
 
 #ifdef ALLOW_MMX
-void TFM::compute_sum_8x8_mmx(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_8x8_mmx(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
   {
@@ -2746,7 +2747,7 @@ void TFM::compute_sum_8x8_mmx(const unsigned char *srcp, int pitch, int &sum)
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::compute_sum_8x8_isse(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_8x8_isse(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
   {
@@ -2785,7 +2786,7 @@ void TFM::compute_sum_8x8_isse(const unsigned char *srcp, int pitch, int &sum)
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::compute_sum_8x16_mmx_luma(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_8x16_mmx_luma(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
   {
@@ -2843,7 +2844,7 @@ void TFM::compute_sum_8x16_mmx_luma(const unsigned char *srcp, int pitch, int &s
 #endif
 
 #ifdef ALLOW_MMX
-void TFM::compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
   {
@@ -2896,7 +2897,7 @@ void TFM::compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &
 
 
 template<bool aligned>
-void TFM::compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
 {
 #ifdef USE_INTR
   // sums masks
@@ -2987,8 +2988,8 @@ void TFM::compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &
 }
 
 // instantiate
-template void TFM::compute_sum_8x16_sse2_luma<false>(const unsigned char *srcp, int pitch, int &sum);
-template void TFM::compute_sum_8x16_sse2_luma<true>(const unsigned char *srcp, int pitch, int &sum);
+template void compute_sum_8x16_sse2_luma<false>(const unsigned char *srcp, int pitch, int &sum);
+template void compute_sum_8x16_sse2_luma<true>(const unsigned char *srcp, int pitch, int &sum);
 
 
 

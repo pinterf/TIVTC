@@ -24,6 +24,7 @@
 */
 
 #include "TFM.h"
+#include "TFMasm.h"
 
 #ifdef _M_X64
 #define USE_C_NO_ASM
@@ -73,28 +74,36 @@ bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     else if (opt == 3) use_mmx = use_isse = use_sse2 = true;
   }
   const int cthresh6 = cthresh * 6;
+#ifdef ALLOW_MMX  
   __int64 cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
+#endif
   __m128i cthreshb_m128i;
   __m128i cthresh6w_m128i;
   if (metric == 0 && (use_mmx || use_isse || use_sse2))
   {
     unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
     cthreshb_m128i = _mm_set1_epi8(cthresht);
+#ifdef ALLOW_MMX  
     cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
     cthreshb[0] += (cthreshb[0] << 32);
     cthreshb[1] = cthreshb[0];
+#endif
     unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
     cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
+#ifdef ALLOW_MMX  
     cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
     cthresh6w[0] += (cthresh6w[0] << 32);
     cthresh6w[1] = cthresh6w[0];
+#endif
   }
   else if (metric == 1 && (use_mmx || use_isse || use_sse2))
   {
     cthreshb_m128i = _mm_set1_epi32(cthresh*cthresh);
+#ifdef ALLOW_MMX  
     cthreshb[0] = cthresh*cthresh;
     cthreshb[0] += (cthreshb[0] << 32);
     cthreshb[1] = cthreshb[0];
+#endif
   }
   for (int b = chroma ? 3 : 1; b > 0; --b)
   {
