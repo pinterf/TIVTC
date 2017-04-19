@@ -24,6 +24,7 @@
 */
 
 #include "TFM.h"
+#include "avs/alignment.h"
 
 PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
 {
@@ -2366,13 +2367,25 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     else fieldO = order;
   }
   tpitchy = tpitchuv = -20;
+
+  const int ALIGN_BUF = 64; // must be <= as Avisynth's alignment. 64 is enoght for a decade
   if (vi.IsYV12())
   {
-    tpitchy = (vi.width & 15) ? vi.width + 16 - (vi.width & 15) : vi.width;
-    tpitchuv = ((vi.width >> 1) & 15) ? (vi.width >> 1) + 16 - ((vi.width >> 1) & 15) : (vi.width >> 1);
+    // pinterf: fix for avisynth+ (frame aligment>16 in general)
+    // we allocate (height >> 1) * AlignNumber(vi.width,16) for tbuffer
+    // But later on, widthA = GetRowSize(PLANAR_Y_ALIGNED) is used as pitch to fill this buffer, which is 32 aligned in Avisynth+
+    // E.g. width=2D0 height=1E0 -> Allocate 2D0*F0, filled 2E0*F0
+    //tpitchy = (vi.width & 15) ? vi.width + 16 - (vi.width & 15) : vi.width;
+    //tpitchuv = ((vi.width >> 1) & 15) ? (vi.width >> 1) + 16 - ((vi.width >> 1) & 15) : (vi.width >> 1);
+    tpitchy = AlignNumber(vi.width, ALIGN_BUF);
+    tpitchuv = AlignNumber(vi.width >> 1, ALIGN_BUF); // YV12 specific!
   }
-  else tpitchy = ((vi.width << 1) & 15) ? (vi.width << 1) + 16 - ((vi.width << 1) & 15) : (vi.width << 1);
-  tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1)*tpitchy, 16);
+  else {
+    //tpitchy = ((vi.width << 1) & 15) ? (vi.width << 1) + 16 - ((vi.width << 1) & 15) : (vi.width << 1);
+    tpitchy = AlignNumber((vi.width << 1), ALIGN_BUF);
+  }
+  tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1)*tpitchy, ALIGN_BUF); // 16 would be is enough for sse2
+
   if (tbuffer == NULL)
     env->ThrowError("TFM:  malloc failure (tbuffer)!");
   mode7_field = field;
