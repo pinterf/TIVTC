@@ -29,6 +29,7 @@
 #include <limits.h>
 #include "internal.h"
 #include "TDecimate.h"
+#include "TDecimateASM.h"
 
 #ifdef VERSION
 #undef VERSION
@@ -59,6 +60,7 @@ private:
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
   void FrameDiff::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
+#if 0
   void FrameDiff::calcSSD_SSE2_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &ssd);
   void FrameDiff::calcSSD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
@@ -107,6 +109,7 @@ private:
     int pitch1, int pitch2, int &sad);
   void FrameDiff::calcSAD_MMX_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
+#endif
   void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void FrameDiff::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot);

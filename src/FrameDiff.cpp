@@ -27,7 +27,9 @@
 
 #include "FrameDiff.h"
 
+#if 0
 __declspec(align(16)) const __int64 lumamask = 0x00FF00FF00FF00FF;
+#endif
 
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
   bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise, bool _ssd,
@@ -749,7 +751,7 @@ void FrameDiff::calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const un
         {
           for (x = 0; x < width; ++x)
           {
-            calcSAD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSAD_SSE2_32x16<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -819,7 +821,7 @@ void FrameDiff::calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const un
         {
           for (x = 0; x < width; ++x)
           {
-            calcSAD_SSE2_32x16_luma(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSAD_SSE2_32x16_luma<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -1137,7 +1139,7 @@ void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const uns
   int widtha, heighta, heights = height, widths = width;
   const unsigned char *ptr1T, *ptr2T;
   bool use_sse2a = false;
-  if (use_sse2 && !((int(ptr1) | int(ptr2) | pitch1 | pitch2) & 15)) use_sse2a = true;
+  if (use_sse2 && !((intptr_t(ptr1) | intptr_t(ptr2) | pitch1 | pitch2) & 15)) use_sse2a = true;
   if (np == 3) // YV12
   {
     if (plane == 0)
@@ -1154,7 +1156,7 @@ void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const uns
         {
           for (x = 0; x < width; ++x)
           {
-            calcSSD_SSE2_16x16(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            calcSSD_SSE2_16x16<true>(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -1291,7 +1293,7 @@ void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const uns
         {
           for (x = 0; x < width; ++x)
           {
-            calcSSD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSSD_SSE2_32x16<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -1362,7 +1364,7 @@ void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const uns
         {
           for (x = 0; x < width; ++x)
           {
-            calcSSD_SSE2_32x16_luma(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSSD_SSE2_32x16_luma<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -2248,6 +2250,8 @@ void FrameDiff::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
 
 __declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_SSE2_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2302,7 +2306,10 @@ void FrameDiff::calcSAD_SSE2_16x16(const unsigned char *ptr1, const unsigned cha
       movd[eax], xmm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2328,6 +2335,7 @@ void FrameDiff::calcSAD_SSE2_32x16(const unsigned char *ptr1, const unsigned cha
       lea edi, [edi + edx * 2]
       paddd xmm1, xmm3
       lea esi, [esi + ecx * 2]
+
       movdqa xmm2, [edi]
       movdqa xmm3, [edi + 16]
       movdqa xmm4, [edi + edx]
@@ -2338,6 +2346,7 @@ void FrameDiff::calcSAD_SSE2_32x16(const unsigned char *ptr1, const unsigned cha
       psadbw xmm5, [esi + ecx + 16]
       paddd xmm2, xmm4
       paddd xmm3, xmm5
+
       paddd xmm0, xmm1
       paddd xmm2, xmm3
       lea edi, [edi + edx * 2]
@@ -2353,7 +2362,10 @@ void FrameDiff::calcSAD_SSE2_32x16(const unsigned char *ptr1, const unsigned cha
       movd[eax], xmm6
   }
 }
+#endif
 
+#if 0
+// duplicate
 void FrameDiff::calcSAD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2404,7 +2416,7 @@ void FrameDiff::calcSAD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigne
       movd[eax], xmm6
   }
 }
-
+#endif
 // There are no emms instructions at the end of these block sad/ssd 
 // mmx/isse routines because it is called at the end of the routine 
 // that calls these individual functions.
@@ -2412,6 +2424,8 @@ void FrameDiff::calcSAD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigne
 #pragma warning(push)
 #pragma warning(disable:4799) // disable no emms warning message
 
+#if 0
+// duplicate
 void FrameDiff::calcSAD_iSSE_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2463,7 +2477,10 @@ void FrameDiff::calcSAD_iSSE_16x16(const unsigned char *ptr1, const unsigned cha
       movd[eax], mm7
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_iSSE_8x8(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2507,7 +2524,10 @@ void FrameDiff::calcSAD_iSSE_8x8(const unsigned char *ptr1, const unsigned char 
     movd[eax], mm0
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_iSSE_8x8_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2577,7 +2597,10 @@ void FrameDiff::calcSAD_iSSE_8x8_luma(const unsigned char *ptr1, const unsigned 
     movd[eax], mm0
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_iSSE_4x4(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2609,7 +2632,10 @@ void FrameDiff::calcSAD_iSSE_4x4(const unsigned char *ptr1, const unsigned char 
     movd[eax], mm1
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_iSSE_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2655,7 +2681,10 @@ void FrameDiff::calcSAD_iSSE_32x16(const unsigned char *ptr1, const unsigned cha
       movd[eax], mm7
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_iSSE_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2703,7 +2732,10 @@ void FrameDiff::calcSAD_iSSE_32x16_luma(const unsigned char *ptr1, const unsigne
       movd[eax], mm7
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_MMX_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2755,7 +2787,10 @@ void FrameDiff::calcSAD_MMX_16x16(const unsigned char *ptr1, const unsigned char
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_MMX_8x8(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2807,7 +2842,10 @@ void FrameDiff::calcSAD_MMX_8x8(const unsigned char *ptr1, const unsigned char *
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_MMX_8x8_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2854,7 +2892,10 @@ void FrameDiff::calcSAD_MMX_8x8_luma(const unsigned char *ptr1, const unsigned c
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_MMX_4x4(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -2923,7 +2964,10 @@ void FrameDiff::calcSAD_MMX_4x4(const unsigned char *ptr1, const unsigned char *
     movd[eax], mm0
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_MMX_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -3001,7 +3045,10 @@ void FrameDiff::calcSAD_MMX_32x16(const unsigned char *ptr1, const unsigned char
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSAD_MMX_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
@@ -3069,7 +3116,10 @@ void FrameDiff::calcSAD_MMX_32x16_luma(const unsigned char *ptr1, const unsigned
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_SSE2_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3125,7 +3175,10 @@ void FrameDiff::calcSSD_SSE2_16x16(const unsigned char *ptr1, const unsigned cha
       movd[eax], xmm5
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3144,27 +3197,35 @@ void FrameDiff::calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned cha
       movdqa xmm1, [edi + 16]
       movdqa xmm2, [esi]
       movdqa xmm3, [esi + 16]
+
       movdqa xmm4, xmm0
       movdqa xmm5, xmm1
       psubusb xmm4, xmm2
       psubusb xmm5, xmm3
       psubusb xmm2, xmm0
       psubusb xmm3, xmm1
+
       por xmm2, xmm4
       por xmm3, xmm5
+
       movdqa xmm0, xmm2
       movdqa xmm1, xmm3
       punpcklbw xmm0, xmm7
       punpckhbw xmm2, xmm7
       pmaddwd xmm0, xmm0
       pmaddwd xmm2, xmm2
+
       paddd xmm6, xmm0
+
       punpcklbw xmm1, xmm7
       paddd xmm6, xmm2
+
       punpckhbw xmm3, xmm7
       pmaddwd xmm1, xmm1
       pmaddwd xmm3, xmm3
+
       paddd xmm6, xmm1
+
       movdqa xmm0, [edi + edx]
       movdqa xmm1, [edi + edx + 16]
       paddd xmm6, xmm3
@@ -3207,7 +3268,10 @@ void FrameDiff::calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned cha
       movd[eax], xmm5
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3273,7 +3337,10 @@ void FrameDiff::calcSSD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigne
       movd[eax], xmm5
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_MMX_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3325,7 +3392,10 @@ void FrameDiff::calcSSD_MMX_16x16(const unsigned char *ptr1, const unsigned char
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_MMX_8x8(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3377,7 +3447,10 @@ void FrameDiff::calcSSD_MMX_8x8(const unsigned char *ptr1, const unsigned char *
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_MMX_8x8_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3421,7 +3494,10 @@ void FrameDiff::calcSSD_MMX_8x8_luma(const unsigned char *ptr1, const unsigned c
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_MMX_4x4(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3474,7 +3550,10 @@ void FrameDiff::calcSSD_MMX_4x4(const unsigned char *ptr1, const unsigned char *
     movd[eax], mm5
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_MMX_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3552,7 +3631,10 @@ void FrameDiff::calcSSD_MMX_32x16(const unsigned char *ptr1, const unsigned char
       movd[eax], mm6
   }
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcSSD_MMX_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -3614,6 +3696,7 @@ void FrameDiff::calcSSD_MMX_32x16_luma(const unsigned char *ptr1, const unsigned
       movd[eax], mm6
   }
 }
+#endif
 
 #pragma warning(pop)	// reenable no emms warning
 
