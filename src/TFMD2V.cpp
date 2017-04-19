@@ -532,7 +532,7 @@ int TFM::D2V_get_output_filename(char wfile[])
   outd2v = fopen(wfile, "w");
   if (outd2v == NULL) return 2;
   fclose(outd2v);
-  unlink(wfile);
+  _unlink(wfile);
   return 0;
 }
 
