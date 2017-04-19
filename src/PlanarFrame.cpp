@@ -22,6 +22,116 @@
 */
 
 #include "PlanarFrame.h"
+#include <avs/cpuid.h>
+#include <intrin.h>
+#include <stdint.h>
+
+#define IS_BIT_SET(bitfield, bit) ((bitfield) & (1<<(bit)) ? true : false)
+
+#ifndef _XCR_XFEATURE_ENABLED_MASK
+#define _XCR_XFEATURE_ENABLED_MASK 0
+#endif
+
+// from avs+
+static int CPUCheckForExtensions()
+{
+  int result = 0;
+  int cpuinfo[4];
+
+  __cpuid(cpuinfo, 1);
+  if (IS_BIT_SET(cpuinfo[3], 0))
+    result |= CPUF_FPU;
+  if (IS_BIT_SET(cpuinfo[3], 23))
+    result |= CPUF_MMX;
+  if (IS_BIT_SET(cpuinfo[3], 25))
+    result |= CPUF_SSE | CPUF_INTEGER_SSE;
+  if (IS_BIT_SET(cpuinfo[3], 26))
+    result |= CPUF_SSE2;
+  if (IS_BIT_SET(cpuinfo[2], 0))
+    result |= CPUF_SSE3;
+  if (IS_BIT_SET(cpuinfo[2], 9))
+    result |= CPUF_SSSE3;
+  if (IS_BIT_SET(cpuinfo[2], 19))
+    result |= CPUF_SSE4_1;
+  if (IS_BIT_SET(cpuinfo[2], 20))
+    result |= CPUF_SSE4_2;
+  if (IS_BIT_SET(cpuinfo[2], 22))
+    result |= CPUF_MOVBE;
+  if (IS_BIT_SET(cpuinfo[2], 23))
+    result |= CPUF_POPCNT;
+  if (IS_BIT_SET(cpuinfo[2], 25))
+    result |= CPUF_AES;
+  if (IS_BIT_SET(cpuinfo[2], 29))
+    result |= CPUF_F16C;
+  // AVX
+  bool xgetbv_supported = IS_BIT_SET(cpuinfo[2], 27);
+  bool avx_supported = IS_BIT_SET(cpuinfo[2], 28);
+  if (xgetbv_supported && avx_supported)
+  {
+    unsigned long long xgetbv0 = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
+    if ((xgetbv0 & 0x6ull) == 0x6ull) {
+      result |= CPUF_AVX;
+      if (IS_BIT_SET(cpuinfo[2], 12))
+        result |= CPUF_FMA3;
+      __cpuid(cpuinfo, 7);
+      if (IS_BIT_SET(cpuinfo[1], 5))
+        result |= CPUF_AVX2;
+    }
+    if ((xgetbv0 & (0x7ull << 5)) && // OPMASK: upper-256 enabled by OS
+      (xgetbv0 & (0x3ull << 1))) { // XMM/YMM enabled by OS
+                                   // Verify that XCR0[7:5] = ‘111b’ (OPMASK state, upper 256-bit of ZMM0-ZMM15 and
+                                   // ZMM16-ZMM31 state are enabled by OS)
+                                   /// and that XCR0[2:1] = ‘11b’ (XMM state and YMM state are enabled by OS).
+      __cpuid(cpuinfo, 7);
+      if (IS_BIT_SET(cpuinfo[1], 16))
+        result |= CPUF_AVX512F;
+      if (IS_BIT_SET(cpuinfo[1], 17))
+        result |= CPUF_AVX512DQ;
+      if (IS_BIT_SET(cpuinfo[1], 21))
+        result |= CPUF_AVX512IFMA;
+      if (IS_BIT_SET(cpuinfo[1], 26))
+        result |= CPUF_AVX512PF;
+      if (IS_BIT_SET(cpuinfo[1], 27))
+        result |= CPUF_AVX512ER;
+      if (IS_BIT_SET(cpuinfo[1], 28))
+        result |= CPUF_AVX512CD;
+      if (IS_BIT_SET(cpuinfo[1], 30))
+        result |= CPUF_AVX512BW;
+      if (IS_BIT_SET(cpuinfo[1], 31))
+        result |= CPUF_AVX512VL;
+      if (IS_BIT_SET(cpuinfo[2], 1)) // [2]!
+        result |= CPUF_AVX512VBMI;
+    }
+  }
+
+  // 3DNow!, 3DNow!, ISSE, FMA4
+  __cpuid(cpuinfo, 0x80000000);
+  if (cpuinfo[0] >= 0x80000001)
+  {
+    __cpuid(cpuinfo, 0x80000001);
+
+    if (IS_BIT_SET(cpuinfo[3], 31))
+      result |= CPUF_3DNOW;
+
+    if (IS_BIT_SET(cpuinfo[3], 30))
+      result |= CPUF_3DNOW_EXT;
+
+    if (IS_BIT_SET(cpuinfo[3], 22))
+      result |= CPUF_INTEGER_SSE;
+
+    if (result & CPUF_AVX) {
+      if (IS_BIT_SET(cpuinfo[2], 16))
+        result |= CPUF_FMA4;
+    }
+  }
+
+  return result;
+}
+
+int GetCPUFlags() {
+  static int lCPUExtensionsAvailable = CPUCheckForExtensions();
+  return lCPUExtensionsAvailable;
+}
 
 PlanarFrame::PlanarFrame()
 {
@@ -151,10 +261,11 @@ bool PlanarFrame::allocSpace(int specs[4])
 
 int PlanarFrame::getCPUInfo()
 {
-  static const int cpu_saved = checkCPU();
+  static const int cpu_saved = GetCPUFlags(); // copy from avs+
   return cpu_saved;
 }
 
+#if 0
 int PlanarFrame::checkCPU()
 {
   int cput = 0;
@@ -238,6 +349,7 @@ void PlanarFrame::checkSSE2OSSupport(int &cput)
     if (GetExceptionCode() == 0xC000001Du) cput &= ~0x08;
   }
 }
+#endif
 
 void PlanarFrame::createPlanar(int yheight, int uvheight, int ywidth, int uvwidth)
 {
@@ -444,10 +556,12 @@ PlanarFrame& PlanarFrame::operator=(PlanarFrame &ob2)
 void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
   unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
 {
-  if ((cpu&CPU_SSE2) && useSIMD && !((int(src) | pitch1) & 15))
+  if ((cpu&CPUF_SSE2) && useSIMD && !((intptr_t(src) | pitch1) & 15))
     convYUY2to422_SSE2(src, py, pu, pv, pitch1, pitch2Y, pitch2UV, width, height);
-  else if ((cpu&CPU_MMX) && useSIMD)
+#ifndef _M_X64
+  else if ((cpu&CPUF_MMX) && useSIMD)
     convYUY2to422_MMX(src, py, pu, pv, pitch1, pitch2Y, pitch2UV, width, height);
+#endif
   else
   {
     width >>= 1;
@@ -468,6 +582,7 @@ void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, uns
   }
 }
 
+#ifndef _M_X64
 void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
   unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
 {
@@ -514,10 +629,35 @@ void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py,
       emms
   }
 }
+#endif
 
 void PlanarFrame::convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
   unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
 {
+#ifdef _M_X64
+  width >>= 1; // mov ecx, width
+  __m128i Ymask = _mm_set1_epi16(0x00FF);
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x += 4) {
+      __m128i fullsrc = _mm_load_si128(reinterpret_cast<const __m128i *>(src + x * 4)); // VYUYVYUYVYUYVYUY
+      __m128i yy = _mm_and_si128(fullsrc, Ymask); // 0Y0Y0Y0Y0Y0Y0Y0Y
+      __m128i uvuv = _mm_srli_epi16(fullsrc, 8); // 0V0U0V0U0V0U0V0U
+      yy = _mm_packus_epi16(yy, yy); // xxxxxxxxYYYYYYYY
+      uvuv = _mm_packus_epi16(uvuv, uvuv); // xxxxxxxxVUVUVUVU
+      __m128i uu = _mm_and_si128(uvuv, Ymask); // xxxxxxxx0U0U0U0U
+      __m128i vv = _mm_srli_epi16(uvuv, 8); // xxxxxxxx0V0V0V0V
+      uu = _mm_packus_epi16(uu, uu); // xxxxxxxxxxxxUUUU
+      vv = _mm_packus_epi16(vv, vv); // xxxxxxxxxxxxVVVV
+      _mm_storel_epi64(reinterpret_cast<__m128i *>(py + x * 2), yy); // store y
+      *(uint32_t *)(pu + x) = _mm_cvtsi128_si32(uu); // store u
+      *(uint32_t *)(pv + x) = _mm_cvtsi128_si32(vv); // store v
+    }
+    src += pitch1;
+    py += pitch2Y;
+    pu += pitch2UV;
+    pv += pitch2UV;
+  }
+#else
   __asm
   {
     mov edi, src
@@ -555,15 +695,18 @@ void PlanarFrame::convYUY2to422_SSE2(const unsigned char *src, unsigned char *py
       dec height
       jnz yloop
   }
+#endif
 }
 
 void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned char *pv,
   unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
 {
-  if ((cpu&CPU_SSE2) && useSIMD && !(int(dst) & 15))
+  if ((cpu&CPUF_SSE2) && useSIMD && !(intptr_t(dst) & 15))
     conv422toYUY2_SSE2(py, pu, pv, dst, pitch1Y, pitch1UV, pitch2, width, height);
-  else if ((cpu&CPU_MMX) && useSIMD)
+#ifndef _M_X64
+  else if ((cpu&CPUF_MMX) && useSIMD)
     conv422toYUY2_MMX(py, pu, pv, dst, pitch1Y, pitch1UV, pitch2, width, height);
+#endif
   else
   {
     width >>= 1;
@@ -584,6 +727,7 @@ void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned c
   }
 }
 
+#ifndef _M_X64
 void PlanarFrame::conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsigned char *pv,
   unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
 {
@@ -620,10 +764,28 @@ void PlanarFrame::conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsign
       emms
   }
 }
+#endif
 
 void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
   unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
 {
+#ifdef _M_X64
+  width >>= 1; // mov ecx, width
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x += 4) {
+      __m128i yy = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(py + x * 2)); // YYYYYYYY
+      __m128i uu = _mm_castps_si128(_mm_load_ss(reinterpret_cast<float *>(pu + x))); // 000000000000UUUU
+      __m128i vv = _mm_castps_si128(_mm_load_ss(reinterpret_cast<float *>(pv + x))); // 000000000000VVVV
+      __m128i uvuv = _mm_unpackhi_epi8(uu, vv); // 00000000VUVUVUVU
+      __m128i yuyv = _mm_unpackhi_epi8(yy,uvuv); // VYUYVYUYVYUYVYUY
+      _mm_store_si128(reinterpret_cast<__m128i *>(dst + x * 4), yuyv);
+    }
+    dst += pitch2;
+    py += pitch1Y;
+    pu += pitch1UV;
+    pv += pitch1UV;
+  }
+#else
   __asm
   {
     mov ebx, py
@@ -652,6 +814,7 @@ void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsig
       dec height
       jnz yloop
   }
+#endif
 }
 
 // Avisynth v2.5.  Copyright 2002 Ben Rudiak-Gould et al.
@@ -693,17 +856,22 @@ void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsig
 // IScriptEnvironment pointer 
 // to call it
 
+#include "avisynth.h"
+
 void PlanarFrame::BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char* srcp,
   int src_pitch, int row_size, int height)
 {
   if (!height || !row_size) return;
-  if (cpu&CPU_ISSE && useSIMD)
+#ifndef _M_X64
+  if (cpu&CPUF_INTEGER_SSE && useSIMD)
   {
     if (height == 1 || (src_pitch == dst_pitch && dst_pitch == row_size))
       memcpy_amd(dstp, srcp, row_size*height);
     else asm_BitBlt_ISSE(dstp, dst_pitch, srcp, src_pitch, row_size, height);
   }
-  else if (height == 1 || (dst_pitch == src_pitch && src_pitch == row_size))
+  else 
+#endif
+  if (height == 1 || (dst_pitch == src_pitch && src_pitch == row_size))
     memcpy(dstp, srcp, src_pitch * height);
   else
   {
@@ -719,7 +887,7 @@ void PlanarFrame::BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char
   /*****************************
   * Assembler bitblit by Steady
    *****************************/
-
+#ifndef _M_X64
 void PlanarFrame::asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
   const unsigned char* srcp, int src_pitch, int row_size, int height)
 {
@@ -906,3 +1074,4 @@ void PlanarFrame::asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
     return;
   }
 }
+#endif

@@ -30,12 +30,15 @@
 #include "memcpy_amd.h"
 
 #define MIN_ALIGNMENT 16
+
+#if 0
 #define CPU_MMX 0x00000001
 #define CPU_ISSE 0x00000002
 #define CPU_SSE 0x00000004
 #define CPU_SSE2 0x00000008
 #define CPU_3DNOW 0x00000010
 #define CPU_3DNOW2 0x00000020
+#endif
 #define PLANAR_420 1
 #define PLANAR_422 2
 #define PLANAR_444 3
@@ -54,28 +57,36 @@ private:
   bool PlanarFrame::allocSpace(VideoInfo &viInfo);
   bool PlanarFrame::allocSpace(int specs[4]);
   int PlanarFrame::getCPUInfo();
+#if 0
   int PlanarFrame::checkCPU();
   void PlanarFrame::checkSSEOSSupport(int &cput);
   void PlanarFrame::checkSSE2OSSupport(int &cput);
+#endif
   void PlanarFrame::copyInternalFrom(PVideoFrame &frame, VideoInfo &viInfo);
   void PlanarFrame::copyInternalFrom(PlanarFrame &frame);
   void PlanarFrame::copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
   void PlanarFrame::copyInternalTo(PlanarFrame &frame);
   void PlanarFrame::copyInternalPlaneTo(PlanarFrame &frame, int plane);
+#ifndef _M_X64
   static void PlanarFrame::asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
     const unsigned char* srcp, int src_pitch, int row_size, int height);
+#endif
   void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
+#ifndef _M_X64
   void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
+#endif
   void PlanarFrame::convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
   void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
   void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
+#ifndef _M_X64
   void PlanarFrame::conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
+#endif
 
 public:
   PlanarFrame::PlanarFrame();
