@@ -1167,8 +1167,8 @@ void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int
       paddusw xmm1, xmm5
       movdqa xmm5, [eax + ecx]
       movdqa xmm6, xmm5
-      punpcklbw xmm6, mm7
-      punpckhbw xmm5, mm7
+      punpcklbw xmm6, xmm7  // PF fix 170418: was: punpcklbw xmm6, mm7
+      punpckhbw xmm5, xmm7  // PF fix 170418: was: punpckhbw xmm5, mm7
       paddusw xmm4, xmm6			// (pp+c*4+nn)
       paddusw xmm1, xmm5			// (pp+c*4+nn)
       movdqa xmm6, xmm4
@@ -1528,7 +1528,7 @@ void TFM::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp
       output2 :
     mov esi, src_pitch2
       mov edi, src_pitch
-      pxor xmm7, mm7
+      pxor xmm7, xmm7 // PF Fix: 170418 was: pxor xmm7, mm7. Used in YUY2
       movdqa xmm2, xmm0
       movdqa xmm4, xmm1
       punpcklbw xmm2, xmm7
