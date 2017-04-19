@@ -23,8 +23,6 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#ifndef _M_X64
-
 #include "FrameDiff.h"
 
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
@@ -402,27 +400,40 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
       xhalf = xhalfS >> 1;
     }
     if (blockx == 32 && blocky == 32 && nt <= 0)
-    {
+    { 
       if (ssd && (cpu&CPUF_SSE2))
-        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true);
+        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true, diff, chroma); // true: use_sse2
+#ifdef ALLOW_MMX
       else if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false, diff, chroma);
+#endif
       else if (!ssd && (cpu&CPUF_SSE2))
-        calcDiffSAD_32x32_iSSEorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true);
+        calcDiffSAD_32x32_iSSEorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
+#ifdef ALLOW_MMX
       else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-        calcDiffSAD_32x32_iSSEorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+        calcDiffSAD_32x32_iSSEorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
       else if (!ssd && (cpu&CPUF_MMX))
-        calcDiffSAD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+        calcDiffSAD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
+#endif
       else { goto use_c; }
     }
     else if (((np == 3 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
     {
-      if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_Generic_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+
+      if (ssd && (cpu&CPUF_SSE2))
+        calcDiffSSD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
+#ifdef ALLOW_MMX
+      else if (ssd && (cpu&CPUF_MMX))
+        calcDiffSSD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
       else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-        calcDiffSAD_Generic_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+        calcDiffSAD_Generic_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
+#endif
+      else if (!ssd && (cpu&CPUF_SSE2))
+        calcDiffSAD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
+#ifdef ALLOW_MMX
       else if (!ssd && (cpu&CPUF_MMX))
-        calcDiffSAD_Generic_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+        calcDiffSAD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
+#endif
       else { goto use_c; }
     }
     else
@@ -587,6 +598,8 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
   }
 }
 
+#if 0
+// duplicate
 void FrameDiff::calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np,
   bool use_sse2)
@@ -882,7 +895,10 @@ void FrameDiff::calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const un
   _mm_empty(); // __asm emms;
 #endif
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
@@ -1127,7 +1143,10 @@ void FrameDiff::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned 
   _mm_empty(); // __asm emms;
 #endif
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2)
 {
@@ -1426,7 +1445,10 @@ void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const uns
   _mm_empty(); // __asm emms;
 #endif
 }
+#endif
 
+#if 0
+// duplicate!
 void FrameDiff::calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
@@ -1697,7 +1719,10 @@ void FrameDiff::calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsign
   _mm_empty(); // __asm emms;
 #endif
 }
+#endif
 
+#if 0
+// duplicate
 void FrameDiff::calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
@@ -1968,7 +1993,10 @@ void FrameDiff::calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const u
   _mm_empty(); // __asm emms;
 #endif
 }
+#endif
 
+#if 0
+// duplicate
 void FrameDiff::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
@@ -2243,6 +2271,7 @@ void FrameDiff::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
   _mm_empty(); // __asm emms;
 #endif
 }
+#endif
 
 void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot)
 {
@@ -2543,5 +2572,3 @@ AVSValue __cdecl Create_FrameDiff(AVSValue args, void* user_data, IScriptEnviron
     args[8].AsInt(0), args[9].AsBool(false), args[10].AsBool(true), args[11].AsBool(false),
     args[12].AsBool(false), false, args[13].AsInt(4), env);
 }
-
-#endif
