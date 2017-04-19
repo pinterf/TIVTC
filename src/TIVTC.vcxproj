@@ -251,6 +251,7 @@
     <ClInclude Include="RequestLinear.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="TDecimate.h" />
+    <ClInclude Include="TDecimateASM.h" />
     <ClInclude Include="TFM.h" />
     <ClInclude Include="TFMasm.h" />
     <ClInclude Include="TFMPP.h" />

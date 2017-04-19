@@ -173,6 +173,9 @@
     <ClInclude Include="TFMasm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TDecimateASM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TIVTC.rc">
