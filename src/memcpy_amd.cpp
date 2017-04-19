@@ -68,6 +68,7 @@ MEMCPY_AMD.CPP
 
 // Inline assembly syntax for use with Visual C++
 
+#ifndef _M_X64
 void memcpy_amd(void *dest, const void *src, size_t n)
 {
   __asm {
@@ -273,4 +274,5 @@ void memcpy_amd(void *dest, const void *src, size_t n)
 
   }
 }
+#endif
 
