@@ -4918,7 +4918,7 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     v = new CacheFilter(args[0].AsClip(), cycle * 4 + 1, 1, cycle, env);
   else v = args[0].AsClip();
   v = new TDecimate(v.AsClip(), args[1].AsInt(0), args[2].AsInt(1), args[3].AsInt(5),
-    args[4].AsFloat(23.976f), args[5].AsFloat(dup_thresh), args[6].AsFloat(vid_thresh),
+    args[4].AsFloat(23.976f), args[5].AsFloat((float)dup_thresh), args[6].AsFloat((float)vid_thresh),
     args[7].AsFloat(15), args[8].AsInt(0), args[9].AsInt(vidDetect), args[10].AsInt(cc),
     args[11].AsInt(cc), args[12].AsString(""), args[13].AsString(""), args[14].AsString(""),
     args[15].AsString(""), args[16].AsString(""), args[17].AsInt(0), args[18].AsInt(32), args[19].AsInt(32),
