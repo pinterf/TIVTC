@@ -51,11 +51,11 @@ private:
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
   void FrameDiff::calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void FrameDiff::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+  void FrameDiff::calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void FrameDiff::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+  void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
-  void FrameDiff::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
+  void FrameDiff::calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
   void FrameDiff::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
