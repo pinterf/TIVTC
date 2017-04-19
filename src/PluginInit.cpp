@@ -33,9 +33,9 @@ AVSValue __cdecl Create_MergeHints(AVSValue args, void* user_data, IScriptEnviro
 #ifndef _M_X64
 AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
+#endif
 AVSValue __cdecl Create_FrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
-#endif
 AVSValue __cdecl Create_ShowCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_RequestLinear(AVSValue args, void* user_data, IScriptEnvironment* env);
@@ -73,6 +73,7 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
   env->AddFunction("FieldDiff", "c[nt]i[chroma]b[display]b[debug]b[sse]b[opt]i",
     Create_FieldDiff, 0);
   env->AddFunction("CFieldDiff", "c[nt]i[chroma]b[debug]b[sse]b[opt]i", Create_CFieldDiff, 0);
+#endif
   env->AddFunction("FrameDiff", "c[mode]i[prevf]b[nt]i[blockx]i[blocky]i[chroma]b[thresh]f" \
     "[display]i[debug]b[norm]b[denoise]b[ssd]b[opt]i", Create_FrameDiff, 0);
   env->AddFunction("CFrameDiff", "c[mode]i[prevf]b[nt]i[blockx]i[blocky]i[chroma]b[debug]b" \
@@ -81,7 +82,6 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
     "[debug]b[display]i[fill]b[opt]i", Create_ShowCombedTIVTC, 0);
   env->AddFunction("IsCombedTIVTC", "c[cthresh]i[MI]i[chroma]b[blockx]i[blocky]i[metric]i" \
     "[opt]i", Create_IsCombedTIVTC, 0);
-#endif
   env->AddFunction("RequestLinear", "c[rlim]i[clim]i[elim]i[rall]b[debug]b",
     Create_RequestLinear, 0);
   return 0;
