@@ -25,6 +25,7 @@
 
 #include "Cache.h"
 
+// used from TDecimate
 CacheFrame::CacheFrame()
 {
   num = valid = -20;
@@ -160,8 +161,9 @@ int CacheFilter::mapn(int n)
   return n;
 }
 
-void __stdcall CacheFilter::SetCacheHints(int cachehints, int frame_range)
+int __stdcall CacheFilter::SetCacheHints(int cachehints, int frame_range)
 {
   if (frame_range != -20) ctframe = -20;
   else ctframe = cachehints;
+  return 0;
 }

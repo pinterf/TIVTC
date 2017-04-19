@@ -51,5 +51,5 @@ public:
   int CacheFilter::getCachePos(int n);
   bool CacheFilter::copyToFrame(PVideoFrame &dst, int pframe, IScriptEnvironment *env);
   void CacheFilter::processCache(int cframe, int pframe, IScriptEnvironment *env);
-  void __stdcall CacheFilter::SetCacheHints(int cachehints, int frame_range);
+  int __stdcall CacheFilter::SetCacheHints(int cachehints, int frame_range);
 };
