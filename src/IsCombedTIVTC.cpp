@@ -24,6 +24,16 @@
 */
 
 #include "TFM.h"
+#include "TFMasm.h"
+
+#ifdef _M_X64
+#define USE_INTR
+#undef ALLOW_MMX
+#else
+#define USE_INTR
+#define ALLOW_MMX
+//#undef ALLOW_MMX
+#endif
 
 AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
 {
@@ -35,8 +45,6 @@ AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
   int blockN[5] = { -20, -20, -20, -20, -20 };
   return checkCombed(child->GetFrame(n, env), n, env, np, 1, blockN, xblocks, mics, false);
 }
-
-#ifndef _M_X64
 
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
@@ -80,26 +88,30 @@ private:
   void ShowCombedTIVTC::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
   void ShowCombedTIVTC::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
   void ShowCombedTIVTC::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
+#if 0
   void ShowCombedTIVTC::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
     int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w);
-  void ShowCombedTIVTC::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
-  void ShowCombedTIVTC::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
   void ShowCombedTIVTC::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
     int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w);
+  void ShowCombedTIVTC::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
+    int width, int height, int src_pitch, int dst_pitch, __m128 thresh);
+  void ShowCombedTIVTC::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
+    int width, int height, int src_pitch, int dst_pitch, __m128 thresh);
+#ifdef ALLOW_MMX
+  void ShowCombedTIVTC::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
+    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
   void ShowCombedTIVTC::check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
+    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
+  void ShowCombedTIVTC::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
     int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
   void ShowCombedTIVTC::check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
     int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
   void ShowCombedTIVTC::check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
     int width, int height, int src_pitch, int dst_pitch, __int64 thresh);
-  void ShowCombedTIVTC::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128 thresh);
   void ShowCombedTIVTC::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
     int width, int height, int src_pitch, int dst_pitch, __int64 thresh);
-  void ShowCombedTIVTC::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128 thresh);
+#endif
+#endif
 
 public:
   PVideoFrame __stdcall ShowCombedTIVTC::GetFrame(int n, IScriptEnvironment *env);
@@ -241,17 +253,27 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;
+#ifdef ALLOW_MMX
     __int64 cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
+#endif
+    __m128i cthreshb_m128i;
+    __m128i cthresh6w_m128i;
     if (use_mmx || use_isse || use_sse2)
     {
       unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
+      cthreshb_m128i = _mm_set1_epi8(cthresht);
+#ifdef ALLOW_MMX
       cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
       cthreshb[0] += (cthreshb[0] << 32);
       cthreshb[1] = cthreshb[0];
+#endif
       unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
+      cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
+#ifdef ALLOW_MMX
       cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
       cthresh6w[0] += (cthresh6w[0] << 32);
       cthresh6w[1] = cthresh6w[0];
+#endif
     }
     for (int x = 0; x < Width; x += inc)
     {
@@ -288,9 +310,20 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
     {
       if (chroma)
       {
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128, cthresh6w128;
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+          else
+            check_combing_SSE2<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+        {
+          __m128i cthreshb128, cthresh6w128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
@@ -298,7 +331,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
             movaps cthreshb128, xmm1
             movaps cthresh6w128, xmm2
           }
-          check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+          check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb128, cthresh6w128);
         }
         else if (use_isse)
@@ -307,6 +340,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
         else if (use_mmx)
           check_combing_MMX(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb[0], cthresh6w[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (0)!");
         srcppp += src_pitch*(Height - 4);
         srcpp += src_pitch*(Height - 4);
@@ -317,9 +351,20 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
       }
       else
       {
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128, cthresh6w128;
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+          else
+            check_combing_SSE2_Luma<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+        {
+          __m128i cthreshb128, cthresh6w128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
@@ -327,7 +372,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
             movaps cthreshb128, xmm1
             movaps cthresh6w128, xmm2
           }
-          check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+          check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb128, cthresh6w128);
         }
         else if (use_isse)
@@ -336,6 +381,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
         else if (use_mmx)
           check_combing_MMX_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb[0], cthresh6w[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (1)!");
         srcppp += src_pitch*(Height - 4);
         srcpp += src_pitch*(Height - 4);
@@ -396,12 +442,18 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   else
   {
     const int cthreshsq = cthresh*cthresh;
+#ifdef ALLOW_MMX
     __int64 cthreshb[2] = { 0, 0 };
+#endif
+    __m128i cthreshb_m128i;
     if (use_mmx || use_isse || use_sse2)
     {
+      cthreshb_m128i = _mm_set1_epi32(cthreshsq);
+#ifdef ALLOW_MMX
       cthreshb[0] = cthreshsq;
       cthreshb[0] += (cthreshb[0] << 32);
       cthreshb[1] = cthreshb[0];
+#endif
     }
     for (int x = 0; x < Width; x += inc)
     {
@@ -416,20 +468,31 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
     {
       if (chroma)
       {
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2) {
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+          else
+            check_combing_SSE2_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
         {
-          __m128 cthreshb128;
+          __m128i cthreshb128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
             movaps cthreshb128, xmm1
           }
-          check_combing_SSE2_M1(srcp, cmkw, Width, Height - 2, src_pitch,
+          check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb128);
         }
         else if (use_mmx)
           check_combing_MMX_M1(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (6)!");
         srcpp += src_pitch*(Height - 2);
         srcp += src_pitch*(Height - 2);
@@ -438,20 +501,31 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
       }
       else
       {
+#ifndef ALLOW_MMX
+        if (use_sse2) {
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+          else
+            check_combing_SSE2_Luma_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+        }
+#else
         if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
         {
-          __m128 cthreshb128;
+          __m128i cthreshb128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
             movaps cthreshb128, xmm1
           }
-          check_combing_SSE2_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch,
+          check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb128);
         }
         else if (use_mmx)
           check_combing_MMX_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (5)!");
         srcpp += src_pitch*(Height - 2);
         srcp += src_pitch*(Height - 2);
@@ -574,23 +648,36 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
     else if (opt == 3) use_mmx = use_isse = use_sse2 = true;
   }
   const int cthresh6 = cthresh * 6;
+#ifdef ALLOW_MMX
   __int64 cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
+#endif
+  __m128i cthreshb_m128i;
+  __m128i cthresh6w_m128i;
   if (metric == 0 && (use_mmx || use_isse || use_sse2))
   {
     unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
+    cthreshb_m128i = _mm_set1_epi8(cthresht);
+#ifdef ALLOW_MMX
     cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
     cthreshb[0] += (cthreshb[0] << 32);
     cthreshb[1] = cthreshb[0];
+#endif
     unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
+    cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
+#ifdef ALLOW_MMX
     cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
     cthresh6w[0] += (cthresh6w[0] << 32);
     cthresh6w[1] = cthresh6w[0];
+#endif
   }
   else if (metric == 1 && (use_mmx || use_isse || use_sse2))
   {
+    cthreshb_m128i = _mm_set1_epi32(cthresh*cthresh);
+#ifdef ALLOW_MMX
     cthreshb[0] = cthresh*cthresh;
     cthreshb[0] += (cthreshb[0] << 32);
     cthreshb[1] = cthreshb[0];
+#endif
   }
   for (int b = chroma ? 3 : 1; b > 0; --b)
   {
@@ -645,9 +732,19 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
       cmkp += cmk_pitch;
       if (use_mmx || use_isse || use_sse2)
       {
+#ifndef ALLOW_MMX
+        if (use_sse2) {
+          if (!((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
+            check_combing_SSE2<true>(srcp, cmkp, Width, Height - 4, src_pitch,
+              src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+          else
+            check_combing_SSE2<false>(srcp, cmkp, Width, Height - 4, src_pitch,
+              src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        }
+#else
         if (use_sse2 && !((int(srcp) | int(cmkp) | cmk_pitch | src_pitch) & 15))
         {
-          __m128 cthreshb128, cthresh6w128;
+          __m128i cthreshb128, cthresh6w128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
@@ -655,7 +752,7 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
             movaps cthreshb128, xmm1
             movaps cthresh6w128, xmm2
           }
-          check_combing_SSE2(srcp, cmkp, Width, Height - 4, src_pitch,
+          check_combing_SSE2<true>(srcp, cmkp, Width, Height - 4, src_pitch,
             src_pitch * 2, cmk_pitch, cthreshb128, cthresh6w128);
         }
         else if (use_isse)
@@ -664,6 +761,7 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
         else if (use_mmx)
           check_combing_MMX(srcp, cmkp, Width, Height - 4, src_pitch,
             src_pitch * 2, cmk_pitch, cthreshb[0], cthresh6w[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (3)!");
         srcppp += src_pitch*(Height - 4);
         srcpp += src_pitch*(Height - 4);
@@ -734,20 +832,31 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
       cmkp += cmk_pitch;
       if (use_mmx || use_isse || use_sse2)
       {
+#ifndef ALLOW_MMX
+        if (use_sse2) {
+          if (!((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
+            check_combing_SSE2_M1<true>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
+              cthreshb_m128i);
+          else
+            check_combing_SSE2_M1<false>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
+              cthreshb_m128i);
+        }
+#else
         if (use_sse2 && !((int(srcp) | int(cmkp) | cmk_pitch | src_pitch) & 15))
         {
-          __m128 cthreshb128;
+          __m128i cthreshb128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
             movaps cthreshb128, xmm1
           }
-          check_combing_SSE2_M1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
+          check_combing_SSE2_M1<true>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
             cthreshb128);
         }
         else if (use_mmx)
           check_combing_MMX_M1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
             cthreshb[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (4)!");
         srcpp += src_pitch*(Height - 2);
         srcp += src_pitch*(Height - 2);
@@ -1177,11 +1286,14 @@ AVSValue __cdecl Create_ShowCombedTIVTC(AVSValue args, void* user_data, IScriptE
 
 // These are just copied from TFMASM.cpp.  One day I'll make it
 // so I don't have duplicate code everywhere in this pos...
+// PF 20170419: done :)
 
+#if 0
 __declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 __declspec(align(16)) const __int64 threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
 __declspec(align(16)) const __int64 ffMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
-
+#endif
+#if 0
 // duplicate! Same as TFM::check_combing_SSE2_Luma!
 void ShowCombedTIVTC::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w)
@@ -1303,7 +1415,11 @@ void ShowCombedTIVTC::check_combing_SSE2(const unsigned char *srcp, unsigned cha
       end :
   }
 }
+#endif
 
+#if 0
+// Duplicate!
+// Same as FM::check_combing_iSSE
 void ShowCombedTIVTC::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1419,7 +1535,11 @@ void ShowCombedTIVTC::check_combing_iSSE(const unsigned char *srcp, unsigned cha
     emms
   }
 }
+#endif
 
+#if 0
+// Duplicate!
+// Same as FM::check_combing_SSE2_Luma
 void ShowCombedTIVTC::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1570,7 +1690,9 @@ void ShowCombedTIVTC::check_combing_MMX(const unsigned char *srcp, unsigned char
     emms
   }
 }
+#endif
 
+#if 0
 // Duplicate!
 // Same as FM::check_combing_SSE2_Luma
 void ShowCombedTIVTC::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
@@ -1694,7 +1816,11 @@ void ShowCombedTIVTC::check_combing_SSE2_Luma(const unsigned char *srcp, unsigne
       end :
   }
 }
+#endif
 
+#if 0
+// duplicate!
+// same as TFM::check_combing_iSSE_Luma
 void ShowCombedTIVTC::check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1811,7 +1937,11 @@ void ShowCombedTIVTC::check_combing_iSSE_Luma(const unsigned char *srcp, unsigne
     emms
   }
 }
+#endif
 
+#if 0
+// duplicate!
+// same as TFM::check_combing_MMX_Luma
 void ShowCombedTIVTC::check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1963,7 +2093,11 @@ void ShowCombedTIVTC::check_combing_MMX_Luma(const unsigned char *srcp, unsigned
     emms
   }
 }
+#endif
 
+#if 0
+// duplicate!
+// same as TFM::check_combing_MMX_M1
 void ShowCombedTIVTC::check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
 {
@@ -2036,7 +2170,9 @@ void ShowCombedTIVTC::check_combing_MMX_M1(const unsigned char *srcp, unsigned c
       emms
   }
 }
+#endif
 
+#if 0
 // duplicate!
 // same as TFM::check_combing_SSE2_M1
 void ShowCombedTIVTC::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
@@ -2109,7 +2245,11 @@ void ShowCombedTIVTC::check_combing_SSE2_M1(const unsigned char *srcp, unsigned 
       jnz yloop
   }
 }
+#endif
 
+#if 0
+// duplicate!
+// Same as TFM::check_combing_MMX_Luma_M1
 void ShowCombedTIVTC::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
 {
@@ -2162,7 +2302,9 @@ void ShowCombedTIVTC::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsig
       emms
   }
 }
+#endif
 
+#if 0
 // duplicate!
 // Same as TFM::check_combing_SSE2_Luma_M1
 void ShowCombedTIVTC::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
