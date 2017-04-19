@@ -136,50 +136,85 @@ private:
     bool scene, bool hnt);
   unsigned __int64 TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
     int &xblocksI, unsigned __int64 &metricF, IScriptEnvironment *env, bool scene);
-  void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+
+  template<bool use_sse2>
+  void calcDiffSSD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void TDecimate::calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
+
+#ifndef _M_X64
+  void calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+#endif
+  template<bool use_sse2>
+  void calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+  
+  void calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
-  void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
+ 
+  template<bool use_sse2>
+  void calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
+#ifndef _M_X64
   void TDecimate::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
+#endif
   unsigned __int64 TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
   unsigned __int64 TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
+#ifndef _M_X64
   void TDecimate::blend_MMX_8(unsigned char* dstp, const unsigned char* srcp,
     const unsigned char* nxtp, int width, int height, int dst_pitch,
     int src_pitch, int nxt_pitch, double w1, double w2);
+#endif
   void TDecimate::blend_SSE2_16(unsigned char* dstp, const unsigned char* srcp,
     const unsigned char* nxtp, int width, int height, int dst_pitch,
     int src_pitch, int nxt_pitch, double w1, double w2);
+#ifndef _M_X64
   void TDecimate::calcLumaDiffYUY2SSD_MMX_8(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &ssd);
   void TDecimate::calcLumaDiffYUY2SAD_ISSE_8(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad);
   void TDecimate::calcLumaDiffYUY2SAD_MMX_8(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad);
+#endif
   void TDecimate::calcLumaDiffYUY2SSD_SSE2_16(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &ssd);
+#ifndef _M_X64
   void TDecimate::calcLumaDiffYUY2SSD_MMX_16(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &ssd);
+#endif
+
   void TDecimate::calcLumaDiffYUY2SAD_SSE2_16(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad);
+#ifndef _M_X64
   void TDecimate::calcLumaDiffYUY2SAD_ISSE_16(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad);
   void TDecimate::calcLumaDiffYUY2SAD_MMX_16(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad);
-  void TDecimate::calcSSD_SSE2_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
+#endif
+
+  template<bool aligned>
+  void calcSSD_SSE2_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &ssd);
-  void TDecimate::calcSSD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
+
+  template<bool aligned>
+  void calcSSD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &ssd);
-  void TDecimate::calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
+
+  template<bool aligned>
+  void calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &ssd);
+
+  void TDecimate::calcSSD_SSE2_8x8_luma(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int &ssd);
+  void TDecimate::calcSSD_SSE2_8x8(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int &ssd);
+  void TDecimate::calcSSD_SSE2_4x4(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int &ssd);
+
+#ifndef _M_X64
   void TDecimate::calcSSD_MMX_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &ssd);
   void TDecimate::calcSSD_MMX_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
@@ -192,12 +227,28 @@ private:
     int pitch1, int pitch2, int &ssd);
   void TDecimate::calcSSD_MMX_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &ssd);
+#endif
+
+  void TDecimate::calcSAD_SSE2_8x8_luma(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int &sad); // PF new
+  void TDecimate::calcSAD_SSE2_8x8(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int &sad); // PF new
+  void TDecimate::calcSAD_SSE2_4x4(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int &sad); // PF new
   void TDecimate::calcSAD_SSE2_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
-  void TDecimate::calcSAD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
+  void TDecimate::calcSAD_SSE2_16x16_unaligned(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
-  void TDecimate::calcSAD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
+  
+  template<bool aligned>
+  void calcSAD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
+
+  template<bool aligned>
+  void calcSAD_SSE2_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int &sad);
+
+#ifndef _M_X64
   void TDecimate::calcSAD_iSSE_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
   void TDecimate::calcSAD_iSSE_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
@@ -210,6 +261,9 @@ private:
     int pitch1, int pitch2, int &sad);
   void TDecimate::calcSAD_iSSE_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
+#endif
+
+#ifndef _M_X64
   void TDecimate::calcSAD_MMX_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
   void TDecimate::calcSAD_MMX_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
@@ -222,11 +276,15 @@ private:
     int pitch1, int pitch2, int &sad);
   void TDecimate::calcSAD_MMX_16x16(const unsigned char *ptr1, const unsigned char *ptr2,
     int pitch1, int pitch2, int &sad);
+#endif
+
   void TDecimate::calcBlendRatios2(double &amount1, double &amount2, int &frame1,
     int &frame2, int tf, Cycle &p, Cycle &c, Cycle &n, int remove);
+#ifndef _M_X64
   void TDecimate::blend_iSSE_5050(unsigned char* dstp, const unsigned char* srcp,
     const unsigned char* nxtp, int width, int height, int dst_pitch,
     int src_pitch, int nxt_pitch);
+#endif
   void TDecimate::blend_SSE2_5050(unsigned char* dstp, const unsigned char* srcp,
     const unsigned char* nxtp, int width, int height, int dst_pitch,
     int src_pitch, int nxt_pitch);
@@ -235,29 +293,54 @@ private:
   bool TDecimate::diff_group(int f1, int f2, IScriptEnvironment *env);
   int TDecimate::diff_f(int f1, int f2, IScriptEnvironment *env);
   int TDecimate::mode7_analysis(int n, IScriptEnvironment *env);
+#ifndef _M_X64
   static void TDecimate::VerticalBlurMMX_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  static void TDecimate::VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dstp,
+#endif
+  static void VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dstp,
     int src_pitch, int dst_pitch, int width, int height);
+  static void HorizontalBlurSSE2_YUY2_R_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+    int dst_pitch, int width, int height);
+#ifndef _M_X64
   static void TDecimate::HorizontalBlurMMX_YUY2_R_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
+#endif
+  static void HorizontalBlurSSE2_YV12_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+    int dst_pitch, int width, int height);
+#ifndef _M_X64
   static void TDecimate::HorizontalBlurMMX_YV12_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
+#endif
+#ifndef _M_X64
   static void TDecimate::VerticalBlurMMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  static void TDecimate::VerticalBlurSSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+#endif
+  static void VerticalBlurSSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  static void TDecimate::HorizontalBlurMMX_YV12(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+
+  template<bool use_sse2>
+  static void HorizontalBlurMMXorSSE2_YV12(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  static void TDecimate::HorizontalBlurMMX_YUY2_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+
+  template<bool use_sse2>
+  static void HorizontalBlurMMXorSSE2_YUY2_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  static void TDecimate::VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
+
+  static void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
     IScriptEnvironment *env, VideoInfo& vi_t, int opti);
-  static void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
+  static void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
     IScriptEnvironment *env, VideoInfo& vi_t, int opti);
-  static void TDecimate::HorizontalBlurMMX_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+
+  template<bool use_sse2>
+  static void HorizontalBlurMMXorSSE2_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
+
+#ifndef _M_X64
   static void TDecimate::HorizontalBlurMMX_YUY2_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+    int dst_pitch, int width, int height);
+#endif
+
+  static void TDecimate::HorizontalBlurSSE2_YUY2_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
   bool TDecimate::wasChosen(int i, int n);
   void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene, bool gethint,

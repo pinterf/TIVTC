@@ -25,6 +25,16 @@
 
 #include "TDecimate.h"
 
+#ifdef _M_X64
+#define USE_C_NO_ASM
+#undef ALLOW_MMX
+#else
+#define USE_C_NO_ASM
+#define ALLOW_MMX
+#undef ALLOW_MMX
+#endif
+
+
 PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 {
   if (n < 0) n = 0;
@@ -918,8 +928,8 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene,
   if (n2 > nbuf.maxFrame || n2 < 0) return;
   if (n2 < nbuf.frameSO || n2 >= nbuf.frameEO || n1 != n2 - 1 ||
     nbuf.frameSO + pos != n2)
-    env->ThrowError("TDecimate:  internal error during pre-buffering (%d,%d,%d)!",
-      n1, n2, pos);
+    env->ThrowError("TDecimate:  internal error during pre-buffering (n1=%d,n2=%d,pos=%d,nbuf.FrameSO=%d,nBuf.frameEO=%d)!",
+      n1, n2, pos, nbuf.frameSO, nbuf.frameEO);
   if (n2 == 0) n1 = 0;
   int blockNI, xblocksI;
   unsigned __int64 metricF;
@@ -1019,25 +1029,37 @@ unsigned __int64 TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, i
     if (blockx == 32 && blocky == 32 && nt <= 0)
     {
       if (ssd && (cpu&CPUF_SSE2))
-        calcDiffSSD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true);
+        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true); // true: use_sse2
+#ifdef ALLOW_MMX
       else if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+#endif
       else if (!ssd && (cpu&CPUF_SSE2))
-        calcDiffSAD_32x32_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true);
+        calcDiffSAD_32x32_iSSEorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#ifdef ALLOW_MMX
       else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-        calcDiffSAD_32x32_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+        calcDiffSAD_32x32_iSSEorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
       else if (!ssd && (cpu&CPUF_MMX))
         calcDiffSAD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#endif
       else { goto use_c; }
     }
     else if (((np == 3 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
     {
-      if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_Generic_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+      if (ssd && (cpu&CPUF_SSE2))
+        calcDiffSSD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#ifdef ALLOW_MMX
+      else if (ssd && (cpu&CPUF_MMX))
+        calcDiffSSD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
       else if (!ssd && (cpu&CPUF_INTEGER_SSE))
         calcDiffSAD_Generic_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#endif
+      else if (!ssd && (cpu&CPUF_SSE2))
+        calcDiffSAD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#ifdef ALLOW_MMX
       else if (!ssd && (cpu&CPUF_MMX))
-        calcDiffSAD_Generic_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+        calcDiffSAD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#endif
       else { goto use_c; }
     }
     else
@@ -1371,25 +1393,37 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
       if (blockx == 32 && blocky == 32 && nt <= 0)
       {
         if (ssd && (cpu&CPUF_SSE2))
-          calcDiffSSD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true);
+          calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true);
+#ifdef ALLOW_MMX
         else if (ssd && (cpu&CPUF_MMX))
-          calcDiffSSD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+          calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+#endif
         else if (!ssd && (cpu&CPUF_SSE2))
-          calcDiffSAD_32x32_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true);
+          calcDiffSAD_32x32_iSSEorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#ifdef ALLOW_MMX
         else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-          calcDiffSAD_32x32_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false);
+          calcDiffSAD_32x32_iSSEorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
         else if (!ssd && (cpu&CPUF_MMX))
           calcDiffSAD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#endif
         else { goto use_c; }
       }
       else if (((np == 3 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
       {
-        if (ssd && (cpu&CPUF_MMX))
-          calcDiffSSD_Generic_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+        if (ssd && (cpu&CPUF_SSE2))
+          calcDiffSSD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#ifdef ALLOW_MMX
+        else if (ssd && (cpu&CPUF_MMX))
+          calcDiffSSD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#endif
+        else if (!ssd && (cpu&CPUF_SSE2))
+          calcDiffSAD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#ifdef ALLOW_MMX
         else if (!ssd && (cpu&CPUF_INTEGER_SSE))
           calcDiffSAD_Generic_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
         else if (!ssd && (cpu&CPUF_MMX))
-          calcDiffSAD_Generic_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+          calcDiffSAD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np);
+#endif
         else { goto use_c; }
       }
       else
@@ -1602,6 +1636,29 @@ unsigned __int64 TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
+#ifndef ALLOW_MMX
+  if (cpu&CPUF_SSE2 && (nt == 0) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch) & 15)) {
+    if (!(width & 15))
+    {
+      calcLumaDiffYUY2SAD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
+    }
+    else
+    {
+      int widtha = (width / 16) * 16;
+      calcLumaDiffYUY2SAD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
+      for (int y = 0; y < height; ++y)
+      {
+        for (int x = widtha; x < width; x += 2)
+        {
+          int temp = abs(prvp[x] - nxtp[x]);
+          if (temp > nt) diff += temp;
+        }
+        prvp += prv_pitch;
+        nxtp += nxt_pitch;
+      }
+    }
+  }
+#else
   if ((cpu&CPUF_INTEGER_SSE) && nt == 0)
   {
     if (!(width & 15))
@@ -1647,6 +1704,7 @@ unsigned __int64 TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const
       }
     }
   }
+#endif
   else
   {
     for (int y = 0; y < height; ++y)
@@ -1676,6 +1734,30 @@ unsigned __int64 TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
+#ifndef ALLOW_MMX
+  if (cpu&CPUF_SSE2 && (nt == 0) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch) & 15)) {
+    if (!(width & 15))
+    {
+      calcLumaDiffYUY2SSD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
+    }
+    else
+    {
+      int widtha = (width / 16) * 16;
+      calcLumaDiffYUY2SSD_SSE2_16(prvp, nxtp, widtha, height, prv_pitch, nxt_pitch, diff);
+      for (int y = 0; y < height; ++y)
+      {
+        for (int x = widtha; x < width; x += 2)
+        {
+          int temp = prvp[x] - nxtp[x];
+          temp *= temp;
+          if (temp > nt) diff += temp;
+        }
+        prvp += prv_pitch;
+        nxtp += nxt_pitch;
+      }
+    }
+  }
+#else
   if ((cpu&CPUF_MMX) && nt == 0)
   {
     if (!(width & 15))
@@ -1703,6 +1785,7 @@ unsigned __int64 TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const
     }
   }
   else
+#endif
   {
     for (int y = 0; y < height; ++y)
     {
@@ -1719,15 +1802,15 @@ unsigned __int64 TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const
   return diff;
 }
 
-void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np,
-  bool use_sse2)
+template<bool use_sse2>
+void TDecimate::calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
   const unsigned char *ptr1T, *ptr2T;
   bool use_sse2a = false;
-  if (use_sse2 && !((int(ptr1) | int(ptr2) | pitch1 | pitch2) & 15)) use_sse2a = true;
+  if (use_sse2 && !((intptr_t(ptr1) | intptr_t(ptr2) | pitch1 | pitch2) & 15)) use_sse2a = true;
   if (np == 3) // YV12
   {
     if (plane == 0)
@@ -1740,6 +1823,7 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
       {
         temp1 = (y >> 1)*xblocks4;
         temp2 = ((y + 1) >> 1)*xblocks4;
+#ifndef ALLOW_MMX
         if (use_sse2a)
         {
           for (x = 0; x < width; ++x)
@@ -1757,7 +1841,7 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
         {
           for (x = 0; x < width; ++x)
           {
-            calcSAD_iSSE_16x16(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            calcSAD_SSE2_16x16_unaligned(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -1766,6 +1850,37 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
             diff[temp2 + box2 + 3] += difft;
           }
         }
+#else
+        if (use_sse2a)
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSAD_SSE2_16x16(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+        else
+        {
+          for (x = 0; x < width; ++x)
+          {
+            if(use_sse2)
+              calcSAD_SSE2_16x16_unaligned(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            else
+              calcSAD_iSSE_16x16(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -1814,16 +1929,33 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
       {
         temp1 = (y >> 1)*xblocks4;
         temp2 = ((y + 1) >> 1)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSAD_iSSE_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
-          box1 = (x >> 1) << 2;
-          box2 = ((x + 1) >> 1) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
+        if (use_sse2) {
+          // PF
+          for (x = 0; x < width; ++x)
+          {
+            calcSAD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
         }
+#ifdef ALLOW_MMX
+        else {
+          for (x = 0; x < width; ++x)
+          {
+            calcSAD_iSSE_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -1875,11 +2007,39 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
       {
         temp1 = (y >> 1)*xblocks4;
         temp2 = ((y + 1) >> 1)*xblocks4;
+#ifndef ALLOW_MMX
         if (use_sse2a)
         {
           for (x = 0; x < width; ++x)
           {
-            calcSAD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSAD_SSE2_32x16<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+        else
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSAD_SSE2_32x16<false>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+#else
+        if (use_sse2a)
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSAD_SSE2_32x16<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -1901,6 +2061,7 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
             diff[temp2 + box2 + 3] += difft;
           }
         }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -1945,11 +2106,39 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
       {
         temp1 = (y >> 1)*xblocks4;
         temp2 = ((y + 1) >> 1)*xblocks4;
+#ifndef ALLOW_MMX
         if (use_sse2a)
         {
           for (x = 0; x < width; ++x)
           {
-            calcSAD_SSE2_32x16_luma(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSAD_SSE2_32x16_luma<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+        else
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSAD_SSE2_32x16_luma<false>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+#else
+        if (use_sse2a)
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSAD_SSE2_32x16_luma<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -1971,6 +2160,7 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
             diff[temp2 + box2 + 3] += difft;
           }
         }
+#endif
         for (x = widtha; x < widths; x += 2)
         {
           ptr1T = ptr1;
@@ -2010,9 +2200,12 @@ void TDecimate::calcDiffSAD_32x32_iSSE(const unsigned char *ptr1, const unsigned
       }
     }
   }
-  __asm emms;
+#ifndef _M_X64
+  _mm_empty(); // __asm emms;
+#endif
 }
 
+#ifndef _M_X64
 void TDecimate::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
@@ -2253,17 +2446,20 @@ void TDecimate::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned 
       }
     }
   }
-  __asm emms;
+#ifndef _M_X64
+  _mm_empty(); // __asm emms;
+#endif
 }
+#endif
 
-void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+void TDecimate::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
   const unsigned char *ptr1T, *ptr2T;
   bool use_sse2a = false;
-  if (use_sse2 && !((int(ptr1) | int(ptr2) | pitch1 | pitch2) & 15)) use_sse2a = true;
+  if (use_sse2 && !((intptr_t(ptr1) | intptr_t(ptr2) | pitch1 | pitch2) & 15)) use_sse2a = true; // aligned
   if (np == 3) // YV12
   {
     if (plane == 0)
@@ -2276,11 +2472,39 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
       {
         temp1 = (y >> 1)*xblocks4;
         temp2 = ((y + 1) >> 1)*xblocks4;
+#ifndef ALLOW_MMX
         if (use_sse2a)
         {
           for (x = 0; x < width; ++x)
           {
-            calcSSD_SSE2_16x16(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            calcSSD_SSE2_16x16<true>(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+        else
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSSD_SSE2_16x16<false>(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+#else
+        if (use_sse2a)
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSSD_SSE2_16x16<true>(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -2302,6 +2526,7 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
             diff[temp2 + box2 + 3] += difft;
           }
         }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -2353,7 +2578,15 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
         temp2 = ((y + 1) >> 1)*xblocks4;
         for (x = 0; x < width; ++x)
         {
-          calcSSD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+#ifndef ALLOW_MMX
+
+          calcSSD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+#else
+          if(use_sse2)
+            calcSSD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft); // PF
+          else
+            calcSSD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+#endif
           box1 = (x >> 1) << 2;
           box2 = ((x + 1) >> 1) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -2413,11 +2646,39 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
       {
         temp1 = (y >> 1)*xblocks4;
         temp2 = ((y + 1) >> 1)*xblocks4;
+#ifndef ALLOW_MMX
         if (use_sse2a)
         {
           for (x = 0; x < width; ++x)
           {
-            calcSSD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSSD_SSE2_32x16<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+        else
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSSD_SSE2_32x16<false>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+#else
+        if (use_sse2a)
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSSD_SSE2_32x16<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -2439,6 +2700,7 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
             diff[temp2 + box2 + 3] += difft;
           }
         }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -2484,11 +2746,39 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
       {
         temp1 = (y >> 1)*xblocks4;
         temp2 = ((y + 1) >> 1)*xblocks4;
+#ifndef ALLOW_MMX
         if (use_sse2a)
         {
           for (x = 0; x < width; ++x)
           {
-            calcSSD_SSE2_32x16_luma(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            calcSSD_SSE2_32x16_luma<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+        else
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSSD_SSE2_32x16_luma<false>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+            box1 = (x >> 1) << 2;
+            box2 = ((x + 1) >> 1) << 2;
+            diff[temp1 + box1 + 0] += difft;
+            diff[temp1 + box2 + 1] += difft;
+            diff[temp2 + box1 + 2] += difft;
+            diff[temp2 + box2 + 3] += difft;
+          }
+        }
+#else
+        if (use_sse2a)
+        {
+          for (x = 0; x < width; ++x)
+          {
+            calcSSD_SSE2_32x16_luma<true>(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
             box1 = (x >> 1) << 2;
             box2 = ((x + 1) >> 1) << 2;
             diff[temp1 + box1 + 0] += difft;
@@ -2510,6 +2800,7 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
             diff[temp2 + box2 + 3] += difft;
           }
         }
+#endif
         for (x = widtha; x < widths; x += 2)
         {
           ptr1T = ptr1;
@@ -2550,9 +2841,12 @@ void TDecimate::calcDiffSSD_32x32_MMX(const unsigned char *ptr1, const unsigned 
       }
     }
   }
-  __asm emms;
+#ifndef _M_X64
+  _mm_empty(); // __asm emms;
+#endif
 }
 
+#ifndef _M_X64
 void TDecimate::calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
@@ -2819,10 +3113,14 @@ void TDecimate::calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsign
       }
     }
   }
-  __asm emms;
+#ifndef _M_X64
+  _mm_empty(); // __asm emms;
+#endif
 }
+#endif
 
-void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+template<bool use_sse2>
+void TDecimate::calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
@@ -2850,9 +3148,10 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSAD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          calcSAD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -2860,6 +3159,21 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if(use_sse2)
+            calcSAD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSAD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -2916,9 +3230,10 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSAD_MMX_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
+          calcSAD_SSE2_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -2926,6 +3241,22 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if (use_sse2)
+            calcSAD_SSE2_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
+          else
+            calcSAD_MMX_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -2985,9 +3316,10 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSAD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          calcSAD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -2995,6 +3327,21 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if(use_sse2)
+            calcSAD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSAD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -3039,9 +3386,10 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSAD_MMX_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          calcSAD_SSE2_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -3049,6 +3397,21 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if(use_sse2)
+            calcSAD_SSE2_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSAD_MMX_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+#endif
         for (x = widtha; x < widths; x += 2)
         {
           ptr1T = ptr1;
@@ -3088,10 +3451,13 @@ void TDecimate::calcDiffSAD_Generic_MMX(const unsigned char *ptr1, const unsigne
       }
     }
   }
-  __asm emms;
+#ifndef _M_X64
+  _mm_empty(); // __asm emms;
+#endif
 }
 
-void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+template<bool use_sse2>
+void TDecimate::calcDiffSSD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
@@ -3119,9 +3485,10 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSSD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          calcSSD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -3129,6 +3496,21 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if(use_sse2)
+            calcSSD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSSD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -3186,9 +3568,10 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSSD_MMX_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
+          calcSSD_SSE2_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -3196,6 +3579,21 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if(use_sse2)
+            calcSSD_SSE2_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
+          else
+            calcSSD_MMX_4x4(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -3256,9 +3654,10 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSSD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          calcSSD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -3266,6 +3665,21 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if(use_sse2)
+            calcSSD_SSE2_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSSD_MMX_8x8(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+#endif
         for (x = widtha; x < widths; ++x)
         {
           ptr1T = ptr1;
@@ -3311,9 +3725,10 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
       {
         temp1 = (y >> yshift)*xblocks4;
         temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
         for (x = 0; x < width; ++x)
         {
-          calcSSD_MMX_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          calcSSD_SSE2_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -3321,6 +3736,21 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+#else
+        for (x = 0; x < width; ++x)
+        {
+          if(use_sse2)
+            calcSSD_SSE2_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSSD_MMX_8x8_luma(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          box1 = (x >> xshift) << 2;
+          box2 = ((x + xhalf) >> xshift) << 2;
+          diff[temp1 + box1 + 0] += difft;
+          diff[temp1 + box2 + 1] += difft;
+          diff[temp2 + box1 + 2] += difft;
+          diff[temp2 + box2 + 3] += difft;
+        }
+#endif
         for (x = widtha; x < widths; x += 2)
         {
           ptr1T = ptr1;
@@ -3361,16 +3791,19 @@ void TDecimate::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigne
       }
     }
   }
-  __asm emms;
+#ifndef _M_X64
+  _mm_empty(); // __asm emms;
+#endif
 }
 
 void TDecimate::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np)
 {
   int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  int plane_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
   for (int b = 0; b < np; ++b)
   {
     env->BitBlt(dst->GetWritePtr(plane[b]), dst->GetPitch(plane[b]), src->GetReadPtr(plane[b]),
-      src->GetPitch(plane[b]), src->GetRowSize(plane[b] + 8), src->GetHeight(plane[b]));
+      src->GetPitch(plane[b]), src->GetRowSize(plane_aligned[b]), src->GetHeight(plane[b]));
   }
 }
 
@@ -4284,26 +4717,30 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
     dstp = dst->GetWritePtr(plane);
     dst_pitch = dst->GetPitch(plane);
     if (useSSE2 && amount1 == 0.5 && amount2 == 0.5 &&
-      !((int(dstp) | int(srcp1) | int(srcp2) | dst_pitch | s1_pitch | s2_pitch) & 15))
+      !((intptr_t(dstp) | intptr_t(srcp1) | intptr_t(srcp2) | dst_pitch | s1_pitch | s2_pitch) & 15))
     {
       widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
       blend_SSE2_5050(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch);
     }
+#ifdef ALLOW_MMX
     else if (useISSE && amount1 == 0.5 && amount2 == 0.5)
     {
       widthM = width + ((width % 8) == 0 ? 0 : 8 - (width % 8));
       blend_iSSE_5050(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch);
     }
-    else if (useSSE2 && !((int(dstp) | int(srcp1) | int(srcp2) | dst_pitch | s1_pitch | s2_pitch) & 15))
+#endif
+    else if (useSSE2 && !((intptr_t(dstp) | intptr_t(srcp1) | intptr_t(srcp2) | dst_pitch | s1_pitch | s2_pitch) & 15))
     {
       widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
       blend_SSE2_16(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch, amount1, amount2);
     }
+#ifdef ALLOW_MMX
     else if (useMMX)
     {
       widthM = width + ((width % 8) == 0 ? 0 : 8 - (width % 8));
       blend_MMX_8(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch, amount1, amount2);
     }
+#endif
     else
     {
       for (y = 0; y < height; ++y)
@@ -4480,7 +4917,7 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     v = new CacheFilter(args[0].AsClip(), cycle * 4 + 1, 1, cycle, env);
   else v = args[0].AsClip();
   v = new TDecimate(v.AsClip(), args[1].AsInt(0), args[2].AsInt(1), args[3].AsInt(5),
-    args[4].AsFloat(23.976), args[5].AsFloat(dup_thresh), args[6].AsFloat(vid_thresh),
+    args[4].AsFloat(23.976f), args[5].AsFloat(dup_thresh), args[6].AsFloat(vid_thresh),
     args[7].AsFloat(15), args[8].AsInt(0), args[9].AsInt(vidDetect), args[10].AsInt(cc),
     args[11].AsInt(cc), args[12].AsString(""), args[13].AsString(""), args[14].AsString(""),
     args[15].AsString(""), args[16].AsString(""), args[17].AsInt(0), args[18].AsInt(32), args[19].AsInt(32),
@@ -4581,7 +5018,9 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  clip2 must be in YV12 or YUY2 colorspace!");
   if (clip2)
   {
+#ifdef AVISYNTH_2_5
     clip2->SetCacheHints(CACHE_RANGE, 2);
+#endif
     useclip2 = true;
   }
   else useclip2 = false;
@@ -4605,15 +5044,26 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     next.sdlim = sdlim;
     nbuf.sdlim = sdlim;
   }
-  if (mode == 4 || mode == 5 || mode == 6) child->SetCacheHints(CACHE_RANGE, 3); // fixed to diameter (07/30/2005)
+  if (mode == 4 || mode == 5 || mode == 6) {
+#ifdef AVISYNTH_2_5
+    child->SetCacheHints(CACHE_RANGE, 3); // fixed to diameter (07/30/2005)
+#else
+    child->SetCacheHints(CACHE_GENERIC, 3);
+#endif
+  }
   else if (mode != 2 && mode != 7)
   {
     int cacheRange = cycle * 4 + 1;
     if (cacheRange < 1) cacheRange = 1;
     if (*input || cycle >= 26)
     {
+#ifdef AVISYNTH_2_5
       if (cacheRange > 100) child->SetCacheHints(CACHE_ALL, 999);
       else child->SetCacheHints(CACHE_RANGE, cacheRange);
+#else
+      if (cacheRange > 100) child->SetCacheHints(CACHE_GENERIC, 100);
+      else child->SetCacheHints(CACHE_GENERIC, cacheRange);
+#endif
     }
     else
     {
@@ -4749,7 +5199,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         while (*linep != ' ' && *linep != 0 && *linep != 'c') *linep++;
         if (*linep == 'c')
         {
-          if (strnicmp(linein, "crc32 = ", 8) == 0)
+          if (_strnicmp(linein, "crc32 = ", 8) == 0)
           {
             linet = linein;
             while (*linet != ' ') *linet++;
@@ -4771,7 +5221,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             if (*linep == 0) continue;
             *linep++; *linep++;
             int j;
-            if (strnicmp(linep, "blockx = ", 9) == 0)
+            if (_strnicmp(linep, "blockx = ", 9) == 0)
             {
               while (*linep != '=') *linep++;
               *linep++; *linep++;
@@ -4791,7 +5241,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             while (*linep != ',' && *linep != 0) *linep++;
             if (*linep == 0) continue;
             *linep++; *linep++;
-            if (strnicmp(linep, "blocky = ", 9) == 0)
+            if (_strnicmp(linep, "blocky = ", 9) == 0)
             {
               while (*linep != '=') *linep++;
               *linep++; *linep++;
@@ -4814,7 +5264,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             while (*linep != ',' && *linep != 0) *linep++;
             if (*linep == 0) continue;
             *linep++; *linep++;
-            if (strnicmp(linep, "chroma = ", 9) == 0)
+            if (_strnicmp(linep, "chroma = ", 9) == 0)
             {
               while (*linep != '=') *linep++;
               *linep++; *linep++;
@@ -5098,8 +5548,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         {
           if (firstLine == 1)
           {
-            if (strnicmp(linein, "field = top", 11) == 0) fieldt = 1;
-            else if (strnicmp(linein, "field = bottom", 14) == 0) fieldt = 0;
+            if (_strnicmp(linein, "field = top", 11) == 0) fieldt = 1;
+            else if (_strnicmp(linein, "field = bottom", 14) == 0) fieldt = 0;
           }
         }
         else if (*linep == ' ')
@@ -5251,12 +5701,23 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     {
       if (curr.length < 0)
         env->ThrowError("TDecimate:  unknown error with mode 2!");
+#ifdef AVISYNTH_2_5
       if (curr.length <= 50) child->SetCacheHints(CACHE_RANGE, (curr.length * 2) + 1);
       else child->SetCacheHints(CACHE_ALL, 999);
+#else
+      if (curr.length <= 50) child->SetCacheHints(CACHE_GENERIC, (curr.length * 2) + 1);
+      else child->SetCacheHints(CACHE_GENERIC, 100);
+#endif
       mode2_order = (int*)malloc(max(curr.length + 10, 100) * sizeof(int));
       mode2_metrics = (unsigned __int64*)malloc(max(curr.length + 10, 100) * sizeof(unsigned __int64));
     }
-    else child->SetCacheHints(CACHE_RANGE, 3);  // fixed to diameter (07/30/2005)
+    else {
+#ifdef AVISYNTH_2_5
+        child->SetCacheHints(CACHE_RANGE, 3);  // fixed to diameter (07/30/2005)
+#else
+      child->SetCacheHints(CACHE_GENERIC, 3);  // fixed to diameter (07/30/2005)
+#endif
+    }
     unsigned int num, den;
     FloatToFPS(arate, num, den, env);
     vi.SetFPS(num, den);
@@ -5285,7 +5746,11 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     mode2_decA = (int *)malloc(vi.num_frames * sizeof(int));
     if (mode2_decA == NULL) env->ThrowError("TDecimate:  malloc failure (mode2_decA)!");
     for (int j = 0; j < vi.num_frames; ++j) mode2_decA[j] = -20;
+#ifdef AVISYNTH_2_5
     child->SetCacheHints(CACHE_RANGE, int((fps / rate) + 1.0) * 2 + 3);  // fixed to diameter (07/30/2005)
+#else
+    child->SetCacheHints(CACHE_GENERIC, int((fps / rate) + 1.0) * 2 + 3);  // fixed to diameter (07/30/2005)
+#endif
     diff_thresh = unsigned __int64((vidThresh*MAX_DIFF) / 100.0);
     same_thresh = unsigned __int64((dupThresh*MAX_DIFF) / 100.0);
   }

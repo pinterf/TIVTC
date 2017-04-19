@@ -25,6 +25,16 @@
 
 #include "TDecimate.h"
 
+#ifdef _M_X64
+#define USE_INTR
+#undef ALLOW_MMX
+#else
+#define USE_INTR
+#define ALLOW_MMX
+#undef ALLOW_MMX
+#endif
+
+
 void TDecimate::blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
   bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti)
 {
@@ -63,9 +73,10 @@ void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool 
     int dst_pitch = dst->GetPitch(plane[b]), x, y;
     if (vi_t.IsYV12())
     {
-      if ((cpu&CPUF_MMX) && width >= 8)
+      if ((cpu&CPUF_SSE2) && width >= 8)
       {
-        HorizontalBlurMMX_YV12(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+        // always mod 8, sse2 unaligned!
+        HorizontalBlurMMXorSSE2_YV12<true>(srcp, dstp, src_pitch, dst_pitch, widtha, height);
         if (widtha != width)
         {
           for (y = 0; y < height; ++y)
@@ -78,6 +89,23 @@ void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool 
           }
         }
       }
+#ifdef ALLOW_MMX
+      else if ((cpu&CPUF_MMX) && width >= 8)
+      {
+        HorizontalBlurMMXorSSE2_YV12<false>(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+        if (widtha != width)
+        {
+          for (y = 0; y < height; ++y)
+          {
+            for (x = widtha; x < width - 1; ++x) dstp[x] = (srcp[x - 1] + (srcp[x] << 1) + srcp[x + 1] + 2) >> 2;
+            if (x != width - 1) x = width - 1;
+            dstp[x] = (srcp[x - 1] + srcp[x] + 1) >> 1;
+            srcp += src_pitch;
+            dstp += dst_pitch;
+          }
+        }
+      }
+#endif
       else
       {
         for (y = 0; y < height; ++y)
@@ -94,9 +122,10 @@ void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool 
     {
       if (bchroma)
       {
-        if ((cpu&CPUF_MMX) && width >= 8)
+#ifndef ALLOW_MMX
+        if ((cpu&CPUF_SSE2) && width >= 8)
         {
-          HorizontalBlurMMX_YUY2(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+          HorizontalBlurMMXorSSE2_YUY2<true>(srcp, dstp, src_pitch, dst_pitch, widtha, height);
           if (width != widtha)
           {
             for (y = 0; y < height; ++y)
@@ -117,6 +146,31 @@ void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool 
             }
           }
         }
+#else
+        if ((cpu&CPUF_MMX) && width >= 8)
+        {
+          HorizontalBlurMMXorSSE2_YUY2<false>(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+          if (width != widtha)
+          {
+            for (y = 0; y < height; ++y)
+            {
+              for (x = widtha; x < width - 4; ++x)
+              {
+                dstp[x] = (srcp[x - 2] + (srcp[x] << 1) + srcp[x + 2] + 2) >> 2;
+                ++x;
+                dstp[x] = (srcp[x - 4] + (srcp[x] << 1) + srcp[x + 4] + 2) >> 2;
+              }
+              if (x != width - 4) x = width - 4;
+              dstp[x] = (srcp[x - 2] + (srcp[x] << 1) + srcp[x + 2] + 2) >> 2; ++x;
+              dstp[x] = (srcp[x - 4] + srcp[x] + 1) >> 1; ++x;
+              dstp[x] = (srcp[x - 2] + srcp[x] + 1) >> 1; ++x;
+              dstp[x] = (srcp[x - 4] + srcp[x] + 1) >> 1;
+              srcp += src_pitch;
+              dstp += dst_pitch;
+            }
+          }
+        }
+#endif
         else
         {
           for (y = 0; y < height; ++y)
@@ -142,9 +196,10 @@ void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool 
       }
       else
       {
-        if ((cpu&CPUF_MMX) && width >= 8)
+#ifndef ALLOW_MMX
+        if ((cpu&CPUF_SSE2) && width >= 8)
         {
-          HorizontalBlurMMX_YUY2_luma(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+          HorizontalBlurMMXorSSE2_YUY2_luma<true>(srcp, dstp, src_pitch, dst_pitch, widtha, height);
           if (width != widtha)
           {
             for (y = 0; y < height; ++y)
@@ -158,6 +213,24 @@ void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool 
             }
           }
         }
+#else
+        if ((cpu&CPUF_MMX) && width >= 8)
+        {
+          HorizontalBlurMMXorSSE2_YUY2_luma<false>(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+          if (width != widtha)
+          {
+            for (y = 0; y < height; ++y)
+            {
+              for (x = widtha; x < width - 2; x += 2)
+                dstp[x] = (srcp[x - 2] + (srcp[x] << 1) + srcp[x + 2] + 2) >> 2;
+              if (x != width - 2) x = width - 2;
+              dstp[x] = (srcp[x - 2] + srcp[x] + 1) >> 1;
+              srcp += src_pitch;
+              dstp += dst_pitch;
+            }
+          }
+        }
+#endif
         else
         {
           for (y = 0; y < height; ++y)
@@ -200,12 +273,17 @@ void TDecimate::VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bc
     int dst_pitch = dst->GetPitch(plane[b]);
     if ((cpu&CPUF_MMX) && width >= 8)
     {
-      if ((cpu&CPUF_SSE2) && !((int(srcp) | int(dstp) | src_pitch | dst_pitch) & 15) && widtha2 >= 16)
+      if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(dstp) | src_pitch | dst_pitch) & 15) && widtha2 >= 16)
       {
         VerticalBlurSSE2(srcp, dstp, src_pitch, dst_pitch, widtha2, height);
         widtha = widtha2;
       }
-      else VerticalBlurMMX(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+#ifdef ALLOW_MMX
+      else if (cpu&CPUF_MMX)
+        VerticalBlurMMX(srcp, dstp, src_pitch, dst_pitch, widtha, height);
+#endif
+      else 
+        env->ThrowError("TDecimate: simd error in VerticalBlur");
       if (width != widtha)
       {
         int inc = (vi_t.IsYUY2() && !bchroma) ? 2 : 1;
@@ -250,10 +328,17 @@ void TDecimate::VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bc
   }
 }
 
-void TDecimate::HorizontalBlurMMX_YV12(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+// always mod 8, sse2 unaligned
+template<bool use_sse2>
+void TDecimate::HorizontalBlurMMXorSSE2_YV12(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
-  HorizontalBlurMMX_YV12_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+  if(use_sse2)
+    HorizontalBlurSSE2_YV12_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#ifndef _M_X64
+  else
+    HorizontalBlurMMX_YV12_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#endif
   for (int y = 0; y < height; ++y)
   {
     dstp[0] = (srcp[0] + srcp[1] + 1) >> 1;
@@ -273,10 +358,19 @@ void TDecimate::HorizontalBlurMMX_YV12(const unsigned char *srcp, unsigned char 
   }
 }
 
-void TDecimate::HorizontalBlurMMX_YUY2_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+template<bool use_sse2>
+void TDecimate::HorizontalBlurMMXorSSE2_YUY2_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
-  HorizontalBlurMMX_YUY2_R_luma(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#ifdef _M_X64
+  HorizontalBlurSSE2_YUY2_R_luma(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#else
+  if (use_sse2)
+    HorizontalBlurSSE2_YUY2_R_luma(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+  else
+    HorizontalBlurMMX_YUY2_R_luma(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#endif
+
   for (int y = 0; y < height; ++y)
   {
     dstp[0] = (srcp[0] + srcp[2] + 1) >> 1;
@@ -292,10 +386,18 @@ void TDecimate::HorizontalBlurMMX_YUY2_luma(const unsigned char *srcp, unsigned 
   }
 }
 
-void TDecimate::HorizontalBlurMMX_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+template<bool use_sse2>
+void TDecimate::HorizontalBlurMMXorSSE2_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
-  HorizontalBlurMMX_YUY2_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#ifdef _M_X64
+  HorizontalBlurSSE2_YUY2_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#else
+  if (use_sse2)
+    HorizontalBlurSSE2_YUY2_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+  else
+    HorizontalBlurMMX_YUY2_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
+#endif
   for (int y = 0; y < height; ++y)
   {
     dstp[0] = (srcp[0] + srcp[2] + 1) >> 1;
@@ -319,6 +421,7 @@ void TDecimate::HorizontalBlurMMX_YUY2(const unsigned char *srcp, unsigned char 
   }
 }
 
+#ifndef _M_X64
 void TDecimate::VerticalBlurMMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -330,6 +433,7 @@ void TDecimate::VerticalBlurMMX(const unsigned char *srcp, unsigned char *dstp, 
     dstp[tempd + x] = (srcp[temps + x] + srcp[temps + x - src_pitch] + 1) >> 1;
   }
 }
+#endif
 
 void TDecimate::VerticalBlurSSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
@@ -343,10 +447,46 @@ void TDecimate::VerticalBlurSSE2(const unsigned char *srcp, unsigned char *dstp,
   }
 }
 
+#ifndef _M_X64
 __declspec(align(16)) const __int64 twos_mmx[2] = { 0x0002000200020002, 0x0002000200020002 };
 __declspec(align(16)) const __int64 chroma_mask = 0xFF00FF00FF00FF00;
 __declspec(align(16)) const __int64 luma_mask = 0x00FF00FF00FF00FF;
+#endif
 
+// always mod 8, sse2 unaligned!
+void TDecimate::HorizontalBlurSSE2_YV12_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+  int dst_pitch, int width, int height)
+{
+  __m128i two = _mm_set1_epi16(0x0002); // rounder
+  __m128i zero = _mm_setzero_si128();
+  while (height--) {
+    for (int x = 0; x < width; x += 8) {
+      __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 1));
+      __m128i center = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x));
+      __m128i right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 1));
+      __m128i left_lo = _mm_unpacklo_epi8(left, zero);
+      __m128i center_lo = _mm_unpacklo_epi8(center, zero);
+      __m128i right_lo = _mm_unpacklo_epi8(right, zero);
+      __m128i left_hi = _mm_unpackhi_epi8(left, zero);
+      __m128i center_hi = _mm_unpackhi_epi8(center, zero);
+      __m128i right_hi = _mm_unpackhi_epi8(right, zero);
+      
+      // (center*2 + left + right + 2) >> 2
+      __m128i centermul2_lo = _mm_slli_epi16(center_lo, 1);
+      __m128i centermul2_hi = _mm_slli_epi16(center_hi, 1);
+      auto res_lo = _mm_add_epi16(_mm_add_epi16(centermul2_lo, left_lo), right_lo);
+      auto res_hi = _mm_add_epi16(_mm_add_epi16(centermul2_hi, left_hi), right_hi);
+      res_lo = _mm_srli_epi16(_mm_add_epi16(res_lo, two),2); // +2, / 4
+      res_hi = _mm_srli_epi16(_mm_add_epi16(res_hi, two),2);
+      __m128i res = _mm_packus_epi16(res_lo, res_hi);
+      _mm_storel_epi64(reinterpret_cast<__m128i *>(dstp + x), res);
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+#ifndef _M_X64
 void TDecimate::HorizontalBlurMMX_YV12_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -397,7 +537,9 @@ void TDecimate::HorizontalBlurMMX_YV12_R(const unsigned char *srcp, unsigned cha
       emms
   }
 }
+#endif
 
+#ifndef _M_X64
 void TDecimate::HorizontalBlurMMX_YUY2_R_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -448,7 +590,42 @@ void TDecimate::HorizontalBlurMMX_YUY2_R_luma(const unsigned char *srcp, unsigne
       emms
   }
 }
+#endif
 
+void TDecimate::HorizontalBlurSSE2_YUY2_R_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+  int dst_pitch, int width, int height)
+{
+  __m128i two = _mm_set1_epi16(0x0002); // rounder
+  __m128i zero = _mm_setzero_si128();
+  while (height--) {
+    for (int x = 0; x < width; x += 8) {
+      __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 2)); // same as Y12 but +/-2 instead of +/-1
+      __m128i center = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x));
+      __m128i right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 2));
+      __m128i left_lo = _mm_unpacklo_epi8(left, zero);
+      __m128i center_lo = _mm_unpacklo_epi8(center, zero);
+      __m128i right_lo = _mm_unpacklo_epi8(right, zero);
+      __m128i left_hi = _mm_unpackhi_epi8(left, zero);
+      __m128i center_hi = _mm_unpackhi_epi8(center, zero);
+      __m128i right_hi = _mm_unpackhi_epi8(right, zero);
+
+      // (center*2 + left + right + 2) >> 2
+      __m128i centermul2_lo = _mm_slli_epi16(center_lo, 1);
+      __m128i centermul2_hi = _mm_slli_epi16(center_hi, 1);
+      auto res_lo = _mm_add_epi16(_mm_add_epi16(centermul2_lo, left_lo), right_lo);
+      auto res_hi = _mm_add_epi16(_mm_add_epi16(centermul2_hi, left_hi), right_hi);
+      res_lo = _mm_srli_epi16(_mm_add_epi16(res_lo, two),2); // +2, / 4
+      res_hi = _mm_srli_epi16(_mm_add_epi16(res_hi, two),2);
+      __m128i res = _mm_packus_epi16(res_lo, res_hi);
+
+      _mm_storel_epi64(reinterpret_cast<__m128i *>(dstp + x), res);
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+#ifndef _M_X64
 void TDecimate::HorizontalBlurMMX_YUY2_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -524,7 +701,71 @@ void TDecimate::HorizontalBlurMMX_YUY2_R(const unsigned char *srcp, unsigned cha
       emms
   }
 }
+#endif
 
+// todo to sse2, mod 8 always, unaligned
+void TDecimate::HorizontalBlurSSE2_YUY2_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+  int dst_pitch, int width, int height)
+{
+  __m128i two = _mm_set1_epi16(2); // rounder
+  __m128i zero = _mm_setzero_si128();
+  while (height--) {
+    for (int x = 0; x < width; x += 8) {
+      // luma part
+      __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 2)); // same as Y12 but +/-2 instead of +/-1
+      __m128i center = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x));
+      __m128i right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 2));
+      __m128i left_lo = _mm_unpacklo_epi8(left, zero);
+      __m128i center_lo = _mm_unpacklo_epi8(center, zero);
+      __m128i right_lo = _mm_unpacklo_epi8(right, zero);
+      __m128i left_hi = _mm_unpackhi_epi8(left, zero);
+      __m128i center_hi = _mm_unpackhi_epi8(center, zero);
+      __m128i right_hi = _mm_unpackhi_epi8(right, zero);
+
+      // (center*2 + left + right + 2) >> 2
+      __m128i centermul2_lo = _mm_slli_epi16(center_lo, 1);
+      __m128i centermul2_hi = _mm_slli_epi16(center_hi, 1);
+      auto res_lo = _mm_add_epi16(_mm_add_epi16(centermul2_lo, left_lo), right_lo);
+      auto res_hi = _mm_add_epi16(_mm_add_epi16(centermul2_hi, left_hi), right_hi);
+      res_lo = _mm_srli_epi16(_mm_add_epi16(res_lo, two), 2); // +2, / 4
+      res_hi = _mm_srli_epi16(_mm_add_epi16(res_hi, two), 2);
+      __m128i res1 = _mm_packus_epi16(res_lo, res_hi);
+
+      // chroma part
+      left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 4)); // same as Y12 but +/-2 instead of +/-1
+      // we have already filler center 
+      right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 4));
+      left_lo = _mm_unpacklo_epi8(left, zero);
+      center_lo = _mm_unpacklo_epi8(center, zero);
+      right_lo = _mm_unpacklo_epi8(right, zero);
+      left_hi = _mm_unpackhi_epi8(left, zero);
+      center_hi = _mm_unpackhi_epi8(center, zero);
+      right_hi = _mm_unpackhi_epi8(right, zero);
+
+      // (center*2 + left + right + 2) >> 2
+      centermul2_lo = _mm_slli_epi16(center_lo, 1);
+      centermul2_hi = _mm_slli_epi16(center_hi, 1);
+      res_lo = _mm_add_epi16(_mm_add_epi16(centermul2_lo, left_lo), right_lo);
+      res_hi = _mm_add_epi16(_mm_add_epi16(centermul2_hi, left_hi), right_hi);
+      res_lo = _mm_srli_epi16(_mm_add_epi16(res_lo, two), 2); // +2, / 4
+      res_hi = _mm_srli_epi16(_mm_add_epi16(res_hi, two), 2);
+      __m128i res2 = _mm_packus_epi16(res_lo, res_hi);
+
+      __m128i chroma_mask = _mm_set1_epi16((short)0xFF00);
+      __m128i luma_mask = _mm_set1_epi16(0x00FF);
+
+      res1 = _mm_and_si128(res1, luma_mask);
+      res2 = _mm_and_si128(res1, chroma_mask);
+      __m128i res = _mm_or_si128(res1, res2);
+
+      _mm_storel_epi64(reinterpret_cast<__m128i *>(dstp + x), res);
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+#ifndef _M_X64
 void TDecimate::VerticalBlurMMX_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -580,10 +821,41 @@ void TDecimate::VerticalBlurMMX_R(const unsigned char *srcp, unsigned char *dstp
       emms
   }
 }
+#endif
 
 void TDecimate::VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dstp,
   int src_pitch, int dst_pitch, int width, int height)
 {
+#ifdef USE_INTR
+  __m128i two = _mm_set1_epi16(0x0002); // rounder
+  __m128i zero = _mm_setzero_si128();
+  while (height--) {
+    for (int x = 0; x < width; x += 16) {
+      __m128i left = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + x - src_pitch));
+      __m128i center = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + x));
+      __m128i right = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + x + src_pitch));
+      __m128i left_lo = _mm_unpacklo_epi8(left, zero);
+      __m128i center_lo = _mm_unpacklo_epi8(center, zero);
+      __m128i right_lo = _mm_unpacklo_epi8(right, zero);
+      __m128i left_hi = _mm_unpackhi_epi8(left, zero);
+      __m128i center_hi = _mm_unpackhi_epi8(center, zero);
+      __m128i right_hi = _mm_unpackhi_epi8(right, zero);
+
+      // (center*2 + left + right + 2) >> 2
+      __m128i centermul2_lo = _mm_slli_epi16(center_lo, 1);
+      __m128i centermul2_hi = _mm_slli_epi16(center_hi, 1);
+      auto res_lo = _mm_add_epi16(_mm_add_epi16(centermul2_lo, left_lo), right_lo);
+      auto res_hi = _mm_add_epi16(_mm_add_epi16(centermul2_hi, left_hi), right_hi);
+      res_lo = _mm_srli_epi16(_mm_add_epi16(res_lo, two), 2); // +2, / 4
+      res_hi = _mm_srli_epi16(_mm_add_epi16(res_hi, two), 2);
+      __m128i res = _mm_packus_epi16(res_lo, res_hi);
+
+      _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), res);
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+#else
   __asm
   {
     mov eax, srcp
@@ -634,4 +906,5 @@ void TDecimate::VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dst
       dec height
       jnz yloop
   }
+#endif
 }
