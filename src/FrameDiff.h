@@ -48,20 +48,6 @@ private:
   bool chroma, debug, prevf, norm;
   unsigned __int64 *diff, MAX_DIFF, threshU;
   void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env);
-#if 0
-  void FrameDiff::calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void FrameDiff::calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void FrameDiff::calcDiffSSD_Generic_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  void FrameDiff::calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
-  void FrameDiff::calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
-  void FrameDiff::calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-#endif
   void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void FrameDiff::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot);
