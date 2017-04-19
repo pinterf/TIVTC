@@ -25,6 +25,16 @@
 
 #include "TFM.h"
 
+#ifdef _M_X64
+#define USE_C_NO_ASM
+#undef ALLOW_MMX
+#else
+#define USE_C_NO_ASM
+#define ALLOW_MMX
+#undef ALLOW_MMX
+#endif
+
+
 bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
   int *blockN, int &xblocksi, int *mics, bool ddebug)
 {
@@ -79,17 +89,27 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;
+#ifdef ALLOW_MMX
     __int64 cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
+#endif
+    __m128i cthreshb_m128i;
+    __m128i cthresh6w_m128i;
     if (use_mmx || use_isse || use_sse2)
     {
       unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
+      cthreshb_m128i = _mm_set1_epi8(cthresht);
+#ifdef ALLOW_MMX
       cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
       cthreshb[0] += (cthreshb[0] << 32);
       cthreshb[1] = cthreshb[0];
+#endif
       unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
+      cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
+#ifdef ALLOW_MMX
       cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
       cthresh6w[0] += (cthresh6w[0] << 32);
       cthresh6w[1] = cthresh6w[0];
+#endif
     }
     for (int x = 0; x < Width; x += inc)
     {
@@ -126,9 +146,22 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     {
       if (chroma)
       {
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128, cthresh6w128;
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+          else
+            check_combing_SSE2<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+        {
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          __m128i cthreshb128, cthresh6w128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
@@ -136,7 +169,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
             movaps cthreshb128, xmm1
             movaps cthresh6w128, xmm2
           }
-          check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+          check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb128, cthresh6w128);
         }
         else if (use_isse)
@@ -145,6 +178,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
         else if (use_mmx)
           check_combing_MMX(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb[0], cthresh6w[0]);
+#endif
         else env->ThrowError("TFM:  simd error (0)!");
         srcppp += src_pitch*(Height - 4);
         srcpp += src_pitch*(Height - 4);
@@ -155,9 +189,22 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
       }
       else
       {
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128, cthresh6w128;
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+          else
+            check_combing_SSE2_Luma<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+        {
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          __m128i cthreshb128, cthresh6w128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
@@ -165,7 +212,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
             movaps cthreshb128, xmm1
             movaps cthresh6w128, xmm2
           }
-          check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
+          check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb128, cthresh6w128);
         }
         else if (use_isse)
@@ -174,6 +221,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
         else if (use_mmx)
           check_combing_MMX_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
             cmk_pitch, cthreshb[0], cthresh6w[0]);
+#endif
         else env->ThrowError("TFM:  simd error (1)!");
         srcppp += src_pitch*(Height - 4);
         srcpp += src_pitch*(Height - 4);
@@ -234,12 +282,18 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   else
   {
     const int cthreshsq = cthresh*cthresh;
+#ifdef ALLOW_MMX
     __int64 cthreshb[2] = { 0, 0 };
+#endif
+    __m128i cthreshb_m128i;
     if (use_mmx || use_isse || use_sse2)
     {
+      cthreshb_m128i = _mm_set1_epi32(cthreshsq);
+#ifdef ALLOW_MMX
       cthreshb[0] = cthreshsq;
       cthreshb[0] += (cthreshb[0] << 32);
       cthreshb[1] = cthreshb[0];
+#endif
     }
     for (int x = 0; x < Width; x += inc)
     {
@@ -254,20 +308,34 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     {
       if (chroma)
       {
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128;
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+          else
+            check_combing_SSE2_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+        {
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          __m128i cthreshb128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
             movaps cthreshb128, xmm1
           }
-          check_combing_SSE2_M1(srcp, cmkw, Width, Height - 2, src_pitch,
+          check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb128);
         }
         else if (use_mmx)
           check_combing_MMX_M1(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (6)!");
         srcpp += src_pitch*(Height - 2);
         srcp += src_pitch*(Height - 2);
@@ -276,20 +344,34 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
       }
       else
       {
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128;
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+            check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+          else
+            check_combing_SSE2_Luma_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
+              cmk_pitch, cthreshb_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
+        {
+          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
+          __m128i cthreshb128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
             movaps cthreshb128, xmm1
           }
-          check_combing_SSE2_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch,
+          check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb128);
         }
         else if (use_mmx)
           check_combing_MMX_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch,
             cmk_pitch, cthreshb[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (5)!");
         srcpp += src_pitch*(Height - 2);
         srcp += src_pitch*(Height - 2);
@@ -346,9 +428,12 @@ cjump:
   int Heighta = (Height >> (yshift - 1)) << (yshift - 1);
   if (Heighta == Height) Heighta = Height - yhalf;
   const int Widtha = (Width >> (xshift - 1)) << (xshift - 1);
-  const bool use_sse2_sum = (use_sse2 && xhalf == 16 && yhalf == 8 && !((int(cmkp) | cmk_pitch) & 15)) ? true : false;
+  const bool use_sse2_sum = (use_sse2 && xhalf == 16 && yhalf == 8) ? true : false;
+  const bool use_sse2a_sum = (use_sse2 && xhalf == 16 && yhalf == 8 && !((intptr_t(cmkp) | cmk_pitch) & 15)) ? true : false;
+#ifdef ALLOW_MMX
   const bool use_isse_sum = (use_isse && xhalf == 16 && yhalf == 8) ? true : false;
   const bool use_mmx_sum = (use_mmx && xhalf == 16 && yhalf == 8) ? true : false;
+#endif
   for (int y = 1; y < yhalf; ++y)
   {
     const int temp1 = (y >> yshift)*xblocks4;
@@ -373,12 +458,13 @@ cjump:
   {
     const int temp1 = (y >> yshift)*xblocks4;
     const int temp2 = ((y + yhalf) >> yshift)*xblocks4;
-    if (use_sse2_sum)
+    if (use_sse2a_sum)
     {
+      // aligned
       for (int x = 0; x < Widtha; x += xhalf)
       {
         int sum = 0;
-        compute_sum_8x16_sse2_luma(cmkpp + x, cmk_pitch, sum);
+        compute_sum_8x16_sse2_luma<true>(cmkpp + x, cmk_pitch, sum);
         if (sum)
         {
           const int box1 = (x >> xshift) << 2;
@@ -390,6 +476,25 @@ cjump:
         }
       }
     }
+    if (use_sse2_sum)
+    {
+      // unaligned
+      for (int x = 0; x < Widtha; x += xhalf)
+      {
+        int sum = 0;
+        compute_sum_8x16_sse2_luma<false>(cmkpp + x, cmk_pitch, sum);
+        if (sum)
+        {
+          const int box1 = (x >> xshift) << 2;
+          const int box2 = ((x + xhalf) >> xshift) << 2;
+          cArray[temp1 + box1 + 0] += sum;
+          cArray[temp1 + box2 + 1] += sum;
+          cArray[temp2 + box1 + 2] += sum;
+          cArray[temp2 + box2 + 3] += sum;
+        }
+      }
+    }
+#ifdef ALLOW_MMX
     else if (use_isse_sum)
     {
       for (int x = 0; x < Widtha; x += xhalf)
@@ -406,7 +511,7 @@ cjump:
           cArray[temp2 + box2 + 3] += sum;
         }
       }
-      __asm emms;
+      _mm_empty(); // __asm emms;
     }
     else if (use_mmx_sum)
     {
@@ -424,8 +529,9 @@ cjump:
           cArray[temp2 + box2 + 3] += sum;
         }
       }
-      __asm emms;
+      _mm_empty(); // __asm emms;
     }
+#endif
     else
     {
       for (int x = 0; x < Widtha; x += xhalf)
@@ -544,8 +650,390 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
   const unsigned char *dpnn = tbuffer + tpitch * 3;
   int y, count;
   bool upper, lower, upper2, lower2;
+#ifdef USE_C_NO_ASM
+  // reconstructed from inline asm by pf
+  if (mChroma) // TFM YUY2's mChroma bool parameter
+  {
+    for (int y = 2; y < Height - 2; y+=2) {
+      for (int ebx = 4; ebx < Width - 4; ebx += 1) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
+      {
+        if (dp[ebx] < 3) {
+          goto chroma_sec;
+        } // continue in TFMYUY2 1051;
+        if (dp[ebx - 2] < 3 && dp[ebx + 2] < 3 &&
+          dpp[ebx - 2] < 3 && dpp[ebx] < 3 && dpp[ebx + 2] < 3 &&
+          dpn[ebx - 2] < 3 && dpn[ebx] < 3 && dpn[ebx + 2] < 3)
+        {
+          goto chroma_sec;
+        }// continue in TFMYUY2 1051;
+        dstp[ebx]++;
+        if (dp[ebx] <= 19) {
+          goto chroma_sec;
+        }// continue in TFMYUY2 1051;
+        //mov eax, dpp
+        //  mov ecx, dp
+        //  mov edx, dpn
+        int edi = 0;
+        lower = 0;
+        upper = 0;
+        if (dpp[ebx - 2] > 19) edi++;
+        if (dpp[ebx] > 19) edi++;
+        if (dpp[ebx + 2] > 19) edi++;
+        if (edi != 0) upper = 1;
+        if (dp[ebx - 2] > 19) edi++;
+        if (dp[ebx + 2] > 19) edi++;
+        int esi = edi;
+        if (dpn[ebx - 2] > 19) edi++;
+        if (dpn[ebx] > 19) edi++;
+        if (dpn[ebx + 2] > 19) edi++;
+        if (edi <= 2) {
+          goto chroma_sec; // continue in TFMYUY2 1051;
+        }// continue in TFMYUY2 1051;
+        count = edi;
+        if (esi != edi) {
+          lower = 1;
+          if (upper != 0) {
+            dstp[ebx] += 2;
+            goto chroma_sec; // continue in TFMYUY2 1051;
+          }
+        }
+        // b111:
+        int eax = ebx - 8;
+        if (eax < 0) eax = 0;
+        // p31:
+        lower2 = 0;
+        upper2 = 0;
+        int edx = ebx + 10;
+        if (edx > Width) edx = Width;
+        // p41:
+  //-----------
+        if (y != 2) { // cmp y, 2,  je p51
+          int esi = eax;
+          do {
+            if (dppp[esi] > 19) {
+              upper2 = 1;
+              break;
+            }
+            esi += 2;
+          } while (esi < edx);
+        }
+        // p51 :
+        { // blocked for local vars
+          int esi = eax;
+          do {
+            if (dpp[esi] > 19)
+              upper = 1;
+            if (dpn[esi] > 19)
+              lower = 1;
+            if (upper != 0 && lower != 0)
+              break;
+            esi += 2;
+          } while (esi < edx);
+        }
+        //---------
+        // p121
+        //    p12:
+        if (y != Height - 4) {
+
+          int esi = eax;
+          do {
+            if (dpnn[esi] > 19) {
+              lower2 = 1;
+              break;
+            }
+            esi += 2;
+          } while (esi < edx);
+        }
+        //p13 :
+        if (upper == 0) { // cmp upper, 0, jne p16
+                          //  cmp lower, 0
+                          //je p17
+                          //cmp lower2, 0
+                          //je p17
+                          //jmp p18
+          if (lower == 0 || lower2 == 0) {
+            // p17:
+            if (count > 4)
+              dstp[ebx] += 4;
+          }
+          else {
+            dstp[ebx] += 2;
+            // p18
+          }
+        }
+        else {
+          if (lower != 0 || upper2 != 0) {
+            dstp[ebx] += 2;
+          }
+          else {
+            if (count > 4)
+              dstp[ebx] += 4;
+          }
+        }
+  //-------------- itt vége van egy ebx+=2-vel a másiknak   
+
+      chroma_sec:
+        ebx++;
+
+        if (dp[ebx] < 3) {
+          continue;
+        } // continue in TFMYUY2 1051;
+        if (dp[ebx - 4] < 3 && dp[ebx + 4] < 3 &&
+          dpp[ebx - 4] < 3 && dpp[ebx] < 3 && dpp[ebx + 4] < 3 &&
+          dpn[ebx - 4] < 3 && dpn[ebx] < 3 && dpn[ebx + 4] < 3)
+        {
+          continue;
+        }// continue in TFMYUY2 1051;
+        dstp[ebx]++;
+        if (dp[ebx] <= 19) {
+          continue;
+        }// continue in TFMYUY2 1051;
+         //mov eax, dpp
+         //  mov ecx, dp
+         //  mov edx, dpn
+        edi = 0;
+        lower = 0;
+        upper = 0;
+        if (dpp[ebx - 4] > 19) edi++;
+        if (dpp[ebx] > 19) edi++;
+        if (dpp[ebx + 4] > 19) edi++;
+        if (edi != 0) upper = 1;
+        if (dp[ebx - 4] > 19) edi++;
+        if (dp[ebx + 4] > 19) edi++;
+        esi = edi;
+        if (dpn[ebx - 4] > 19) edi++;
+        if (dpn[ebx] > 19) edi++;
+        if (dpn[ebx + 4] > 19) edi++;
+        if (edi <= 2) {
+          continue; // continue in TFMYUY2 1051;
+        }// continue in TFMYUY2 1051;
+        count = edi;
+        if (esi != edi) {
+          lower = 1;
+          if (upper != 0) {
+            dstp[ebx] += 2;
+            continue;
+          }
+        }
+        // b111:
+        eax = ebx - 8 - 8; // was: -8 in the first chroma part
+        int edx_tmp = (ebx & 2) + 1; // diff from 1st part, comparison is with 0 there
+        if (eax < edx_tmp) eax = edx_tmp; // diff from 1st part
+        // p31:/p3c
+        lower2 = 0;
+        upper2 = 0;
+        edx = ebx + 10 + 8; // was: +10 in the first chroma part
+        if (edx > Width) edx = Width;
+       // p41:
+       //-----------
+        if (y != 2) { // cmp y, 2,  je p51
+          int esi = eax;
+          do {
+            if (dppp[esi] > 19) {
+              upper2 = 1;
+              break;
+            }
+            esi += 4; // was: += 2 in the first chroma part
+          } while (esi < edx);
+        }
+        // p51 :
+        { // blocked for local vars
+          int esi = eax;
+          do {
+            if (dpp[esi] > 19)
+              upper = 1;
+            if (dpn[esi] > 19)
+              lower = 1;
+            if (upper != 0 && lower != 0)
+              break;
+            esi += 4;  // was: += 2 in the first chroma part
+          } while (esi < edx);
+        }
+        //---------
+        // p121
+        //    p12:
+        if (y != Height - 4) {
+
+          int esi = eax;
+          do {
+            if (dpnn[esi] > 19) {
+              lower2 = 1;
+              break;
+            }
+            esi += 4;  // was: += 2 in the first chroma part
+          } while (esi < edx);
+        }
+        //p13 :
+        if (upper == 0) { // cmp upper, 0, jne p16
+                          //  cmp lower, 0
+                          //je p17
+                          //cmp lower2, 0
+                          //je p17
+                          //jmp p18
+          if (lower == 0 || lower2 == 0) {
+            // p17:
+            if (count > 4)
+              dstp[ebx] += 4;
+          }
+          else {
+            dstp[ebx] += 2;
+            // p18
+          }
+        }
+        else {
+          if (lower != 0 || upper2 != 0) {
+            dstp[ebx] += 2;
+          }
+          else {
+            if (count > 4)
+              dstp[ebx] += 4;
+          }
+        }
+
+      }
+      dppp += tpitch;
+      dpp += tpitch;
+      dp += tpitch;
+      dpn += tpitch;
+      dpnn += tpitch;
+      dstp += dst_pitch;
+
+    }
+  }
+  else {
+    // TFMYUV2 1051
+    //env->ThrowError("not implemented yet"); // to be checked. What options do we need
+    for (int y = 2; y < Height - 2; y += 2) {
+      for (int ebx = 4; ebx < Width - 4; ebx += 2) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
+      {
+        if (dp[ebx] < 3) {
+          continue; // goto chroma_sec;
+        } // continue in TFMYUY2 1051;
+        if (dp[ebx - 2] < 3 && dp[ebx + 2] < 3 &&
+          dpp[ebx - 2] < 3 && dpp[ebx] < 3 && dpp[ebx + 2] < 3 &&
+          dpn[ebx - 2] < 3 && dpn[ebx] < 3 && dpn[ebx + 2] < 3)
+        {
+          continue; // goto chroma_sec;
+        }// continue in TFMYUY2 1051;
+        dstp[ebx]++;
+        if (dp[ebx] <= 19) {
+          continue; //  goto chroma_sec;
+        }// continue in TFMYUY2 1051;
+         //mov eax, dpp
+         //  mov ecx, dp
+         //  mov edx, dpn
+        int edi = 0;
+        lower = 0;
+        upper = 0;
+        if (dpp[ebx - 2] > 19) edi++;
+        if (dpp[ebx] > 19) edi++;
+        if (dpp[ebx + 2] > 19) edi++;
+        if (edi != 0) upper = 1;
+        if (dp[ebx - 2] > 19) edi++;
+        if (dp[ebx + 2] > 19) edi++;
+        int esi = edi;
+        if (dpn[ebx - 2] > 19) edi++;
+        if (dpn[ebx] > 19) edi++;
+        if (dpn[ebx + 2] > 19) edi++;
+        if (edi <= 2) {
+          continue; //  goto chroma_sec; // continue in TFMYUY2 1051;
+        }// continue in TFMYUY2 1051;
+        count = edi;
+        if (esi != edi) {
+          lower = 1;
+          if (upper != 0) {
+            dstp[ebx] += 2;
+            continue; // goto chroma_sec; // continue in TFMYUY2 1051;
+          }
+        }
+        // b111:
+        int eax = ebx - 8;
+        if (eax < 0) eax = 0;
+        // p31:
+        lower2 = 0;
+        upper2 = 0;
+        int edx = ebx + 10;
+        if (edx > Width) edx = Width;
+        // p41:
+        //-----------
+        if (y != 2) { // cmp y, 2,  je p51
+          int esi = eax;
+          do {
+            if (dppp[esi] > 19) {
+              upper2 = 1;
+              break;
+            }
+            esi += 2;
+          } while (esi < edx);
+        }
+        // p51 :
+        { // blocked for local vars
+          int esi = eax;
+          do {
+            if (dpp[esi] > 19)
+              upper = 1;
+            if (dpn[esi] > 19)
+              lower = 1;
+            if (upper != 0 && lower != 0)
+              break;
+            esi += 2;
+          } while (esi < edx);
+        }
+        //---------
+        // p121
+        //    p12:
+        if (y != Height - 4) {
+
+          int esi = eax;
+          do {
+            if (dpnn[esi] > 19) {
+              lower2 = 1;
+              break;
+            }
+            esi += 2;
+          } while (esi < edx);
+        }
+        //p13 :
+        if (upper == 0) { // cmp upper, 0, jne p16
+                          //  cmp lower, 0
+                          //je p17
+                          //cmp lower2, 0
+                          //je p17
+                          //jmp p18
+          if (lower == 0 || lower2 == 0) {
+            // p17:
+            if (count > 4)
+              dstp[ebx] += 4;
+          }
+          else {
+            dstp[ebx] += 2;
+            // p18
+          }
+        }
+        else {
+          if (lower != 0 || upper2 != 0) {
+            dstp[ebx] += 2;
+          }
+          else {
+            if (count > 4)
+              dstp[ebx] += 4;
+          }
+        }
+      }
+      dppp += tpitch;
+      dpp += tpitch;
+      dp += tpitch;
+      dpn += tpitch;
+      dpnn += tpitch;
+      dstp += dst_pitch;
+
+    }
+
+  }
+#else
   if (mChroma)
   {
+    // TFMYUV2 636
     __asm
     {
       mov y, 2
@@ -960,6 +1448,7 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
   }
   else
   {
+    // TFMYUV2 1051
     __asm
     {
       mov y, 2
@@ -1183,6 +1672,7 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
         jl yloop
     }
   }
+#endif
 }
 
 void TFM::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)

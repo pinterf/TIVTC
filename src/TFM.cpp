@@ -26,6 +26,16 @@
 #include "TFM.h"
 #include "avs/alignment.h"
 
+#ifdef _M_X64
+#define USE_C_NO_ASM
+#undef ALLOW_MMX
+#else
+#define USE_C_NO_ASM
+#define ALLOW_MMX
+#undef ALLOW_MMX
+#endif
+
+
 PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;
@@ -755,10 +765,11 @@ bool TFM::checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, 
 void TFM::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np)
 {
   int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  int plane_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
   for (int b = 0; b < np; ++b)
   {
     env->BitBlt(dst->GetWritePtr(plane[b]), dst->GetPitch(plane[b]), src->GetReadPtr(plane[b]),
-      src->GetPitch(plane[b]), src->GetRowSize(plane[b] + 8), src->GetHeight(plane[b]));
+      src->GetPitch(plane[b]), src->GetRowSize(plane_aligned[b]), src->GetHeight(plane[b]));
   }
 }
 
@@ -766,22 +777,28 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n,
   IScriptEnvironment *env)
 {
-  int b, plane, ret, y, startx, y0a, y1a;
+  int b, plane, plane_aligned, ret, y, startx, y0a, y1a;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
   unsigned char *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Widtha, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
-  int incl = np == 3 ? 1 : mChroma ? 1 : 2;
+  int incl = np == 3 ? 1 : mChroma ? 1 : 2;  // ?YV12 specific?
   int stop = np == 3 ? mChroma ? 3 : 1 : 1;
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0, accumNm = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
   for (b = 0; b < stop; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    if (b == 0) {
+      plane = PLANAR_Y; plane_aligned = PLANAR_Y_ALIGNED;
+    }
+    else if (b == 1) {
+      plane = PLANAR_V; plane_aligned = PLANAR_V_ALIGNED;
+    }
+    else {
+      plane = PLANAR_U; plane_aligned = PLANAR_U_ALIGNED;
+    }
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -789,11 +806,11 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     srcp = src->GetReadPtr(plane);
     src_pitch = src->GetPitch(plane);
     Width = src->GetRowSize(plane);
-    Widtha = src->GetRowSize(plane + 8); // +8 = _ALIGNED
+    Widtha = src->GetRowSize(plane_aligned); // +8 = _ALIGNED
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
-    startx = np > 1 ? (b == 0 ? 8 : 4) : 16;
+    startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YUY2:16 YV12 luma:8 YV12 chroma:4
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
     if (b == 0) { y0a = y0; y1a = y1; }
@@ -869,6 +886,223 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     else
       buildDiffMapPlane2(prvnf - prvf_pitch, nxtnf - nxtf_pitch, mapn - map_pitch, prvf_pitch,
         nxtf_pitch, map_pitch, Height >> 1, Widtha, env);
+#ifdef USE_C_NO_ASM
+    // TFM 874
+    for (int y = 2; y < Height - 2; y += 2) {
+      if ((y < y0a) || (y0a == y1a) || (y > y1a))
+      {
+        for (int ebx = startx; ebx < stopx; ebx += incl)
+        {
+          int eax = (mapp[ebx] << 2) + mapn[ebx];
+          if ((eax & 0xFF) == 0)
+            continue;
+
+          int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
+          int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+          int diff_p_c = abs(a_prev - a_curr);
+          if (diff_p_c > 23) {
+            accumPc += diff_p_c;
+            if (diff_p_c > 42 && ((eax & 10) != 0))
+              accumPm += diff_p_c;
+          }
+          int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+          int diff_n_c = abs(a_next - a_curr);
+          if (diff_n_c > 23) {
+            accumNc += diff_n_c;
+            if (diff_n_c > 42 && ((eax & 10) != 0))
+              accumNm += diff_n_c;
+          }
+        }
+      } // if
+
+      mapp += map_pitch;
+      prvpf += prvf_pitch;
+      curpf += curf_pitch;
+      prvnf += prvf_pitch;
+      curf += curf_pitch;
+      nxtpf += nxtf_pitch;
+      curnf += curf_pitch;
+      nxtnf += nxtf_pitch;
+      mapn += map_pitch;
+    }
+
+#if 0
+    // work copy 
+    // TFM 874
+    // int y = 2; // mov y, 2
+      //
+    for (int y = 2; y < Height - 2; y += 2) {
+      if ((y < y0a) || (y0a == y1a) || (y > y1a))
+      {
+        /*
+    yloop:
+      int ecx = y0a; // mov ecx, y0a
+      int edx = y1a; // mov edx, y1a
+      if (ecx == edx) // cmp ecx, edx
+        goto xloop_pre; // je xloop_pre
+      int eax = y; // mov eax, y
+      if (eax < ecx) //  cmp eax, ecx
+        goto xloop_pre; // jl xloop_pre
+      if (eax <= edx) // cmp eax, edx
+        goto end_yloop; // jle end_yloop
+        */
+      //xloop_pre: //  xloop_pre :
+        //int esi = incl; // mov esi, incl
+        //int ebx = startx; // mov ebx, startx
+        //unsigned char *edi_mapp = mapp; // mov edi, mapp
+        //unsigned char *edx_mapn = mapn; // mov edx, mapn
+        //int ecx = stopx; //  mov ecx, stopx
+        for (int ebx = startx; ebx += incl; ebx < stopx)
+        {
+        //xloop:
+          int eax = (*(mapp + ebx) << 2) + *(mapn + ebx);
+          /*
+          int eax = *(mapp + ebx); // movzx eax, BYTE PTR[edi + ebx]
+          eax = eax << 2; //  shl eax, 2
+          eax += *(mapn + ebx); // add al, BYTE PTR[edx + ebx]
+          */
+          if ((eax & 0xFF) == 0)
+            continue;
+
+          /*
+          if ((eax & 0xFF) != 0)
+            goto b1; // jnz b1
+          ebx += esi; //  add ebx, esi
+          if (ecx < ecx) // cmp ebx, ecx
+            goto xloop; // jl xloop
+          goto end_yloop; //  jmp end_yloop
+          */
+        //b1:
+          //const unsigned char *edx_curf = curf; // mov edx, curf
+          //const unsigned char *edi_curpf = curpf; //  mov edi, curpf
+          int a1 = *(curpf + ebx) + *(curf + ebx) * 4 + *(curnf + ebx);
+          int a2 = 3 * (*(prvpf + ebx) + *(prvnf + ebx));
+          int edx = abs(a2 - a1);
+          /*
+          int ecx = *(curf + ebx); // movzx ecx, BYTE PTR[edx + ebx]
+          int esi = *(curpf + ebx); // movzx esi, BYTE PTR[edi + ebx]
+          ecx = ecx << 2; // shl ecx, 2
+          //const unsigned char *edx_curnf = curnf; // mov edx, curnf
+          ecx += esi; //  add ecx, esi
+          //const unsigned char *edi_prvpf = prvpf; // mov edi, prvpf
+          esi = *(curnf + ebx); // movzx esi, BYTE PTR[edx + ebx]
+          int edx = *(prvpf + ebx); // movzx edx, BYTE PTR[edi + ebx]
+          ecx += esi; // add ecx, esi
+
+          //const unsigned char *edi_prvnf = prvnf; // mov edi, prvnf
+          esi = *(prvnf + ebx); //  movzx esi, BYTE PTR[edi + ebx]
+          edx += esi; // add edx, esi
+          int edi = edx; //  mov edi, edx
+          edx = edx + edx; // add edx, edx
+          edi = edi - ecx; //  sub edi, ecx
+          edx = edx + edi; //  add edx, edi
+          if (edx < 0)
+            edx = -edx;
+            */
+          //  jge b2
+          //  neg edx
+          //  b2 :
+          if (edx > 23) {
+            accumPc += edx;
+            if (edx > 42 && ((eax & 10) != 0))
+              accumPm += edx; //  add accumNm, edx
+          }
+          /*
+          if (edx <= 23) // cmp edx, 23
+            goto p1; //  jle p1
+          accumPc += edx; // add accumPc, edx
+          if (edx <= 42) // cmp edx, 42
+            goto p1; // jle p1
+          if ((eax & 10) == 0) // test eax, 10
+            goto p1; // jz p1
+          accumPm += edx; //  add accumPm, edx
+          */
+        p1:
+          //const unsigned char *edi_nxtpf = nxtpf; // mov edi, nxtpf
+          //const unsigned char *esi_nxtnf = nxtnf; //   mov esi, nxtnf
+          int a3 = 3 * (*(nxtpf + ebx) + *(nxtnf + ebx)); //  movzx edx, BYTE PTR[edi + ebx]
+          edx = abs(a3 - a1);
+          /*
+          edx = *(nxtpf + ebx); //  movzx edx, BYTE PTR[edi + ebx]
+          edi = *(nxtnf + ebx); //  movzx edi, BYTE PTR[esi + ebx]
+          edx += edi; // add edx, edi
+          esi = edx; //  mov esi, edx
+          edx = edx + edx; // add edx, edx
+          esi -= esi - ecx; //  sub esi, ecx
+          edx = edx + esi; // add edx, esi
+          if (edx < 0)
+            edx = -edx;
+          */
+          //  jge b3
+          //  neg edx
+          //  b3 :
+          if (edx > 23) {
+            accumNc += edx;
+            if(edx > 42 && ((eax & 10)!=0))
+              accumNm += edx; //  add accumNm, edx
+          }
+          /*
+          if (edx <= 23) // cmp edx, 23
+            goto p2; // jle p2
+          accumNc += edx; // add accumNc, edx
+          if (edx <= 42) // cmp edx, 42
+            goto p2; // jle p2
+          if ((eax & 10) == 0) // test eax, 10
+            goto p2; // jz p2
+          accumNm += edx; //  add accumNm, edx
+          */
+        p2:
+          /*
+          ebx += incl; //  add ebx, esi
+          if (ebx < stopx) //  cmp ebx, ecx
+            goto xloop; // jl xloop
+            */
+          /*
+          esi = incl; // mov esi, incl
+          ecx = stopx; // mov ecx, stopx
+          edi_mapp = mapp; // mov edi, mapp // restore back
+          ebx += esi; //  add ebx, esi
+          edx_mapn = mapn; // mov edx, mapn // restore back
+          if (ebx < ecx) //  cmp ebx, ecx
+            goto xloop; // jl xloop
+          */
+        } // if
+    //end_yloop:
+
+        mapp += map_pitch; // add mapp, edi
+        prvpf += prvf_pitch; //  add prvpf, eax
+        curpf += curf_pitch; //  add curpf, ebx
+        prvnf += prvf_pitch; //  add prvnf, eax
+        curf += curf_pitch; //  add curf, ebx
+        nxtpf += nxtf_pitch; //  add nxtpf, ecx
+        curnf += curf_pitch; //  add curnf, ebx
+        nxtnf += nxtf_pitch; //  add nxtnf, ecx
+        mapn += map_pitch; //  add mapn, edi
+      }
+      /*
+      esi = Height; // mov esi, Height
+      eax = prvf_pitch; //  mov eax, prvf_pitch
+      ebx = curf_pitch; //  mov ebx, curf_pitch
+      ecx = nxtf_pitch; //  mov ecx, nxtf_pitch
+      edi = map_pitch; //  mov edi, map_pitch
+      esi -= 2; // sub esi, 2
+      y += 2; // add y, 2
+      mapp += edi; // add mapp, edi
+      prvpf += eax; //  add prvpf, eax
+      curpf += ebx; //  add curpf, ebx
+      prvnf += eax; //  add prvnf, eax
+      curf += ebx; //  add curf, ebx
+      nxtpf += ecx; //  add nxtpf, ecx
+      curnf += ebx; //  add curnf, ebx
+      nxtnf += ecx; //  add nxtnf, ecx
+      mapn += edi; //  add mapn, edi
+      if (y < esi) //  cmp y, esi
+      goto yloop; // jl yloop
+      */
+    }
+#endif
+#else
+    // TFM 874
     __asm
     {
       mov y, 2
@@ -976,6 +1210,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
         cmp y, esi
         jl yloop
     }
+#endif // todo
   }
   norm1 = (int)((accumPc / 6.0) + 0.5);
   norm2 = (int)((accumNc / 6.0) + 0.5);
@@ -1022,7 +1257,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 {
   if (slow == 2)
     return compareFieldsSlow2(prv, src, nxt, match1, match2, norm1, norm2, mtn1, mtn2, np, n, env);
-  int b, plane, ret, y, startx, y0a, y1a, tp;
+  int b, plane, plane_aligned, ret, y, startx, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1036,9 +1271,15 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   norm1 = norm2 = mtn1 = mtn2 = 0;
   for (b = 0; b < stop; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    if (b == 0) {
+      plane = PLANAR_Y; plane_aligned = PLANAR_Y_ALIGNED;
+    }
+    else if (b == 1) {
+      plane = PLANAR_V; plane_aligned = PLANAR_V_ALIGNED;
+    }
+    else {
+      plane = PLANAR_U; plane_aligned = PLANAR_U_ALIGNED;
+    }
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -1046,12 +1287,12 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     srcp = src->GetReadPtr(plane);
     src_pitch = src->GetPitch(plane);
     Width = src->GetRowSize(plane);
-    Widtha = src->GetRowSize(plane + 8); // +8 = _ALIGNED
+    Widtha = src->GetRowSize(plane_aligned); // +8 = _ALIGNED
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
     fmemset(env->GetCPUFlags(), mapp, Height*map_pitch, opt);
-    startx = np > 1 ? (b == 0 ? 8 : 4) : 16;
+    startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YV12 specific
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
     if (b == 0) { y0a = y0; y1a = y1; tp = tpitchy; }
@@ -1135,6 +1376,59 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
       else
         buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
     }
+#ifdef USE_C_NO_ASM
+    // TFM 1144
+    // almost the same as in buildDiffMapPlane2
+    for (int y = 2; y < Height - 2; y += 2) {
+      if ((y < y0a) || (y0a == y1a) || (y > y1a))
+      {
+        for (int ebx = startx; ebx < stopx; ebx += incl)
+        {
+          int eax = (mapp[ebx] << 3) + mapn[ebx]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+          if ((eax & 0xFF) == 0)
+            continue;
+
+          int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
+          int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+          int diff_p_c = abs(a_prev - a_curr);
+          if (diff_p_c > 23) {
+            if((eax & 9) != 0) // diff from previous similar asm block: condition
+              accumPc += diff_p_c;
+            if (diff_p_c > 42) {
+              if ((eax & 18) != 0) // diff: &18 instead of &10
+                accumPm += diff_p_c;
+              if ((eax & 36) != 0) // diff: new condition and accumulator
+                accumPml += diff_p_c;
+            }
+          }
+          int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+          int diff_n_c = abs(a_next - a_curr);
+          if (diff_n_c > 23) {
+            if ((eax & 9) != 0) // diff from previous similar asm block: condition
+              accumNc += diff_n_c;
+            if (diff_n_c > 42) {
+              if ((eax & 18) != 0) // diff: &18 instead of &10
+                accumNm += diff_n_c;
+              if ((eax & 36) != 0) // diff: &18 instead of &10
+                accumNml += diff_n_c;
+            }
+          }
+        }
+      } // if
+
+      mapp += map_pitch;
+      prvpf += prvf_pitch;
+      curpf += curf_pitch;
+      prvnf += prvf_pitch;
+      curf += curf_pitch;
+      nxtpf += nxtf_pitch;
+      curnf += curf_pitch;
+      nxtnf += nxtf_pitch;
+      mapn += map_pitch;
+    }
+
+#else
+    // TFM 1144
     __asm
     {
       mov y, 2
@@ -1256,6 +1550,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
         cmp y, esi
         jl yloop
     }
+#endif
   }
   if (accumPm < 500 && accumNm < 500 && (accumPml >= 500 || accumNml >= 500) &&
     max(accumPml, accumNml) > 3 * min(accumPml, accumNml))
@@ -1303,7 +1598,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env)
 {
-  int b, plane, ret, y, startx, y0a, y1a, tp;
+  int b, plane, plane_aligned, ret, y, startx, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1318,9 +1613,15 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   norm1 = norm2 = mtn1 = mtn2 = 0;
   for (b = 0; b < stop; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    if (b == 0) {
+      plane = PLANAR_Y; plane_aligned = PLANAR_Y_ALIGNED;
+    }
+    else if (b == 1) {
+      plane = PLANAR_V; plane_aligned = PLANAR_V_ALIGNED;
+    }
+    else {
+      plane = PLANAR_U; plane_aligned = PLANAR_U_ALIGNED;
+    }
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -1328,16 +1629,16 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     srcp = src->GetReadPtr(plane);
     src_pitch = src->GetPitch(plane);
     Width = src->GetRowSize(plane);
-    Widtha = src->GetRowSize(plane + 8); // +8 = _ALIGNED
+    Widtha = src->GetRowSize(plane_aligned); // +8 = _ALIGNED
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
     fmemset(env->GetCPUFlags(), mapp, Height*map_pitch, opt);
-    startx = np > 1 ? (b == 0 ? 8 : 4) : 16;
+    startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YV12/YUY specific
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
     if (b == 0) { y0a = y0; y1a = y1; tp = tpitchy; }
-    else { y0a = y0 >> 1; y1a = y1 >> 1; tp = tpitchuv; }
+    else { y0a = y0 >> 1; y1a = y1 >> 1; tp = tpitchuv; } // YV12 specific
     if (match1 < 3)
     {
       curf = srcp + ((3 - field)*src_pitch);
@@ -1421,8 +1722,195 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       else
         buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
     }
+#ifdef USE_C_NO_ASM
+    if (field == 0) {
+    // TFM 1436
+    // almost the same as in TFM 1144
+      for (int y = 2; y < Height - 2; y += 2) {
+        if ((y < y0a) || (y0a == y1a) || (y > y1a))
+        {
+          for (int ebx = startx; ebx < stopx; ebx += incl)
+          {
+            int eax = (mapp[ebx] << 3) + mapn[ebx]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+            if ((eax & 0xFF) == 0)
+              continue;
+
+            int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
+            int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+            int diff_p_c = abs(a_prev - a_curr);
+            if (diff_p_c > 23) {
+              if ((eax & 9) != 0) // diff from previous similar asm block: condition
+                accumPc += diff_p_c;
+              if (diff_p_c > 42) {
+                if ((eax & 18) != 0) // diff: &18 instead of &10
+                  accumPm += diff_p_c;
+                if ((eax & 36) != 0) // diff: new condition and accumulator
+                  accumPml += diff_p_c;
+              }
+            }
+            int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+            int diff_n_c = abs(a_next - a_curr);
+            if (diff_n_c > 23) {
+              if ((eax & 9) != 0) // diff from previous similar asm block: condition
+                accumNc += diff_n_c;
+              if (diff_n_c > 42) {
+                if ((eax & 18) != 0) // diff: &18 instead of &10
+                  accumNm += diff_n_c;
+                if ((eax & 36) != 0) // diff: &18 instead of &10
+                  accumNml += diff_n_c;
+              }
+            }
+
+            // additional difference from TFM 1144
+            if ((eax & 56) != 0) {
+
+              int a_prev = prvppf[ebx] + (prvpf[ebx] << 2) + prvnf[ebx];
+              int a_curr = 3 * (curpf[ebx] + curf[ebx]);
+              int diff_p_c = abs(a_prev - a_curr);
+              if (diff_p_c > 23) {
+                if ((eax & 8) != 0) // diff from previous similar asm block: condition
+                  accumPc += diff_p_c;
+                if (diff_p_c > 42) {
+                  if ((eax & 16) != 0) // diff: &16 instead of &18
+                    accumPm += diff_p_c;
+                  if ((eax & 32) != 0) // diff: new condition and accumulator
+                    accumPml += diff_p_c;
+                }
+              }
+              int a_next = nxtppf[ebx] + (nxtpf[ebx] << 2) + nxtnf[ebx]; // really! not 3*
+              int diff_n_c = abs(a_next - a_curr);
+              if (diff_n_c > 23) {
+                if ((eax & 8) != 0) // diff: &8 instead of &9
+                  accumNc += diff_n_c;
+                if (diff_n_c > 42) {
+                  if ((eax & 16) != 0) // diff: &16 instead of &18
+                    accumNm += diff_n_c;
+                  if ((eax & 32) != 0) // diff: &32 instead of &36
+                    accumNml += diff_n_c;
+                }
+              }
+            }
+          }
+        } // if
+
+        mapp += map_pitch;
+        prvpf += prvf_pitch;
+        curpf += curf_pitch;
+        prvnf += prvf_pitch;
+        curf += curf_pitch;
+        nxtpf += nxtf_pitch;
+        curnf += curf_pitch;
+        nxtnf += nxtf_pitch;
+        mapn += map_pitch;
+
+        prvppf += prvf_pitch;
+        nxtppf += nxtf_pitch;
+      }
+    }
+    else {
+      // TFM 1633
+      // almost the same as in TFM 1436 (field==0= case)
+      // differences are after eax&56 block, see later
+
+      for (int y = 2; y < Height - 2; y += 2) {
+        if ((y < y0a) || (y0a == y1a) || (y > y1a))
+        {
+          for (int ebx = startx; ebx < stopx; ebx += incl)
+          {
+            int eax = (mapp[ebx] << 3) + mapn[ebx]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+            if ((eax & 0xFF) == 0)
+              continue;
+
+            int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
+            int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+            int diff_p_c = abs(a_prev - a_curr);
+            if (diff_p_c > 23) {
+              if ((eax & 9) != 0) // diff from previous similar asm block: condition
+                accumPc += diff_p_c;
+              if (diff_p_c > 42) {
+                if ((eax & 18) != 0) // diff: &18 instead of &10
+                  accumPm += diff_p_c;
+                if ((eax & 36) != 0) // diff: new condition and accumulator
+                  accumPml += diff_p_c;
+              }
+            }
+            int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+            int diff_n_c = abs(a_next - a_curr);
+            if (diff_n_c > 23) {
+              if ((eax & 9) != 0) // diff from previous similar asm block: condition
+                accumNc += diff_n_c;
+              if (diff_n_c > 42) {
+                if ((eax & 18) != 0) // diff: &18 instead of &10
+                  accumNm += diff_n_c;
+                if ((eax & 36) != 0) // diff: &18 instead of &10
+                  accumNml += diff_n_c;
+              }
+            }
+
+            // difference from TFM 1436
+            // prvpf  -> prvnf
+            // prvppf -> prvpf
+            // prvnf  -> prvnnf
+            // curpf  -> curf
+            // curf   -> curnf
+            // nxtpf  -> nxtnf
+            // nxtppf -> nxtpf
+            // nxtnf  -> nxtnnf
+            // mask 8/16/32 -> 1/2/4
+            if ((eax & 56) != 0) {
+
+              //int a_prev = *(prvppf + ebx) + (*(prvpf + ebx) << 2) + *(prvnf + ebx);
+              //int a_curr = 3 * (*(curpf + ebx) + *(curf + ebx));
+              int a_prev = prvpf[ebx] + (prvnf[ebx] << 2) + prvnnf[ebx];
+              int a_curr = 3 * (curf[ebx] + curnf[ebx]);
+              int diff_p_c = abs(a_prev - a_curr);
+              if (diff_p_c > 23) {
+                if ((eax & 1) != 0) // diff: &1 instead of &8
+                  accumPc += diff_p_c;
+                if (diff_p_c > 42) {
+                  if ((eax & 2) != 0) // diff: &2 instead of &16
+                    accumPm += diff_p_c;
+                  if ((eax & 4) != 0) // diff: &4 instead of &32
+                    accumPml += diff_p_c;
+                }
+              }
+              //int a_next = *(nxtppf + ebx) + (*(nxtpf + ebx) << 2) + *(nxtnf + ebx); // really! not 3*
+              int a_next = nxtpf[ebx] + (nxtnf[ebx] << 2) + nxtnnf[ebx]; // really! not 3*
+              int diff_n_c = abs(a_next - a_curr);
+              if (diff_n_c > 23) {
+                if ((eax & 1) != 0) // diff: &1 instead of &8
+                  accumNc += diff_n_c;
+                if (diff_n_c > 2) {
+                  if ((eax & 16) != 0) // diff: &2 instead of &16
+                    accumNm += diff_n_c;
+                  if ((eax & 4) != 0) // diff: &4 instead of &32
+                    accumNml += diff_n_c;
+                }
+              }
+            }
+          }
+        } // if
+
+        mapp += map_pitch;
+        prvpf += prvf_pitch;
+        curpf += curf_pitch;
+        prvnf += prvf_pitch;
+        curf += curf_pitch;
+        nxtpf += nxtf_pitch;
+        curnf += curf_pitch;
+        nxtnf += nxtf_pitch;
+        mapn += map_pitch;
+
+        prvppf += prvf_pitch;
+        nxtppf += nxtf_pitch;
+      }
+
+    }
+
+#else
     if (field == 0)
     {
+      // TFM 1436
       __asm
       {
         mov y, 2
@@ -1617,6 +2105,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     }
     else
     {
+      // TFM 1633
       __asm
       {
         mov y, 2
@@ -1809,6 +2298,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
           jl yloop1
       }
     }
+#endif // todo
   }
   if (accumPm < 500 && accumNm < 500 && (accumPml >= 500 || accumNml >= 500) &&
     max(accumPml, accumNml) > 3 * min(accumPml, accumNml))
@@ -1881,7 +2371,7 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
-  if ((cpu&CPUF_SSE2) && !((int(prvp) | int(srcp) | int(nxtp) | prv_pitch | src_pitch | nxt_pitch) & 15))
+  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(srcp) | intptr_t(nxtp) | prv_pitch | src_pitch | nxt_pitch) & 15))
   {
     if (sclast.frame == n)
     {
@@ -1898,6 +2388,7 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
         src_pitch, nxt_pitch, diffp, diffn);
     }
   }
+#ifdef ALLOW_MMX
   else if (cpu&CPUF_INTEGER_SSE)
   {
     if (sclast.frame == n)
@@ -1932,6 +2423,7 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
         src_pitch, nxt_pitch, diffp, diffn);
     }
   }
+#endif
   else
   {
     if (sclast.frame != n)
@@ -2138,16 +2630,18 @@ void TFM::buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxt
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
-  if ((cpu&CPUF_SSE2) && !((int(prvp) | int(nxtp) | int(dstp) | prv_pitch | nxt_pitch | dst_pitch) & 15))
+  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | intptr_t(dstp) | prv_pitch | nxt_pitch | dst_pitch) & 15))
   {
     buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch,
       Width, Height);
   }
+#ifdef ALLOW_MMX
   else if (cpu&CPUF_MMX)
   {
     buildABSDiffMask2_MMX(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch,
       Width, Height);
   }
+#endif
   else
   {
     const int inc = (!(vi.IsYUY2() && !mChroma)) ? 1 : 2;
@@ -2180,16 +2674,20 @@ void TFM::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
-  if ((cpu&CPUF_SSE2) && !((int(prvp) | int(nxtp) | prv_pitch | nxt_pitch | tpitch) & 15))
+  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch | tpitch) & 15))
   {
+    // aligned. 
+    // different path if not mod16, but only for remaining 8 bytes
     buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch,
       width, height);
   }
+#ifdef ALLOW_MMX
   else if (cpu&CPUF_MMX)
   {
     buildABSDiffMask_MMX(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch,
       width, height);
   }
+#endif
   else
   {
     unsigned char *dstp = tbuffer;
@@ -2317,7 +2815,11 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     sprintf(buf, "TFM:  %s by tritical\n", VERSION);
     OutputDebugString(buf);
   }
+#ifdef AVISYNTH_2_5
   child->SetCacheHints(CACHE_RANGE, 3); // fixed to diameter (07/30/2005)
+#else
+  child->SetCacheHints(CACHE_GENERIC, 3);  // fixed to diameter (07/30/2005)
+#endif
   lastMatch.frame = lastMatch.field = lastMatch.combed = lastMatch.match = -20;
   nfrms = vi.num_frames - 1;
   f = NULL;
@@ -2367,7 +2869,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     else fieldO = order;
   }
   tpitchy = tpitchuv = -20;
-
+  
   const int ALIGN_BUF = 64; // must be <= as Avisynth's alignment. 64 is enoght for a decade
   if (vi.IsYV12())
   {
@@ -2385,7 +2887,6 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     tpitchy = AlignNumber((vi.width << 1), ALIGN_BUF);
   }
   tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1)*tpitchy, ALIGN_BUF); // 16 would be is enough for sse2
-
   if (tbuffer == NULL)
     env->ThrowError("TFM:  malloc failure (tbuffer)!");
   mode7_field = field;
@@ -2428,8 +2929,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
           if (firstLine == 1)
           {
             bool changed = false;
-            if (strnicmp(linein, "field = top", 11) == 0) { fieldt = 1; changed = true; }
-            else if (strnicmp(linein, "field = bottom", 14) == 0) { fieldt = 0; changed = true; }
+            if (_strnicmp(linein, "field = top", 11) == 0) { fieldt = 1; changed = true; }
+            else if (_strnicmp(linein, "field = bottom", 14) == 0) { fieldt = 0; changed = true; }
             if (debug && changed)
             {
               sprintf(buf, "TFM:  detected field for input file - %s.\n",
@@ -2440,7 +2941,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
         }
         else if (*linep == 'c')
         {
-          if (strnicmp(linein, "crc32 = ", 8) == 0)
+          if (_strnicmp(linein, "crc32 = ", 8) == 0)
           {
             linet = linein;
             while (*linet != ' ') *linet++;
@@ -2648,8 +3149,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             if (firstLine == 1)
             {
               bool changed = false;
-              if (strnicmp(linein, "field = top", 11) == 0) { fieldt = 1; changed = true; }
-              else if (strnicmp(linein, "field = bottom", 14) == 0) { fieldt = 0; changed = true; }
+              if (_strnicmp(linein, "field = top", 11) == 0) { fieldt = 1; changed = true; }
+              else if (_strnicmp(linein, "field = bottom", 14) == 0) { fieldt = 0; changed = true; }
               if (debug && changed)
               {
                 sprintf(buf, "TFM:  detected field for ovr file - %s.\n",

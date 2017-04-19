@@ -25,6 +25,17 @@
 
 #include "TFM.h"
 
+#ifdef _M_X64
+#define USE_INTR
+#undef ALLOW_MMX
+#else
+//#define USE_INTR
+#define ALLOW_MMX
+//#undef ALLOW_MMX
+#endif
+
+
+#ifndef USE_INTR
 __declspec(align(16)) const __int64 onesMask[2] = { 0x0101010101010101, 0x0101010101010101 };
 __declspec(align(16)) const __int64 onesMaskLuma[2] = { 0x0001000100010001, 0x0001000100010001 };
 __declspec(align(16)) const __int64 twosMask[2] = { 0x0202020202020202, 0x0202020202020202 };
@@ -33,10 +44,27 @@ __declspec(align(16)) const __int64 mask235[2] = { 0xEBEBEBEBEBEBEBEB, 0xEBEBEBE
 __declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 __declspec(align(16)) const __int64 threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
 __declspec(align(16)) const __int64 ffMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
+#endif
 
 void TFM::checkSceneChangeYV12_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
+#ifdef USE_INTR
+  __m128i sum = _mm_setzero_si128();
+  while (height--) {
+    for (int x = 0; x < width; x += 16)
+    {
+      __m128i src1 = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+      __m128i src2 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
+      __m128i sad = _mm_sad_epu8(src1, src2);
+      sum = _mm_add_epi32(sum, sad);
+    }
+    prvp += prv_pitch;
+    srcp += src_pitch;
+  }
+  __m128i res = _mm_add_epi32(sum, _mm_srli_si128(sum, 8));
+  diffp = _mm_cvtsi128_si32(res);
+#else
   __asm
   {
     mov eax, prvp
@@ -65,8 +93,10 @@ void TFM::checkSceneChangeYV12_1_SSE2(const unsigned char *prvp, const unsigned 
       paddd xmm6, xmm7
       movd[eax], xmm6
   }
+#endif
 }
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYV12_1_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
@@ -102,7 +132,9 @@ void TFM::checkSceneChangeYV12_1_ISSE(const unsigned char *prvp, const unsigned 
       emms
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYV12_1_MMX(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
@@ -163,11 +195,35 @@ void TFM::checkSceneChangeYV12_1_MMX(const unsigned char *prvp, const unsigned c
       emms
   }
 }
+#endif
 
 void TFM::checkSceneChangeYV12_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
+#ifdef USE_INTR
+  __m128i sump = _mm_setzero_si128();
+  __m128i sumn = _mm_setzero_si128();
+  while (height--) {
+    for (int x = 0; x < width; x += 16)
+    {
+      __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+      __m128i src_curr = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
+      __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
+      __m128i sadp = _mm_sad_epu8(src_prev, src_curr);
+      __m128i sadn = _mm_sad_epu8(src_next, src_curr);
+      sump = _mm_add_epi32(sump, sadp);
+      sumn = _mm_add_epi32(sumn, sadn);
+    }
+    prvp += prv_pitch;
+    srcp += src_pitch;
+    nxtp += nxt_pitch;
+  }
+  __m128i resp = _mm_add_epi32(sump, _mm_srli_si128(sump, 8));
+  diffp = _mm_cvtsi128_si32(resp);
+  __m128i resn = _mm_add_epi32(sumn, _mm_srli_si128(sumn, 8));
+  diffn = _mm_cvtsi128_si32(resn);
+#else
   __asm
   {
     mov eax, prvp
@@ -207,8 +263,10 @@ void TFM::checkSceneChangeYV12_2_SSE2(const unsigned char *prvp, const unsigned 
       movd[eax], xmm4
       movd[ebx], xmm5
   }
+#endif
 }
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYV12_2_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
@@ -255,7 +313,9 @@ void TFM::checkSceneChangeYV12_2_ISSE(const unsigned char *prvp, const unsigned 
       emms
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYV12_2_MMX(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
@@ -346,10 +406,30 @@ void TFM::checkSceneChangeYV12_2_MMX(const unsigned char *prvp, const unsigned c
       emms
   }
 }
+#endif
 
 void TFM::checkSceneChangeYUY2_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
+#ifdef USE_INTR
+  __m128i sum = _mm_setzero_si128();
+  __m128i lumaMask = _mm_set1_epi16(0x00FF);
+  while (height--) {
+    for (int x = 0; x < width; x += 16)
+    {
+      __m128i src1 = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+      __m128i src2 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
+      src1 = _mm_and_si128(src1, lumaMask);
+      src2 = _mm_and_si128(src2, lumaMask);
+      __m128i sad = _mm_sad_epu8(src1, src2);
+      sum = _mm_add_epi32(sum, sad);
+    }
+    prvp += prv_pitch;
+    srcp += src_pitch;
+  }
+  __m128i res = _mm_add_epi32(sum, _mm_srli_si128(sum, 8));
+  diffp = _mm_cvtsi128_si32(res);
+#else
   __asm
   {
     mov eax, prvp
@@ -383,8 +463,10 @@ void TFM::checkSceneChangeYUY2_1_SSE2(const unsigned char *prvp, const unsigned 
       paddd xmm6, xmm7
       movd[eax], xmm6
   }
+#endif
 }
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYUY2_1_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
@@ -428,7 +510,9 @@ void TFM::checkSceneChangeYUY2_1_ISSE(const unsigned char *prvp, const unsigned 
       emms
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYUY2_1_MMX(const unsigned char *prvp, const unsigned char *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {
@@ -483,11 +567,39 @@ void TFM::checkSceneChangeYUY2_1_MMX(const unsigned char *prvp, const unsigned c
       emms
   }
 }
+#endif
 
 void TFM::checkSceneChangeYUY2_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
 {
+#ifdef USE_INTR
+  __m128i sump = _mm_setzero_si128();
+  __m128i sumn = _mm_setzero_si128();
+  __m128i lumaMask = _mm_set1_epi16(0x00FF);
+  while (height--) {
+    for (int x = 0; x < width; x += 16)
+    {
+      __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+      __m128i src_curr = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
+      __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
+      src_prev = _mm_and_si128(src_prev, lumaMask);
+      src_curr = _mm_and_si128(src_curr, lumaMask);
+      src_next = _mm_and_si128(src_next, lumaMask);
+      __m128i sadp = _mm_sad_epu8(src_prev, src_curr);
+      __m128i sadn = _mm_sad_epu8(src_next, src_curr);
+      sump = _mm_add_epi32(sump, sadp);
+      sumn = _mm_add_epi32(sumn, sadn);
+    }
+    prvp += prv_pitch;
+    srcp += src_pitch;
+    nxtp += nxt_pitch;
+  }
+  __m128i resp = _mm_add_epi32(sump, _mm_srli_si128(sump, 8));
+  diffp = _mm_cvtsi128_si32(resp);
+  __m128i resn = _mm_add_epi32(sumn, _mm_srli_si128(sumn, 8));
+  diffn = _mm_cvtsi128_si32(resn);
+#else
   __asm
   {
     mov eax, prvp
@@ -532,8 +644,10 @@ void TFM::checkSceneChangeYUY2_2_SSE2(const unsigned char *prvp, const unsigned 
       movd[eax], xmm4
       movd[ebx], xmm5
   }
+#endif
 }
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYUY2_2_ISSE(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
@@ -588,7 +702,9 @@ void TFM::checkSceneChangeYUY2_2_ISSE(const unsigned char *prvp, const unsigned 
       emms
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::checkSceneChangeYUY2_2_MMX(const unsigned char *prvp, const unsigned char *srcp,
   const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
@@ -669,11 +785,57 @@ void TFM::checkSceneChangeYUY2_2_MMX(const unsigned char *prvp, const unsigned c
       emms
   }
 }
+#endif
 
+// aligned. 
+// different path if not mod16, but only for remaining 8 bytes
 void TFM::buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
+#ifdef USE_INTR
+  if (!(width & 15))
+  {
+    while (height--) {
+      for (int x = 0; x < width; x += 16)
+      {
+        __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+        __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
+        __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
+        __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+        __m128i diff = _mm_or_si128(diffpn, diffnp);
+        _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), diff);
+      }
+      prvp += prv_pitch;
+      nxtp += nxt_pitch;
+      dstp += dst_pitch;
+    }
+  }
+  else {
+    width -= 8; // last chunk is 8 bytes instead of 16
+    while (height--) {
+      int x;
+      for (x = 0; x < width; x += 16)
+      {
+        __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+        __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
+        __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
+        __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+        __m128i diff = _mm_or_si128(diffpn, diffnp);
+        _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), diff);
+      }
+      __m128i src_prev = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(prvp + x));
+      __m128i src_next = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(nxtp + x));
+      __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
+      __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+      __m128i diff = _mm_or_si128(diffpn, diffnp);
+      _mm_storel_epi64(reinterpret_cast<__m128i *>(dstp + x), diff);
+      prvp += prv_pitch;
+      nxtp += nxt_pitch;
+      dstp += dst_pitch;
+    }
+  }
+#else
   if (!(width & 15))
   {
     __asm
@@ -742,8 +904,10 @@ void TFM::buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *
         jnz yloop2
     }
   }
+#endif
 }
 
+#ifdef ALLOW_MMX
 void TFM::buildABSDiffMask_MMX(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
@@ -833,11 +997,82 @@ void TFM::buildABSDiffMask_MMX(const unsigned char *prvp, const unsigned char *n
     }
   }
 }
+#endif
 
 void TFM::buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
+#ifdef USE_INTR
+  __m128i onesMask = _mm_set1_epi8(0x01);
+  __m128i twosMask = _mm_set1_epi8(0x02);
+  __m128i all_ff = _mm_set1_epi8(0xFF);
+  __m128i mask251 = _mm_set1_epi8(0xFB); // 1111 1011
+  __m128i mask235 = _mm_set1_epi8(0xEB); // 1110 1011
+
+  if (!(width & 15))
+  {
+    while (height--) {
+      for (int x = 0; x < width; x += 16)
+      {
+        __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+        __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
+        __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
+        __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+        __m128i diff = _mm_or_si128(diffpn, diffnp);
+        __m128i added251 = _mm_adds_epu8(diff, mask251);
+        __m128i added235 = _mm_adds_epu8(diff, mask235);
+        __m128i cmp251 = _mm_cmpeq_epi8(added251, all_ff);
+        __m128i cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+        __m128i tmp1 = _mm_and_si128(cmp251, onesMask);
+        __m128i tmp2 = _mm_and_si128(cmp235, twosMask);
+        __m128i tmp = _mm_or_si128(tmp1, tmp2);
+        _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), tmp);
+      }
+      prvp += prv_pitch;
+      nxtp += nxt_pitch;
+      dstp += dst_pitch;
+    }
+  }
+  else {
+    width -= 8; // last chunk is 8 bytes instead of 16
+    while (height--) {
+      int x;
+      for (x = 0; x < width; x += 16)
+      {
+        __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i *>(prvp + x));
+        __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
+        __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
+        __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+        __m128i diff = _mm_or_si128(diffpn, diffnp);
+        __m128i added251 = _mm_adds_epu8(diff, mask251);
+        __m128i added235 = _mm_adds_epu8(diff, mask235);
+        __m128i cmp251 = _mm_cmpeq_epi8(added251, all_ff);
+        __m128i cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+        __m128i tmp1 = _mm_and_si128(cmp251, onesMask);
+        __m128i tmp2 = _mm_and_si128(cmp235, twosMask);
+        __m128i tmp = _mm_or_si128(tmp1, tmp2);
+        _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), tmp);
+      }
+      __m128i src_prev = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(prvp + x));
+      __m128i src_next = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(nxtp + x));
+      __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
+      __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+      __m128i diff = _mm_or_si128(diffpn, diffnp);
+      __m128i added251 = _mm_adds_epu8(diff, mask251);
+      __m128i added235 = _mm_adds_epu8(diff, mask235);
+      __m128i cmp251 = _mm_cmpeq_epi8(added251, all_ff);
+      __m128i cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+      __m128i tmp1 = _mm_and_si128(cmp251, onesMask);
+      __m128i tmp2 = _mm_and_si128(cmp235, twosMask);
+      __m128i tmp = _mm_or_si128(tmp1, tmp2);
+      _mm_storel_epi64(reinterpret_cast<__m128i *>(dstp + x), tmp);
+      prvp += prv_pitch;
+      nxtp += nxt_pitch;
+      dstp += dst_pitch;
+    }
+  }
+#else
   if (!(width & 15))
   {
     __asm
@@ -940,8 +1175,10 @@ void TFM::buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char 
         jnz yloop2
     }
   }
+#endif
 }
 
+#ifdef ALLOW_MMX
 void TFM::buildABSDiffMask2_MMX(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
@@ -1080,10 +1317,112 @@ void TFM::buildABSDiffMask2_MMX(const unsigned char *prvp, const unsigned char *
     }
   }
 }
+#endif
 
-void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w)
+template<bool aligned, bool with_luma_mask>
+static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned char *dstp, int width,
+  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
+  __m128i all_ff = _mm_set1_epi8(0xFF);
+  while (height--) {
+    for (int x = 0; x < width; x += 16) {
+      auto next = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + src_pitch + x));
+      auto curr = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
+      auto prev = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp - src_pitch + x));
+      auto diff_curr_next = _mm_subs_epu8(curr, next);
+      auto diff_next_curr = _mm_subs_epu8(next, curr);
+      auto diff_curr_prev = _mm_subs_epu8(curr, prev);
+      auto diff_prev_curr = _mm_subs_epu8(prev, curr);
+      // max(min(p-s,n-s), min(s-n,s-p))
+      auto xmm2_max = _mm_max_epu8(_mm_min_epu8(diff_prev_curr, diff_next_curr), _mm_min_epu8(diff_curr_next, diff_curr_prev));
+      auto xmm2_cmp = _mm_cmpeq_epi8(_mm_adds_epu8(xmm2_max, threshb), all_ff);
+      if (with_luma_mask) {
+        __m128i lumaMask = _mm_set1_epi16(0x00FF);
+        xmm2_cmp = _mm_and_si128(xmm2_cmp, lumaMask);
+      }
+      auto res_part1 = xmm2_cmp;
+      bool cmpres_is_allzero;
+#ifdef _M_X64
+      cmpres_is_allzero = (_mm_cvtsi128_si64(xmm2_cmp) | _mm_cvtsi128_si64(_mm_srli_si128(xmm2_cmp, 8))) == 0; // _si64: only at x64 platform
+#else
+      cmpres_is_allzero = (_mm_cvtsi128_si32(xmm2_cmp) |
+        _mm_cvtsi128_si32(_mm_srli_si128(xmm2_cmp, 4)) |
+        _mm_cvtsi128_si32(_mm_srli_si128(xmm2_cmp, 8)) |
+        _mm_cvtsi128_si32(_mm_srli_si128(xmm2_cmp, 12))
+        ) == 0;
+#endif
+        if (!cmpres_is_allzero) {
+          // output2
+          auto zero = _mm_setzero_si128();
+          // compute 3*(p+n)
+          auto next_lo = _mm_unpacklo_epi8(next, zero);
+          auto prev_lo = _mm_unpacklo_epi8(prev, zero);
+          auto next_hi = _mm_unpackhi_epi8(next, zero);
+          auto prev_hi = _mm_unpackhi_epi8(prev, zero);
+          __m128i threeMask = _mm_set1_epi16(3);
+          auto mul_lo = _mm_mullo_epi16(_mm_adds_epu16(next_lo, prev_lo), threeMask);
+          auto mul_hi = _mm_mullo_epi16(_mm_adds_epu16(next_hi, prev_hi), threeMask);
+
+          // compute (pp+c*4+nn)
+          auto prevprev = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp - src_pitch * 2 + x));
+          auto prevprev_lo = _mm_unpacklo_epi8(prevprev, zero);
+          auto prevprev_hi = _mm_unpackhi_epi8(prevprev, zero);
+          auto curr_lo = _mm_unpacklo_epi8(curr, zero);
+          auto curr_hi = _mm_unpackhi_epi8(curr, zero);
+          auto sum2_lo = _mm_adds_epu16(_mm_slli_epi16(curr_lo, 2), prevprev_lo); // pp + c*4
+          auto sum2_hi = _mm_adds_epu16(_mm_slli_epi16(curr_hi, 2), prevprev_hi); // pp + c*4
+
+          auto nextnext = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + src_pitch * 2 + x));
+          auto nextnext_lo = _mm_unpacklo_epi8(nextnext, zero);
+          auto nextnext_hi = _mm_unpackhi_epi8(nextnext, zero);
+          auto sum3_lo = _mm_adds_epu16(sum2_lo, nextnext_lo);
+          auto sum3_hi = _mm_adds_epu16(sum2_hi, nextnext_hi);
+
+          // working with sum3=(pp+c*4+nn)   and  mul=3*(p+n)
+          auto diff_sum3lo_mullo = _mm_subs_epu16(sum3_lo, mul_lo);
+          auto diff_mullo_sum3lo = _mm_subs_epu16(mul_lo, sum3_lo);
+          auto diff_sum3hi_mulhi = _mm_subs_epu16(sum3_hi, mul_hi);
+          auto diff_mulhi_sum3hi = _mm_subs_epu16(mul_hi, sum3_hi);
+          // abs( (pp+c*4+nn) - mul=3*(p+n) )
+          auto max_lo = _mm_max_epi16(diff_sum3lo_mullo, diff_mullo_sum3lo);
+          auto max_hi = _mm_max_epi16(diff_sum3hi_mulhi, diff_mulhi_sum3hi);
+          // abs( (pp+c*4+nn) - mul=3*(p+n) ) + thresh6w
+          auto lo_thresh6w_added = _mm_adds_epu16(max_lo, thresh6w);
+          auto hi_thresh6w_added = _mm_adds_epu16(max_hi, thresh6w);
+          // maximum reached?
+          auto cmp_lo = _mm_cmpeq_epi16(lo_thresh6w_added, all_ff);
+          auto cmp_hi = _mm_cmpeq_epi16(hi_thresh6w_added, all_ff);
+
+          auto res_lo = _mm_srli_epi16(cmp_lo, 8);
+          auto res_hi = _mm_srli_epi16(cmp_hi, 8);
+          auto res_part2 = _mm_packus_epi16(res_lo, res_hi);
+
+          auto res = _mm_and_si128(res_part1, res_part2);
+          _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), res);
+        }
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+
+// instantiate
+template void TFM::check_combing_SSE2<false>(const unsigned char *srcp, unsigned char *dstp, int width,
+  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
+template void TFM::check_combing_SSE2<true>(const unsigned char *srcp, unsigned char *dstp, int width,
+  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
+
+// todo: this one needs an unaligned version, too
+// src_pitch2: src_pitch*2 for inline asm speed reasons
+template<bool aligned>
+void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
+  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
+{
+#ifdef USE_INTR
+  // no luma masking
+  check_combing_SSE2_generic_simd<aligned, false>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
+#else
   __asm
   {
     mov eax, srcp
@@ -1091,7 +1430,7 @@ void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int
     mov edi, src_pitch
     add eax, edi
     movdqa xmm6, threshb
-    pcmpeqb xmm7, xmm7
+    pcmpeqb xmm7, xmm7 // Full FF
     yloop :
     xor ecx, ecx
       align 16
@@ -1111,14 +1450,17 @@ void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int
       pminub xmm3, xmm5
       pminub xmm2, xmm4
       pmaxub xmm2, xmm3
+
       paddusb xmm2, xmm6
       pcmpeqb xmm2, xmm7
+
       movdqa xmm3, xmm2
       psrldq xmm2, 4
       movd edi, xmm3
       movd esi, xmm2
       or edi, esi
       jnz output2
+
       movdqa xmm4, xmm2
       psrldq xmm2, 4
       psrldq xmm4, 8
@@ -1126,16 +1468,20 @@ void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int
       movd esi, xmm4
       or edi, esi
       jnz output2
+
       mov edi, src_pitch
       add ecx, 16
       lea eax, [eax + edi * 2]
       cmp ecx, width
       jl xloop
+
       add eax, edi
       add edx, dst_pitch
       dec height
       jnz yloop
+
       jmp end
+
       output2 :
     mov esi, src_pitch2
       mov edi, src_pitch
@@ -1194,14 +1540,18 @@ void TFM::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int
       add ecx, 16
       cmp ecx, width
       jl xloop
+      
       add eax, edi
       add edx, dst_pitch
+
       dec height
       jnz yloop
       end :
   }
+#endif
 }
 
+#ifdef ALLOW_MMX
 void TFM::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1317,7 +1667,9 @@ void TFM::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int
     emms
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1468,10 +1820,16 @@ void TFM::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int 
     emms
   }
 }
+#endif
 
+template<bool aligned>
 void TFM::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w)
+  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
+#ifdef USE_INTR
+  // with luma masking
+  check_combing_SSE2_generic_simd<aligned, true>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
+#else
   __asm
   {
     mov eax, srcp
@@ -1502,6 +1860,7 @@ void TFM::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp
       paddusb xmm2, xmm6
       pcmpeqb xmm2, xmm7
       pand xmm2, lumaMask
+
       movdqa xmm3, xmm2
       psrldq xmm2, 4
       movd edi, xmm3
@@ -1589,8 +1948,17 @@ void TFM::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp
       jnz yloop
       end :
   }
+#endif
 }
 
+// instantiate
+template void TFM::check_combing_SSE2_Luma<false>(const unsigned char *srcp, unsigned char *dstp, int width,
+  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
+template void TFM::check_combing_SSE2_Luma<true>(const unsigned char *srcp, unsigned char *dstp, int width,
+  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
+
+
+#ifdef ALLOW_MMX
 void TFM::check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1707,7 +2075,9 @@ void TFM::check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp
     emms
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
 {
@@ -1859,7 +2229,9 @@ void TFM::check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp,
     emms
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
 {
@@ -1932,10 +2304,71 @@ void TFM::check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
       emms
   }
 }
+#endif
 
+template<bool aligned>
 void TFM::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128 thresh)
+  int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
+#ifdef USE_INTR
+  __m128i all_ff = _mm_set1_epi8(0xFF);
+  __m128i zero = _mm_setzero_si128();
+  __m128i lumaMask = _mm_set1_epi16(0x00FF);
+
+  while (height--) {
+    for (int x = 0; x < width; x += 16) {
+      auto next = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + src_pitch + x));
+      auto curr = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
+      auto prev = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp - src_pitch + x));
+
+      auto prev_lo = _mm_unpacklo_epi8(prev, zero);
+      auto prev_hi = _mm_unpackhi_epi8(prev, zero);
+      auto curr_lo = _mm_unpacklo_epi8(curr, zero);
+      auto curr_hi = _mm_unpackhi_epi8(curr, zero);
+      auto next_lo = _mm_unpacklo_epi8(next, zero);
+      auto next_hi = _mm_unpackhi_epi8(next, zero);
+
+      auto diff_prev_curr_lo = _mm_subs_epi16(prev_lo, curr_lo);
+      auto diff_next_curr_lo = _mm_subs_epi16(next_lo, curr_lo);
+      auto diff_prev_curr_hi = _mm_subs_epi16(prev_hi, curr_hi);
+      auto diff_next_curr_hi = _mm_subs_epi16(next_hi, curr_hi);
+
+      // -- lo
+      auto diff_prev_curr_lo_lo = _mm_unpacklo_epi16(diff_prev_curr_lo, zero);
+      auto diff_prev_curr_lo_hi = _mm_unpackhi_epi16(diff_prev_curr_lo, zero);
+      auto diff_next_curr_lo_lo = _mm_unpacklo_epi16(diff_next_curr_lo, zero);
+      auto diff_next_curr_lo_hi = _mm_unpackhi_epi16(diff_next_curr_lo, zero);
+
+      auto res_lo_lo = _mm_madd_epi16(diff_prev_curr_lo_lo, diff_next_curr_lo_lo);
+      auto res_lo_hi = _mm_madd_epi16(diff_prev_curr_lo_hi, diff_next_curr_lo_hi);
+
+      // -- hi
+      auto diff_prev_curr_hi_lo = _mm_unpacklo_epi16(diff_prev_curr_hi, zero);
+      auto diff_prev_curr_hi_hi = _mm_unpackhi_epi16(diff_prev_curr_hi, zero);
+      auto diff_next_curr_hi_lo = _mm_unpacklo_epi16(diff_next_curr_hi, zero);
+      auto diff_next_curr_hi_hi = _mm_unpackhi_epi16(diff_next_curr_hi, zero);
+
+      auto res_hi_lo = _mm_madd_epi16(diff_prev_curr_hi_lo, diff_next_curr_hi_lo);
+      auto res_hi_hi = _mm_madd_epi16(diff_prev_curr_hi_hi, diff_next_curr_hi_hi);
+
+      auto cmp_lo_lo = _mm_cmpgt_epi32(res_lo_lo, thresh);
+      auto cmp_lo_hi = _mm_cmpgt_epi32(res_lo_hi, thresh);
+      auto cmp_hi_lo = _mm_cmpgt_epi32(res_hi_lo, thresh);
+      auto cmp_hi_hi = _mm_cmpgt_epi32(res_hi_hi, thresh);
+
+      auto cmp_lo = _mm_packs_epi32(cmp_lo_lo, cmp_lo_hi);
+      auto cmp_hi = _mm_packs_epi32(cmp_hi_lo, cmp_hi_hi);
+      auto cmp_lo_masked = _mm_and_si128(cmp_lo, lumaMask);
+      auto cmp_hi_masked = _mm_and_si128(cmp_hi, lumaMask);
+
+      auto res = _mm_packus_epi16(cmp_lo_masked, cmp_hi_masked);
+      _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), res);
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+
+#else
   __asm
   {
     movdqa xmm6, thresh
@@ -1950,47 +2383,51 @@ void TFM::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
     xor ecx, ecx
       align 16
       xloop :
-      movdqa xmm0, [eax + ecx]
-      movdqa xmm1, [edx + ecx]
-      movdqa xmm2, [esi + ecx]
+      movdqa xmm0, [eax + ecx] // prev
+      movdqa xmm1, [edx + ecx] // curr
+      movdqa xmm2, [esi + ecx] // next
       movdqa xmm3, xmm0
       movdqa xmm4, xmm1
       movdqa xmm5, xmm2
-      punpcklbw xmm0, xmm7
-      punpcklbw xmm1, xmm7
-      punpcklbw xmm2, xmm7
-      punpckhbw xmm3, xmm7
-      punpckhbw xmm4, xmm7
-      punpckhbw xmm5, xmm7
-      psubsw xmm0, xmm1
-      psubsw xmm2, xmm1
-      psubsw xmm3, xmm4
-      psubsw xmm5, xmm4
+      punpcklbw xmm0, xmm7 // prev_lo
+      punpcklbw xmm1, xmm7 // curr_lo
+      punpcklbw xmm2, xmm7 // next_lo
+      punpckhbw xmm3, xmm7 // prev_hi
+      punpckhbw xmm4, xmm7 // curr_hi
+      punpckhbw xmm5, xmm7 // next_hi
+      psubsw xmm0, xmm1 // diff_prev_curr_lo = prev_lo - curr_lo
+      psubsw xmm2, xmm1 // diff_next_curr_lo = next_lo - curr_lo
+      psubsw xmm3, xmm4 // diff_prev_curr_hi = prev_hi - curr_hi
+      psubsw xmm5, xmm4 // diff_next_curr_hi = next_hi - curr_hi
+
       movdqa xmm1, xmm0
       movdqa xmm4, xmm2
-      punpcklwd xmm0, xmm7
-      punpckhwd xmm1, xmm7
-      punpcklwd xmm2, xmm7
-      punpckhwd xmm4, xmm7
-      pmaddwd xmm0, xmm2
-      pmaddwd xmm1, xmm4
-      movdqa xmm2, xmm3
+      punpcklwd xmm0, xmm7 // diff_prev_curr_lo_lo
+      punpckhwd xmm1, xmm7 // diff_prev_curr_lo_hi
+      punpcklwd xmm2, xmm7 // diff_next_curr_lo_lo
+      punpckhwd xmm4, xmm7 // diff_next_curr_lo_hi
+      pmaddwd xmm0, xmm2   // res_lo_lo = _mm_madd_epi16(diff_prev_curr_lo_lo,diff_next_curr_lo_lo)
+      pmaddwd xmm1, xmm4   // res_lo_hi = _mm_madd_epi16(diff_prev_curr_lo_hi,diff_next_curr_lo_hi)
+
+      movdqa xmm2, xmm3   
       movdqa xmm4, xmm5
-      punpcklwd xmm2, xmm7
-      punpckhwd xmm3, xmm7
-      punpcklwd xmm4, xmm7
-      punpckhwd xmm5, xmm7
-      pmaddwd xmm2, xmm4
-      pmaddwd xmm3, xmm5
-      pcmpgtd xmm0, xmm6
-      pcmpgtd xmm1, xmm6
-      pcmpgtd xmm2, xmm6
-      pcmpgtd xmm3, xmm6
-      packssdw xmm0, xmm1
-      packssdw xmm2, xmm3
-      pand xmm0, lumaMask
-      pand xmm2, lumaMask
-      packuswb xmm0, xmm2
+      punpcklwd xmm2, xmm7 // diff_prev_curr_hi_lo
+      punpckhwd xmm3, xmm7 // diff_prev_curr_hi_hi
+      punpcklwd xmm4, xmm7 // diff_next_curr_hi_lo
+      punpckhwd xmm5, xmm7 // diff_next_curr_hi_hi
+      pmaddwd xmm2, xmm4   // res_hi_lo = _mm_madd_epi16(diff_prev_curr_hi_lo,diff_next_curr_hi_lo)
+      pmaddwd xmm3, xmm5   // res_hi_hi = _mm_madd_epi16(diff_prev_curr_hi_hi,diff_next_curr_hi_hi)
+
+      pcmpgtd xmm0, xmm6   // cmp_lo_lo = mm_cmp_epi32(res_lo_lo,thresh)
+      pcmpgtd xmm1, xmm6   // cmp_lo_hi = mm_cmp_epi32(res_lo_hi,thresh)
+      pcmpgtd xmm2, xmm6   // cmp_hi_lo = mm_cmp_epi32(res_hi_lo,thresh)
+      pcmpgtd xmm3, xmm6   // cmp_hi_hi = mm_cmp_epi32(res_hi_hi,thresh)
+
+      packssdw xmm0, xmm1  // cmp_lo = mm_packs_epi32(cmp_lo_lo,cmp_lo_hi);
+      packssdw xmm2, xmm3  // cmp_hi = mm_packs_epi32(cmp_hi_lo,cmp_hi_hi);
+      pand xmm0, lumaMask  // cmp_lo_masked = _mm_and_si128(cmp_lo, lumaMask)
+      pand xmm2, lumaMask  // cmp_hi_masked = _mm_and_si128(cmp_hi, lumaMask)
+      packuswb xmm0, xmm2  // res = _mm_packus_epi16(cmp_lo_masked, cmp_hi_masked)
       movdqa[edi + ecx], xmm0
       add ecx, 16
       cmp ecx, width
@@ -2002,8 +2439,17 @@ void TFM::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
       dec height
       jnz yloop
   }
+#endif
 }
 
+// instantiate
+template void TFM::check_combing_SSE2_M1<false>(const unsigned char *srcp, unsigned char *dstp,
+  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
+template void TFM::check_combing_SSE2_M1<true>(const unsigned char *srcp, unsigned char *dstp,
+  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
+
+
+#ifdef ALLOW_MMX
 void TFM::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
 {
@@ -2056,10 +2502,50 @@ void TFM::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *ds
       emms
   }
 }
+#endif
 
+
+template<bool aligned>
 void TFM::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128 thresh)
+  int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
+#ifdef USE_INTR
+  __m128i lumaMask = _mm_set1_epi16(0x00FF);
+  __m128i all_ff = _mm_set1_epi8(0xFF);
+  __m128i zero = _mm_setzero_si128();
+  while (height--) {
+    for (int x = 0; x < width; x += 16) {
+      auto next = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + src_pitch + x));
+      auto curr = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
+      auto prev = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp - src_pitch + x));
+      
+      next = _mm_and_si128(next, lumaMask);
+      curr = _mm_and_si128(curr, lumaMask);
+      prev = _mm_and_si128(prev, lumaMask);
+
+      auto diff_prev_curr = _mm_subs_epi16(prev, curr);
+      auto diff_next_curr = _mm_subs_epi16(next, curr);
+
+      auto diff_prev_curr_lo = _mm_unpacklo_epi16(diff_prev_curr, zero);
+      auto diff_prev_curr_hi = _mm_unpackhi_epi16(diff_prev_curr, zero);
+      auto diff_next_curr_lo = _mm_unpacklo_epi16(diff_next_curr, zero);
+      auto diff_next_curr_hi = _mm_unpackhi_epi16(diff_next_curr, zero);
+
+      auto res_lo = _mm_madd_epi16(diff_prev_curr_lo, diff_next_curr_lo);
+      auto res_hi = _mm_madd_epi16(diff_prev_curr_hi, diff_next_curr_hi);
+
+      auto cmp_lo = _mm_cmpgt_epi32(res_lo, thresh);
+      auto cmp_hi = _mm_cmpgt_epi32(res_hi, thresh);
+
+      auto cmp = _mm_packs_epi32(cmp_lo, cmp_hi);
+      auto cmp_masked = _mm_and_si128(cmp, lumaMask);
+
+      _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), cmp_masked);
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+#else
   __asm
   {
     movdqa xmm6, thresh
@@ -2106,15 +2592,111 @@ void TFM::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *d
       dec height
       jnz yloop
   }
+#endif
 }
+
+// instantiate
+template void TFM::check_combing_SSE2_Luma_M1<false>(const unsigned char *srcp, unsigned char *dstp,
+  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
+template void TFM::check_combing_SSE2_Luma_M1<true>(const unsigned char *srcp, unsigned char *dstp,
+  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
+
 
 // There are no emms instructions at the end of these compute_sum 
 // mmx/isse routines because it is called at the end of the routine 
 // that calls these individual functions.
 
+// no alignment needed for 8 bytes
+void TFM::compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
+{
+  // sums masks
+  // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;
+  __m128i onesMask = _mm_set1_epi8(1);
+  __m128i prev0 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp));
+  __m128i prev1_currMinus1 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp + pitch));
+  __m128i zero = _mm_setzero_si128();
+  __m128i summa = _mm_setzero_si128();
+  srcp += pitch * 2;
+  for (int i = 0; i < 4; i++) { // 4x2=8
+    __m128i curr0_prev2 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp));
+    __m128i curr1 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp + pitch));
+
+    __m128i prev_anded = _mm_and_si128(prev0, prev1_currMinus1);
+    prev_anded = _mm_and_si128(prev_anded, curr0_prev2); // prev0 prev1 prev2
+    prev_anded = _mm_and_si128(prev_anded, onesMask);
+
+    __m128i curr_anded = _mm_and_si128(curr0_prev2, curr1);
+    curr_anded = _mm_and_si128(curr_anded, prev1_currMinus1); // currMinus1 curr0 curr1
+    curr_anded = _mm_and_si128(curr_anded, onesMask);
+
+    prev0 = curr0_prev2;
+    prev1_currMinus1 = curr1;
+
+    summa = _mm_adds_epu8(summa, prev_anded);
+    summa = _mm_adds_epu8(summa, curr_anded);
+    srcp += pitch * 2;
+  }
+  // now we have to sum up lower 8 bytes
+  // in sse2, we use sad
+  __m128i tmpsum = _mm_sad_epu8(summa, zero);  // sum(lo 8 bytes)(needed) / sum(hi 8 bytes)(not needed)
+  sum = _mm_cvtsi128_si32(tmpsum);
+#if 0
+  __asm
+  {
+    mov eax, srcp
+    mov edi, pitch
+    mov ecx, 4
+    movq mm0, [eax]
+    movq mm1, [eax + edi]
+    movq mm5, onesMask
+    lea eax, [eax + edi * 2]
+
+    pxor mm6, mm6
+    pxor mm7, mm7
+    align 16
+    loopy:
+    movq mm2, [eax]
+      movq mm3, [eax + edi]
+
+      movq mm4, mm2
+
+      pand mm0, mm1
+      pand mm4, mm3
+      pand mm0, mm2
+      pand mm4, mm1
+
+      pand mm0, mm5
+      pand mm4, mm5
+      paddusb mm7, mm0
+
+      lea eax, [eax + edi * 2]
+      movq mm0, mm2
+      movq mm1, mm3
+      paddusb mm7, mm4
+      dec ecx
+      jnz loopy
+
+      movq mm0, mm7
+      mov eax, sum
+      punpcklbw mm7, mm6
+      punpckhbw mm0, mm6
+      paddusw mm7, mm0
+      movq mm0, mm7
+      punpcklwd mm7, mm6
+      punpckhwd mm0, mm6
+      paddd mm7, mm0
+      movq mm0, mm7
+      psrlq mm7, 32
+      paddd mm0, mm7
+      movd[eax], mm0
+  }
+#endif
+}
+
 #pragma warning(push)
 #pragma warning(disable:4799)	// disable no emms warning message
 
+#ifdef ALLOW_MMX
 void TFM::compute_sum_8x8_mmx(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
@@ -2161,7 +2743,9 @@ void TFM::compute_sum_8x8_mmx(const unsigned char *srcp, int pitch, int &sum)
       movd[eax], mm0
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::compute_sum_8x8_isse(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
@@ -2198,7 +2782,9 @@ void TFM::compute_sum_8x8_isse(const unsigned char *srcp, int pitch, int &sum)
       movd[eax], mm7
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::compute_sum_8x16_mmx_luma(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
@@ -2254,7 +2840,9 @@ void TFM::compute_sum_8x16_mmx_luma(const unsigned char *srcp, int pitch, int &s
       movd[eax], mm0
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TFM::compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &sum)
 {
   __asm
@@ -2304,9 +2892,60 @@ void TFM::compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &
       movd[eax], mm7
   }
 }
+#endif
 
+
+template<bool aligned>
 void TFM::compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
 {
+#ifdef USE_INTR
+  // sums masks
+  // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;
+  __m128i onesMask = _mm_set1_epi16(1); // onesMaskLuma Word(1)
+  __m128i prev0, prev1_currMinus1;
+  if (aligned) {
+    prev0 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp));
+    prev1_currMinus1 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
+  }
+  else {
+    prev0 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp));
+    prev1_currMinus1 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
+  }
+  __m128i zero = _mm_setzero_si128();
+  __m128i summa = _mm_setzero_si128();
+  srcp += pitch * 2;
+  for (int i = 0; i < 4; i++) { // 4x2=8
+    __m128i curr0_prev2, curr1;
+    if (aligned) {
+      curr0_prev2 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp));
+      curr1 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
+    }
+    else {
+      curr0_prev2 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp));
+      curr1 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
+    }
+
+    __m128i prev_anded = _mm_and_si128(prev0, prev1_currMinus1);
+    prev_anded = _mm_and_si128(prev_anded, curr0_prev2); // prev0 prev1 prev2
+    prev_anded = _mm_and_si128(prev_anded, onesMask);
+
+    __m128i curr_anded = _mm_and_si128(curr0_prev2, curr1);
+    curr_anded = _mm_and_si128(curr_anded, prev1_currMinus1); // currMinus1 curr0 curr1
+    curr_anded = _mm_and_si128(curr_anded, onesMask);
+
+    prev0 = curr0_prev2;
+    prev1_currMinus1 = curr1;
+
+    summa = _mm_adds_epu8(summa, prev_anded);
+    summa = _mm_adds_epu8(summa, curr_anded);
+    srcp += pitch * 2;
+  }
+  // now we have to sum up lower 8 bytes
+  // in sse2, we use sad
+  __m128i tmpsum = _mm_sad_epu8(summa, zero);  // sum(lo 8 bytes) / sum(hi 8 bytes)
+  tmpsum = _mm_add_epi32(tmpsum, _mm_srli_si128(tmpsum, 8)); // lo + hi
+  sum = _mm_cvtsi128_si32(tmpsum);
+#else
   __asm
   {
     mov eax, srcp
@@ -2336,6 +2975,7 @@ void TFM::compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &
       paddusb xmm7, xmm4
       dec ecx
       jnz loopy
+
       mov eax, sum
       psadbw xmm7, xmm6
       movdqa xmm4, xmm7
@@ -2343,6 +2983,13 @@ void TFM::compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &
       paddq xmm4, xmm7
       movd[eax], xmm4
   }
+#endif
 }
+
+// instantiate
+template void TFM::compute_sum_8x16_sse2_luma<false>(const unsigned char *srcp, int pitch, int &sum);
+template void TFM::compute_sum_8x16_sse2_luma<true>(const unsigned char *srcp, int pitch, int &sum);
+
+
 
 #pragma warning(pop)	// reenable no emms warning
