@@ -1,0 +1,28 @@
+#TFM v0.9 by tritical
+
+   
+                               
+          
+field = bottom
+
+
+
+0,20 c
+21 p
+24,100 cpcncpbubupc
+
+
+
+74,100 m 0
+
+120,149 f 1
+
+114,118 n
+105 o 1
+109,167 o -1
+
+180,0 p
+
+
+
+;200 u

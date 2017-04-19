@@ -1,0 +1,218 @@
+
+
+                            ShowCombedTIVTC v1.2  -  HELP FILE  (03/23/2006)
+
+
+
+GENERAL INFO:
+
+
+     * Currently ShowCombedTIVTC only supports YV12 and YUY2 colorspaces!
+
+      ShowCombedTIVTC provides an easy means to tweak the combed frame detection parameters
+   of TFM (cthresh, MI, chroma, blockx, blocky, metric) and to see how they effect which pixels
+   are detected as combed and what blocks have values above MI.  IsCombedTIVTC is a utility
+   function that can be used within AviSynth's conditionalfilter, and uses TFM's inbuilt combed
+   frame detection, to test whether or not a frame is combed and returns true if it is and
+   false if it isn't.
+
+
+   syntax=>
+
+        ShowCombedTIVTC(int cthresh, bool chroma, int MI, int blockx, int blocky,
+                          int metric, bool debug, int display, bool fill, int opt)
+
+        IsCombedTIVTC(int cthresh, int MI, bool chroma, int blockx, int blocky,
+                          int metric, int opt)
+
+
+   example usage of IsCombedTIVTC =>
+
+        conditionalfilter(last,source1,source2,"IsCombedTIVTC","=","true")
+
+
+
+PARAMETERS:
+
+
+     The cthresh/MI/chroma/blockx/blocky/metric parameters are exactly the same as the
+     corresponding parameters in TFM so I have just copied their descriptions.
+
+
+     cthresh -
+
+         This is the area combing threshold used for combed frame detection.  It is like
+         dthresh or dthreshold in telecide() and fielddeinterlace().  This essentially
+         controls how "strong" or "visible" combing must be to be detected.  Larger values
+         mean combing must be more visible and smaller values mean combing can be less
+         visible or strong and still be detected.  Valid settings are from -1 (every pixel
+         will be detected as combed) to 255 (no pixel will be detected as combed).  This
+         is basically a pixel difference value.  A good range is between 8 to 12.
+
+         Default:  9  (int)
+
+
+     MI -
+
+         The # of combed pixels inside any of the blocky by blockx size blocks on the frame
+         for the frame to be detected as combed. While cthresh controls how "visible" the
+         combing must be, this setting controls "how much" combing there must be in any localized
+         area (a window defined by the blockx and blocky settings) on the frame.  Min setting = 0,
+         max setting = blocky x blockx (at which point no frames will ever be detected as combed).
+
+         Default:  80  (int)
+
+
+     chroma -
+
+         Sets whether or not chroma is considered in the combed frame decision.  Only
+         disable this if your source has chroma problems (rainbowing, etc...) that are
+         causing problems for the combed frame detection with chroma enabled.  Actually,
+         setting this to false is usually a good idea unless there is chroma only combing
+         in the source.
+
+            true = chroma is included
+            false = chroma is not included
+
+         Default:  false  (bool)
+
+
+     blockx -
+
+         Sets the x-axis size of the window used during combed frame detection.  This has
+         to do with the size of the area in which MI number of pixels are required to be
+         detected as combed for a frame to be declared combed.  See the MI parameter
+         description for more info.  Possible values are any number that is a power of
+         2 starting at 4 and going to 2048 (i.e. 4, 8, 16, 32, ... 2048).
+
+         Default:  16  (int)
+
+
+     blocky -
+
+         Sets the y-axis size of the window used during combed frame detection.  This has
+         to do with the size of the area in which MI number of pixels are required to be
+         detected as combed for a frame to be declared combed.  See the MI parameter
+         description for more info.  Possible values are any number that is a power of
+         2 starting at 4 and going to 2048 (i.e. 4, 8, 16, 32, ... 2048).
+
+         Default:  16  (int)
+
+
+     metric -
+
+         Sets which spatial combing metric is used to detect combed pixels.  Possible
+         options:
+
+              Assume 5 neighboring pixels (a,b,c,d,e) positioned vertically.
+
+                    a
+                    b
+                    c
+                    d
+                    e
+
+            0:  d1 = c - b;
+                d2 = c - d;
+                if ((d1 > cthresh && d2 > cthresh) || (d1 < -cthresh && d2 < -cthresh))
+                {
+                   if (abs(a+4*c+e-3*(b+d)) > cthresh*6) it's combed;
+                }
+
+            1:  val = (b - c) * (d - c);
+                if (val > cthresh*cthresh) it's combed;
+
+         Metric 0 is what is/showcombedtivtc used previous to v1.2.  Metric 1 is the
+         combing metric used in Donald Graft's FieldDeinterlace()/IsCombed() funtions
+         in decomb.dll.
+
+         Default:  0  (int)
+
+
+     opt -
+
+         Controls which optimizations are used.  Possible settings:
+
+            0 - use c routines
+            1 - use mmx routines
+            2 - use isse routines
+            3 - use sse2 routines
+            4 - auto detect
+
+         Default:  4  (int)
+
+
+     The following parameters are only used by ShowCombedTIVTC and not by IsCombedTIVTC!
+
+
+     debug -
+
+         For each frame the mic value, along with the number of detected combed pixels and
+         number of blocks with mic counts above MI will be output via OutDebugString().
+         You can use the free program "Debugview" to view this output.  When a frame has a
+         mic value > MI the debug output will output a combed frame detected message.
+
+         Default:  false  (bool)
+
+
+     display -
+
+         Controls what is written and/or drawn on the output frame.  Possible settings:
+
+            0 - pixels detected as combed are marked in white
+            1 - the block with the highest count value will be either outlined or
+                   filled in white depending on the value of the "fill" parameter
+            2 - all blocks with counts above MI will be either outlined or filled
+                   in white depending on the value of the "fill" parameter
+            3 - 0 + 1
+            4 - 0 + 2
+            5 - nothing, no output
+
+         Options 0-4 also output all of the information that is output via the debug
+         option (# pixels detected as combed, # blocks with counts > MI, MIC value of
+         frame).
+
+         Default:  3  (int)
+
+
+      fill -
+
+         Only used by display = 1, 2, 3, 4.  If fill is set to true then blocks are filled
+         in white with a black single pixel mark in the center.  If fill is set to false
+         then blocks are outlined in white/black (depending on background color).
+
+         Default:  false (bool)
+
+
+
+CHANGE LIST:
+
+
+   (12/07/2006)
+
+      - fixed IsCombedTIVTC causing tfm to throw an error on construction resulting
+          in invalid output
+
+
+   v1.2 - (03/23/2006)
+
+      + added new spatial combing metric (metric=1) and metric parameter
+      - replace frame copy with makewritable
+      - fixed cthresh < 0 not working correctly
+
+
+   v1.1 - (01/24/2006)
+
+      + ported mmx/isse/sse2 optimizations from tfm
+      + added opt parameter
+
+
+
+TO DO LIST:
+
+
+    - nothing
+
+
+
+contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu

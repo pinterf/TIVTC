@@ -1,0 +1,28 @@
+#TFM v0.9 by tritical           <= this line is ignored due to the '#' as first character
+
+   
+                                <= all blank lines and empty lines are ignored as well
+          
+field = bottom                  <= sets the reference field for this overrides file, this must
+                                   be the first active line in the file (meaning its the first
+                                   line that is actually processed and not ignored)
+
+0,20 c                          <= frames 0 through 20 (ranges are inclusive) will use match c
+21 p                            <= frame 21 will use match p
+24,100 cpcncpbubupc             <= will repeat the given pattern of matches starting at frame
+                                   24 and stopping at frame 100.  Patterns of matches can be
+                                   anywhere from 1 to 50 matches long.
+
+74,100 m 0                      <= sets the mode parameter to 0 for frames 74 through 100
+
+120,149 f 1                     <= sets the field parameter to 1 for frames 120 through 149
+
+114,118 n                       <= match n will be used for frames 114 through 118
+105 o 1                         <= sets the order parameter to 1 for frame 105
+109,167 o -1                    <= sets the order parameter to -1 for frames 109 through 167
+
+180,0 p                         <= match p will be used for frames 180 through to the last
+                                   frame of the clip (specifying 0 as the last number in a
+                                   frame ranges means the last frame of the clip)
+
+;200 u                          <= will be ignored due to the ';' as first character

@@ -1,0 +1,1257 @@
+
+
+                                  TFM v1.0.4  -  HELP FILE  (01/17/2008)
+
+
+
+CONTENTS OF FILE:
+
+
+    A.) General Info
+    B.) Basic Parameters
+    C.) Advanced Parameters
+    D.) File Input/Output Parameters
+    E.) Debug/Display Parameters
+    F.) Overrides Info
+    G.) Change List
+    H.) To Do List
+
+
+
+A.)  GENERAL INFO:
+
+
+     * Currently TFM only supports YV12 and YUY2 colorspaces!
+
+      TFM is a field matching filter that recovers the original progressive frames from a
+   telecined stream.  It does not decimate the resulting duplicate frames though, so to
+   achieve an ivtc you must follow TFM with a decimation filter such as TDecimate(), which
+   is also included in the TIVTC dll.
+
+
+   syntax=>
+
+       TFM(int order, int field, int mode, int PP. string ovr, string input, string output,
+            string outputC, bool debug, bool display, int slow, bool mChroma, int cNum,
+            int cthresh, int MI, bool chroma, int blockx, int blocky, int y0, int y1,
+            int mthresh, PClip clip2, string d2v, int ovrDefault, int flags, double scthresh,
+            int micout, int micmatching, string trimIn, int hint, int metric, bool batch,
+            bool ubsco, bool mmsco, int opt)
+
+
+      While TFM does have quite a few parameters, I have tried to categorize the settings so
+   they are easier to manage.  Really there are only 3 parameters most users should be
+   concerned about knowing or ever setting.  They are "order", "mode", and "PP" and are
+   described under the "BASIC PARAMETERS" sections.  The other settings are described under
+   the other various sections which should be pretty easy to figure out from the names.
+
+
+
+B.)  BASIC PARAMETERS:
+
+
+   These are the only three parameters most users should be concerned with or worry about
+   setting.  They control the basic operation of the filter.
+
+
+     order - 
+
+        Sets the field order of the clip. The field order must be correctly set for
+        accurate field matching to occur. Possible values:
+
+           -1 = auto (use avisynth's internal parity value)
+            0 = bottom field first (bff)
+            1 = top field first (tff)
+
+        Default:  -1  (int)
+
+
+     mode - 
+
+        Sets the matching mode or strategy to use.  Plain 2-way matching (option 0) is the
+        safest of all the options in the sense that it wont risk creating jerkiness due to
+        duplicate frames when possible, but if there are bad edits or blended fields it will
+        end up outputting combed frames when a good match might actually exist.  3-way matching
+        + trying the 4th/5th matches if all 3 of the original matches are detected as combed
+        (option 5) is the most risky in terms of creating jerkiness, but will almost always
+        find a good frame if there is one.  The other settings (options 1, 2, 3, 4, and 6) are all
+        somewhere in between options 0 and 5 in terms of risking jerkiness and creating
+        duplicate frames vs. finding good matches in sections with bad edits, orphaned fields,
+        blended fields, etc...
+
+        Mode 7 is is not one of the normal modes and is specifically for material with blended
+        fields that follows a specific pattern.  Mode 7 requires linear access to work correctly
+        because what match/field are used depends on previous match decisions.
+
+        Possible settings are:
+
+            0 = 2-way match                                                          (p/c)
+            1 = 2-way match + 3rd match on combed                                    (p/c + n)
+            2 = 2-way match + 3rd match (same order) on combed                       (p/c + u)
+            3 = 2-way match + 3rd match on combed + 4th/5th matches if still combed  (p/c + n + u/b)
+            4 = 3-way match                                                          (p/c/n)
+            5 = 3-way match + 4th/5th matches on combed                              (p/c/n + u/b)
+            6 = mode 2 + extras if combed                                            (p/c + u + n + b)
+            7 = mode 0 + field switching based on previous matches
+
+        The () at the end indicate the matches that would be used for that mode assuming order = 1
+        and field = 1.
+
+           * In terms of speed option 0 is by far the fastest and 5 is the slowest.
+
+        Default:  1  (int)
+
+
+     PP -
+
+        Sets the post-processing mode.  This controls how TFM should handle (or not handle)
+        any combed frames that come out of the field matching process.  Possible options
+        are:
+
+            0 - nothing (don't even look for combed frames)
+            1 - find/hint combed frames but don't deinterlace
+            2 - dumb blend deinterlacing
+            3 - dumb cubic interpolation deinterlacing
+            4 - dumb modified-ela deinterlacing
+            5 - motion-adaptive blend deinterlacing
+            6 - motion-adaptive cubic interpolation deinterlacing
+            7 - motion-adaptive modified-ela deinterlacing
+
+           * You can also use the "clip2" parameter to specify an externally deinterlaced clip
+             from which TFM will take frames instead of doing the deinterlacing itself.  See
+             the clip2 parameter description for more info and to see how the PP settings effect
+             operation with clip2.
+
+           * You can manually control what frames should be marked as combed as well as the
+             PP option through an overrides file (see the ovr parameter description)
+
+        Default:  6  (int)
+
+
+
+C.)  ADVANCED PARAMETERS:
+
+
+   These parameters give finer control over the matching operation, combed frame detection,
+   and deinterlacing of combed frames.  While correctly tweaking these values can increase
+   matching accuracy they can also make things worse.
+
+
+     field - 
+
+         Sets the field to match from.  It is recommended to set this to the same value
+         as order unless you experience matching failures with that setting.  In certain
+         circumstances changing the field that is used to match from can have a large impact
+         on matching performance. Possible values are:
+
+           -1 = auto (TFM will set field to the same value as the order parameter)
+            0 = bottom field
+            1 = top field
+
+         Default:  -1  (int)
+
+
+     slow -
+
+         Sets which field matching fuction is used.  Possible settings:
+
+            0 - normal   (should have the worst accuracy)
+            1 - slower
+            2 - slowest  (should have the best accuracy)
+
+         This is basically a quality vs. speed option (the slower the function the more
+         accurate it should be).  Prior to v0.9.9.1 of tfm this was a boolean value, true
+         from previous versions corresponds to a current value of 1 and false corresponds
+         to a current value of 0.
+
+         Default:  1  (int)
+
+
+     mChroma -
+
+         Sets whether or not chroma is included during the match comparisons.  In most
+         cases it is recommended to leave this enabled.  Only if your clip has bad chroma
+         problems such as heavy rainbowing or other artifacts should you set this to false.
+         Setting this to false could also be used to speed things up at the cost of some 
+         accuracy.
+
+            true = chroma is included
+            false = chroma is not included
+
+         Default:  true  (bool)
+
+
+     y0/y1 -
+
+         These define an exclusion band which excludes the lines between y0 and y1 from
+         being included in the field matching decision.  An exclusion band can be used
+         to ignore subtitles, a logo, or other things that may interfer with the matching.
+         y0 sets the starting scan line and y1 sets the ending line, all lines in between
+         y0 and y1 (including y0 and y1) will be ignored.  Set y0 equal to y1 to disable.
+
+         Default:  y0 - 0  (int)
+                   y1 - 0  (int)
+
+
+     scthresh -
+
+         Sets the scenechange threshold as a percentage of maximum change on the luma plane.
+         Good values are in the 8.0 to 14.0 range.  Scenechange detection is used by the
+         following parameters:  ubsco, mmsco, and flags (only flags=5).  The range for
+         scthresh is [0.0, 100.0].
+
+         Default:  12.0  (double)
+
+
+     ubsco -
+
+         Allow u/b matches to be used only around scenechanges.  The 'scthresh' parameter sets the
+         scenechange threshold as a percentage of maximum change on the luma plane.  To disable
+         this (allow u/b matches everywhere) set ubsco to false.  The ubsco setting only effects
+         automatic matching, i.e. u/b matches via an overrides or input file are not changed.
+         The only matching modes that ubsco is used with are 2, 3, 5, and 6 (the only ones that
+         use u/b matches).
+
+         Default:  true (bool)
+
+
+     micmatching -
+
+         When micmatching is greater than 0, tfm will take into account the mic values of matches
+         when deciding what match to use as the final match.  micmatching has 5 possible settings:
+
+           0 - disabled
+           1 - mics are only used to determine if of the 5 possible matches there is one match
+                  that has a significantly lower mic value than all of the other four matches.
+                  With this option enabled it is possible for tfm to use any match (p/c/n/b/u)
+                  regardless of the matching mode!
+           2 - use mics to aid the decision within the current matching mode (only matches that
+                  could be used within the current matching mode are considered)
+           3 - do both option 1 and option 2
+           4 - do a post field matching decision check only (this operation is included in
+                  micmatching modes 1, 2, and 3, and is not subject to the mmsco parameter)
+
+         Debug output will indicate when micmatching has led to a change in the match decision.
+         Enabling micmatching will make processing slower due to needing to calculate mic values
+         for matches that they normally wouldn't be calculated for.
+
+         The "mmsco" parameter can be used to restrict the use of micmatching to scenechanges only.
+         To do this, set mmsco to true... then, only frames on either side of a scenechange
+         will have the possibility of being effected by micmatching.
+
+            **** As of v0.9.10.0 of TFM, micmatching defaults to 1. That means any one of the five
+            **** matches could be used regardless of the matching mode!  If you don't want this
+            **** behavior then set micmatching to 0!
+
+            **** As of v0.9.12.6 of TFM, all micmatching modes will run a check after each
+            **** field matching decision to check for cases where the mic values make it
+            **** obvious that the wrong match was chosen.  This part acts independently of
+            **** the mmsco parameter.
+
+         Default:  1  (int)
+
+
+     mmsco -
+
+         Allow micmatching around scenechanges only.  The 'scthresh' parameter sets the
+         scenechange threshold as a percentage of maximum change on the luma plane. If set
+         to true, then micmatching will be limited to scenechanges only.  If set to false,
+         then micmatching will be allowed anywhere.
+
+         Default:  true (bool)
+
+
+     hint -
+
+         Enables writing hint information into the video frames for tdecimate or tdeint to read.
+         Information includes match used, combed vs. progressive, and d2v rff info. true enables
+         writing, false disables.
+
+         Default:  true (bool)
+
+
+     opt -
+
+         Controls which optimizations are used.  Possible settings:
+
+            0 - use c routines
+            1 - use mmx routines
+            2 - use isse routines
+            3 - use sse2 routines
+            4 - auto detect
+
+         Default:  4  (int)
+
+
+   The rest of the "advanced parameters" control combed frame detection and deinterlacing,
+   and are only used if mode is set to 1, 2, or 4 or PP (post-processing) is set to 1 or greater!
+
+
+     cthresh -
+
+         This is the area combing threshold used for combed frame detection.  It is like
+         dthresh or dthreshold in telecide() and fielddeinterlace().  This essentially
+         controls how "strong" or "visible" combing must be to be detected.  Larger values
+         mean combing must be more visible and smaller values mean combing can be less
+         visible or strong and still be detected.  Valid settings are from -1 (every pixel
+         will be detected as combed) to 255 (no pixel will be detected as combed).  This
+         is bascially a pixel difference value.  A good range is between 8 to 12.
+
+         Default:  9  (int)
+
+
+     chroma -
+
+         Sets whether or not chroma is considered in the combed frame decision.  Only
+         disable this if your source has chroma problems (rainbowing, etc...) that are
+         causing problems for the combed frame detection with chroma enabled.  Actually,
+         using chroma=false is usually more reliable, except for the case that there
+         is chroma only combing in the source.
+
+            true = chroma is included
+            false = chroma is not included
+
+         Default:  false  (bool)
+
+
+     blockx -
+
+         Sets the x-axis size of the window used during combed frame detection.  This has
+         to do with the size of the area in which MI number of pixels are required to be
+         detected as combed for a frame to be declared combed.  See the MI parameter
+         description for more info.  Possible values are any number that is a power of
+         2 starting at 4 and going to 2048 (i.e. 4, 8, 16, 32, ... 2048).
+
+         Default:  16  (int)
+
+
+     blocky -
+
+         Sets the y-axis size of the window used during combed frame detection.  This has
+         to do with the size of the area in which MI number of pixels are required to be
+         detected as combed for a frame to be declared combed.  See the MI parameter
+         description for more info.  Possible values are any number that is a power of
+         2 starting at 4 and going to 2048 (i.e. 4, 8, 16, 32, ... 2048).
+
+         Default:  16  (int)
+
+
+     MI -
+
+         The # of combed pixels inside any of the blocky by blockx size blocks on the frame
+         for the frame to be detected as combed. While cthresh controls how "visible" the
+         combing must be, this setting controls "how much" combing there must be in any localized
+         area (a window defined by the blockx and blocky settings) on the frame.  Min setting = 0,
+         max setting = blocky x blockx (at which point no frames will ever be detected as combed).
+
+         Default:  80  (int)
+
+
+     metric -
+
+         Sets which spatial combing metric is used to detect combed pixels.  Possible
+         options:
+
+              Assume 5 neighboring pixels (a,b,c,d,e) positioned vertically.
+
+                    a
+                    b
+                    c
+                    d
+                    e
+
+            0:  d1 = c - b;
+                d2 = c - d;
+                if ((d1 > cthresh && d2 > cthresh) || (d1 < -cthresh && d2 < -cthresh))
+                {
+                   if (abs(a+4*c+e-3*(b+d)) > cthresh*6) it's combed;
+                }
+
+            1:  val = (b - c) * (d - c);
+                if (val > cthresh*cthresh) it's combed;
+
+         Metric 0 is what tfm used previous to v0.9.12.0.  Metric 1 is the combing metric used
+         in Donald Graft's FieldDeinterlace()/IsCombed() funtions in decomb.dll.
+
+         Default:  0  (int)
+
+
+     mthresh -
+
+         Sets the motion (pixel difference) threshold for deinterlacing when using motion
+         adaptation (PP > 4).  As said, it is simply a pixel difference threshold between
+         frames... if under mthresh then a pixel is considered static, if over mthresh it is
+         considered moving.
+
+         Default:  5  (int)
+
+
+     clip2 -
+
+         When using PP > 1 this parameter may be used to specify a clip to take deinterlaced
+         frames from instead of using one of TFM's inbuilt deinterlacing methods.  If PP < 5
+         then frames will be taken as is from clip2, if PP >= 5 (i.e. using motion adaptation)
+         then TFM will build the mask as usual and only pixels in moving areas will be taken
+         from the frames in clip2. Don't specify anything for clip2 to use TFM's internal
+         deinterlacing.  For an example of using clip2 see the clip2_sample_avs.avs file.
+
+         Default:  NULL  (PClip)
+
+
+
+D.)  FILE INPUT/OUTPUT PARAMETERS:
+
+
+   These settings deal with overrides file usage and output/input file options.
+
+
+     d2v -
+
+        This option is intended to be used if you are using an mpeg2source() with a d2v file.
+        It sets the name and path to a d2v file, which TFM will analyze to see if there are any
+        illegal field order changes and optionally set the order parameter using the field
+        order of the d2v file.  If the d2v file is found to have illegal field order transitions,
+        TFM will create a fixed d2v file with the string "-FIXED" attached to the end of the file
+        name.  The new file will be located in the same directory as the original.  You can then
+        use this fixed d2v file for processing.  If the order parameter is set to "-1" then TFM
+        will detect the field order from the d2v file and set the order parameter to match. Depending
+        on the value of the "flags" parameter, TFM will also use the d2v info for field matching
+        and will pass info from the d2v on to tdecimate to help aid duplicate detection and hybrid
+        detection.
+
+            *NOTE:  This option currently supports all d2v formats that I am aware of... which
+                    include:  dvd2avi 1.76, 1.77.3 and its variants, all dvd2avidg versions, and
+                    all dgindex versions.
+
+            example =>  TFM(d2v="myd2v.d2v")
+
+        Default:  ""  (String)
+
+
+     flags -
+
+        Controls how much of the info from the d2v file is used when the "d2v" parameter is set.
+        Possible options:
+
+           0 - Check the d2v file for illegal transitions and set the order parameter if it
+                  is not already manually set.  Also, pass on rff flag duplicate info to
+                  tdecimate.
+           1 - Same as 0, plus use the trf flags for field matching in film sections (sections
+                  where the trf flags follow the 012301... pattern)
+           2 - Same as 1, but use the trf flags for field matching in all areas (doesn't have
+                   to be in 0123 pattern)  (very much not recommended!)
+           3 - Same as 0, but don't pass on any info to tdecimate (i.e. only set order and check
+                   for illegal transitions)
+           4 - Same as 1, but d2v matches are checked for being combed.  If a d2v match is detected
+                   as combed then tfm uses its own matching routine for that frame.
+           5 - Same as 4, but d2v matches are only checked for being combed around scenechanges.
+
+           VERY IMPORTANT (MUST READ):  For options 0, 1, 2, 4, and 5 to work correctly, tfm/tdecimate
+                                        must either immediately follow the mpeg2source() command or
+                                        any filters inbetween them must not modify the order or number
+                                        of fields in the stream in any way. Or use a trimIn file to
+                                        tell TFM what frames have been discarded.
+
+        Default:  4  (int)
+
+
+     trimIn -
+
+         Allows using the d2v="" option with flags = 0, 1, 2, 4, and 5 while having trim() statements
+         before TFM.  To use a trimIn file simply create a new file and set trimIn="PATH\file.txt". The
+         file should list the ranges of frames that were NOT kept... for example, let's say the original
+         file has 30000 frames but you remove the first 100 by using trim(100,0) before tfm.  Then in
+         the trimIn file you would have the following entry:
+
+              0,99
+
+         So you simply specify the ranges of frames that are no longer present.  You can have as many
+         ranges as you want (for example if you want to cut out multiple sections) and they can be
+         specified in any order.  To specify a single frame, such as 10, just use:
+
+              10,10
+
+         If you only want to use a single range, then instead of providing a filename you can set
+         trimIn equal to a string as follows:
+
+              "0,99"   or   "10,10"    etc...
+
+         You can also use negative numbers to do relative addressing of frames at the end of the clip.
+
+             -1 = num_frames-1   
+             -2 = num_frames-2  
+             -3 = num_frames-3
+             etc...
+
+         So using  "-2,-1"  would be the same as specifying the final two frames.
+
+         Default:  ""  (String)
+
+
+     ovr -
+
+        Sets the name and path to an overrides file.  An overrides file allows for manual control
+        over what matches are used for specific frames and ranges of frames, for changing the
+        values of the field, mode, order, mthresh, PP, and MI parameters for specific frames or ranges
+        of frames, and for specifiying whether or not a frame should be consider combed or not
+        combed.  For more information on using an overrides file see the OVERRIDES section at the
+        bottom of this file.  You can specify an ovr file and an input file at the same time.
+        Matches and combed frames given in the overrides file will take precedence over those in
+        the input file.
+
+            example =>   TFM(ovr="myOvrFile.txt")
+
+            * NOTE:  The ovr option CANNOT read output files (files made via the output option).
+                     To read output files use the input parameter.
+
+        Default:  ""  (String)
+
+
+     ovrDefault -
+
+        This is an extra option that allows you to change the default "combed" action taken when
+        using an ovr file.  By default, if you don't specify a frame as combed '+' or not combed '-'
+        in an overrides file then TFM just processes it as usual.  However, with the ovrDefault
+        option, you can make TFM mark all frames you don't explicitly specify as either combed
+        or not combed.  Basically, its an easy way to only deinterlace a few specific frames in
+        a file and make sure no other frames are touched or vice versa.  If no ovr file is
+        used then this setting does nothing.  Possible settings:
+
+              0 - normal processing
+              1 - mark all frames not specified in ovr file as clean (not combed)
+              2 - mark all frames not specified in ovr file as combed
+
+        Default:  0  (int)
+
+
+     output -
+
+        Sets the name and path for an output file.  TFM will create the specified file and
+        output all the matches and combed frame decisions used to it.  Each line will contain
+        a frame number, the match used, and the combed frame decision used.  This file
+        can then be used later for input via the input parameter (so that the matches wont
+        have to be recalculated).  The output file will also contain the mic value for the
+        match used on each frame and the mic values for other matches if micout > 0.
+
+        Default:  ""  (String)
+
+
+     input -
+
+        This option is meant to be used with the output option.  If you have used the output
+        option on a previous pass then to reuse that info set the input parameter to the name
+        and path of the output file.  You can specify both an input file and an ovr file at
+        the same time.  In such a case, matches in the overrides file will take precedence.
+        The input option CANNOT read ovr files!!!  To read an ovr file you must use the ovr
+        parameter!
+
+        Default:  ""  (String)
+
+
+     outputC -
+
+        This option can be used to help identify 30fps progressive video sections by outputting
+        the ranges over which at least "cNum" of consecutive matches were matched as 'c'.  This
+        option isn't fool proof, as slow or static film scenes can also generate long series of
+        consecutive 'c' matches.
+
+        Default:  ""  (String)
+
+
+     cNum -
+
+         Number of consecutive 'c' matches required to output a range when using the outputC
+         option.
+
+         Default:  15  (int)
+
+
+     batch -
+
+         Disables crc checking of the current video with the crc in the input file.
+
+         Default:  false  (bool)
+
+
+
+E.)  DEBUG/DISPLAY PARAMETERS:
+
+
+   These settings control whether debug information is output or if display information
+   is drawn on the frames.  These options can be useful when using overrides or when trying
+   to assess matching failures.
+
+
+     debug -
+
+         If set to true, information will be output via OutputDebugString() during
+         processing concerning TFM's internal operations.  Info includes: match
+         comparision statistics, match used, what matches were detected as combed
+         (if in modes 1, 2, or 4 or PP > 0), and the values of field, mode, order, and MIC.
+         To view this information you can use a utility called "DebugView" available for
+         free from:  
+
+                http://www.sysinternals.com/ntw2k/freeware/debugview.shtml
+
+            true = enables output
+            false = disables output
+
+         Default:  false  (bool)
+
+
+     micout -
+
+         Only used with debug=true, display=true, or output.  It forces tfm to calculate
+         the MIC values for certain matches and output them with the debug and/or display
+         info or include them in the output file.  Possible settings:
+
+            0 - don't force calculation
+            1 - calculate p/c/n
+            2 - calculate p/c/n/b/u
+
+         Default:  0 (int)
+
+
+     display -
+
+         If set to true, information will be drawn on the video frames themselves
+         in the upper left hand corner.  This info is not as detailed as the debug
+         output and only includes the current frame number, the values of mode,
+         field, order, and MIC the match that was used for the current frame, and whether
+         or not the output frame was combed if PP > 0.  This option can be useful
+         when using overrides and you need to see what match is currently being used.
+         If you need more detailed information, such as the match statistic numbers
+         or to see if specific matches were detected as combed then you'll need to
+         use debug output.  As of v0.9.1 display will also indicate if the final
+         output frame is combed and whether or not it was deinterlaced if PP > 0.
+         If PP = 1 and display is enabled, then TFM will draw a white box around the
+         area of the frame that triggered its detection as combed when a frame is
+         found to be combed through its internal detection (this wont be done if a
+         frame is forced to be combed through overrides).
+
+            true = enables
+            false = disables
+
+         Default:  false  (bool)
+
+
+
+F.)  OVERRIDES:
+
+
+  This section gives an explanation of how to specify overrides, what each type of
+  match means, and the list of possible overrides.
+
+
+  BACKGROUND AND OVERVIEW:
+
+     Before we get started there is one thing that needs to be understood, and that is
+     what in the hell the p, c, n, b, and u letters mean and where they come from.
+     Well, actually, before that we need to know what field matching actually does.  I
+     am going to assume that the reader knows what is meant by saying a stream is
+     telecined though.  Now, consider we have the following telecined stream with the
+     bottom and top fields given as follows (1t and 1b are both assumed to come from
+     the same progressive frame, as are 2t and 2b, etc...):
+
+
+              1t  2t  2t  3t  4t  <= original stream
+              1b  2b  3b  4b  4b
+
+
+     Now what TFM does, as does any field matcher, is matches the fields so that only
+     progressive frames remain; however, it does not decimate duplicates.  So, the above
+     input stream gets transformed into one of the two following scenarios (which one
+     depends on the field we are matching from, i.e. the value of the "field" parameter):
+
+
+         field = 0  (matching from bottom)
+
+              1t  2t  3t  4t  4t   <= output stream
+              1b  2b  3b  4b  4b
+
+               c   c   n   n   c   <= matches used
+
+
+         field = 1  (matching from top)
+
+              1t  2t  2t  3t  4t   <= output stream
+              1b  2b  2b  3b  4b
+
+               c   c   p   p   c   <= matches used
+
+
+      From this example, you can see why the field setting can have an impact on the
+      matching performance...  Anyways, now that we have an idea of what is happening
+      we can move on to what p, c, n, b, and u mean.  Basically, these letters just stand
+      for what match is used.  As you can see from the above example, c means that the
+      field from the current frame and of the opposite parity to that of the field being
+      matched from is used, p means the field of the opposite parity to the field we are
+      matching from and from the previous frame is used, and n means the field of the
+      opposite parity and from the next frame is used.  These three matches, p, c, and n
+      are the most common or the usual matches.  In the mode parameter description these
+      are the three matches that make up the 2-way and 3-way matching.  The other matches:
+      u and b  are slightly different in that they don't use the field that is being matched
+      from.  In the mode parameter description these two matches are the 4th/5th matches.
+      A visual explanation of all of this would probably explain things much better, so here
+      are the visual representations of each match:
+
+
+            * In the following examples it is assumed that we are currently matching
+              the second frame (2t/2b).  Also, an "x" has been placed next to both the
+              top field and the bottom field that will be used due to the current match.
+
+
+        field = 0:
+
+
+              c             p             n             b             u          <= match
+
+              x         x                    x          x             x
+           1t 2t 2t     1t 2t 2t       1t 2t 2t      1t 2t 2t      1t 2t 2t      <= stream
+           1b 2b 3b     1b 2b 3b       1b 2b 3b      1b 2b 3b      1b 2b 3b
+              x            x              x          x                   x
+
+              2t           1t             2t            2t            2t         <= output frame
+              2b           2b             2b            1b            3b
+
+
+
+        field = 1:
+
+
+              c             p             n             b             u          <= match
+
+              x            x              x          x                   x
+           1t 2t 2t     1t 2t 2t       1t 2t 2t      1t 2t 2t      1t 2t 2t      <= stream
+           1b 2b 3b     1b 2b 3b       1b 2b 3b      1b 2b 3b      1b 2b 3b
+              x         x                    x          x             x
+
+              2t           2t             2t            1t            2t         <= output frame
+              2b           1b             3b            2b            2b
+
+
+      Well, that should pretty well do it. There are a couple other points though.
+      One, you can see from the above examples that the matches have different meanings
+      depending on the value of the "field" parameter.  That is why in all ovr files
+      you can specify the field value with respect to which the matches in the file are
+      made.  This is so that when you specify an n, p, etc... match in an ovr file, TFM
+      knows for sure what you mean.  You don't HAVE to specify the reference field though,
+      if you don't give one TFM simply assumes you mean to use the same value as the
+      current internal field value.   However, it is much safer to specify the value.
+      The second point stems from the first point, and is simply that if the reference
+      field you use for an ovr file is different from that of the internal field value
+      then the matches will be switched accordingly so everything is the same.  However,
+      this means that if your using debug or display output the matches wont be the same
+      as the ones in your ovr file.  So for reference here are the conversions or
+      equivalencies...
+
+
+             with Field = 0 ___ is the same as ___ with Field = 1 and vice versa
+
+                             p        ==        b
+                             c        ==        c
+                             n        ==        u
+                             b        ==        p
+                             u        ==        n
+
+
+  SYNTAX AND USING OVERRIDES:
+
+
+      match codes:
+
+              * See background/overview section for visual representation of matches.
+                For range of frames overrides you can specify multiple match codes
+                on the same line and the given pattern will be repeated over the length
+                of the range.
+
+         p = match to previous field
+         c = match to current field
+         n = match to next field
+         b = match to previous field  (matches from opposite parity field)
+         u = match to next field      (matches from opposite parity field)
+
+
+      combed frame codes:
+
+             * These can be used to manually force specific frames to be consider combed or
+               clean.  You can specify patterns of combed frame codes like you can with
+               match codes.
+
+         + = force frame to be considered combed
+         - = force frame to be considered not combed
+
+
+      parameter codes:
+
+             * Parameter codes, unlike match codes, also require a value to change to
+               when used in overrides file.
+
+         f = field
+         o = order
+         m = mode
+         M = mthresh
+         P = PP
+         i = MI
+
+
+      reference field:
+
+         Since the match codes take on different meanings depending on the field parameter, you
+         can specify a reference field for an overrides file.  All the matches given in file
+         are then taken to be with respect to the given field.  If a reference field is not
+         given then all matches are taken to be with reference to the filters internal field
+         value.
+
+         To specify the reference field you must put one of the following two lines as the
+         VERY FIRST active line in the file:
+
+              field = top
+              field = bottom
+
+         The first one would set the reference field to top (1) and the second would set it to
+         bottom (0).  For an example see the included example ovr file included in the filter
+         zip file.
+
+
+      override syntax:
+
+           single frame =>  frame_number code(s) [change_value]    [] = only required for parameter codes
+
+           frame range =>   start_frame,end_frame code(s) [change_value]
+
+
+      examples:
+
+           0,100 pcpcbuu       will repeat the given pattern "pcpcbuu" of matches starting at
+                                  frame 0 and ending at frame 100
+
+           101 p               will use match p for frame 101
+
+           300,400 c           will use match c for frames 300 through 400
+
+           100,150 f -1        will set the field parameter to -1 for frames 100 through 150
+
+           500,750 m 1         will set the mode parameter to 1 for frames 500 through 750
+
+           871 o 1             will set the order parameter to 1 (tff) for frame 871
+
+           3000,4231 cccpp     will repeat the cccpp pattern from frame 3000 till frame 4231
+
+           4343 u              will use match u for frame 4343
+
+           ;756 p              will be ignored
+
+           #what is this?!?!   will be ignored
+
+           70 -                will force frame 70 to be considered clean (not combed)
+
+           60,80 +             will force frames 60 through 80 to be considered combed
+
+           70,97 +--++         will force frames 70 to 97 to be considered combed or not combed
+                                  as indicated by the pattern given
+
+           87,100 P 2          will set the PP parameter to 2 for frames 87 through 100
+
+           200 M -1            will set the mthresh parameter to -1 for frame 200
+
+           10,20 i 100         will set MI to 100 for frames 10 through 20
+
+
+
+      other things to know/remember:
+
+           1.) Ranges are inclusive.
+
+           2.) For parameter codes, the changed value is always set back to what it was
+               originally set to after the override goes out of the specified range.
+               (i.e. if you specify a field override for frame 600 to 700 after frame
+               700 field is set back to its original value automatically, you don't need
+               to set it back in the overrides file!  The original value is what it is
+               set to on load (i.e. either the default or what you set it to in your
+               avisynth script).
+
+           3.) Frame numbers must be within range for the file.
+
+           4.) Frame numbers for match codes must be ascending, and frame numbers for the
+               same parameter codes must not overlap!!!  In other words, don't make
+               multiple overrides for the same parameter over the same range of frames.
+
+           5.) The spacing is important!  (no spaces between the comma and frame numbers,
+               one space between the end frame number and the specifier, one space between
+               the specifier and the value to change to if it has one). Just look at the
+               examples for clarification.
+
+           6.) Only match codes and combed frame codes can be used in pattern specifications.
+               Pattern specifications can be up to 50 match codes maximum.
+
+           7.) To comment out a line (have TFM ignore it) in an ovr file, you can
+               either put a '#' symbol or ';' at the beginning of the line.
+
+           8.) An example ovr file w/ comments is included in the filter zip file for reference.
+
+           9.) Setting the second frame in a range to 0 means the same as setting it to the
+               last frame of the clip.
+
+
+
+G.)  CHANGE LIST:
+
+
+    01/17/2008  v1.0.4
+
+         - Fixed a bug causing tfm to return a 'u' or 'b' match when it thought
+             it was returning a 'p', 'c', or 'n' match if mode was set to 3 or 5 and
+             micmatching was enabled (not set to 0).
+
+
+    09/28/2007  v1.0.3
+
+         + added relative indexing from end frame number for trimIn files
+         + added ability to set trimIn to a string containing a single frame range
+
+
+    05/25/2007  v1.0.2
+
+         - Fixed incorrect handling of the top/bottom lines in cubic post-processing
+
+
+    02/19/2007  v1.0.1
+
+         + Support d2v file format v16
+         - fixed a bug in tfmpp destroying hints
+         - fixed generating ovr help info about combed frames in output files when PP=0
+
+
+    01/18/2007  v1.0
+
+         + Support d2v file format v15 and remove check for newer d2v formats
+
+
+    12/21/2006  v0.9.12.8
+
+         + Support d2v file format v14
+
+
+    11/26/2006  v0.9.12.7
+
+         - expanded file input line buffers from 80 bytes to 1024 bytes
+
+
+    11/04/2006  v0.9.12.6
+
+         + micmatching modes 1, 2, and 3 now check each match decision for cases where the
+             correct match is obvious based off mic values but the field matching routine
+             is unable to distinguish the correct match
+         + added micmatching mode 4, does the post match decision check and nothing else
+
+
+    10/22/2006  v0.9.12.5
+
+         + preserve hints from dgdecode through tfm
+         + added flags=5 option... same as 4, except that only frames around scenechanges are checked
+              for being combed
+         + changed 'sco' to 'scthresh' and added 'ubsco' and 'mmsco' parameters.  Using u/b matches
+              only around scenechanges and using micmatching only around scenechanges are now
+              controlled with separate parameters.
+         - fixed incorrect d2v duplicate marking by tfm when using hints and not using linear,
+              forward play
+         - fixed frames with 'h' and 'l' matches not being correctly overridden by an ovr file
+
+
+    10/03/2006  v0.9.12.4
+
+         + Added batch option (disables input file crc checking)
+         + Display crc values in error msg when crcs don't match
+
+
+    07/26/2006  v0.9.12.3
+
+         - fixed crash in modes 0/4 when pp=0 and micout > 0
+         - fixed "possible missed combed frames" listing in ovr help information
+              sometimes including frames that were marked combed via an ovr file
+
+
+    05/08/2006  v0.9.12.2
+
+         + output file generation is now effected by the micout parameter
+         + if micout > 0 then calculate/output mics even when an override or d2v
+               match is used
+         - fixed a bug introduced in the last release in cubic deint pping (pp=3/6)
+         - fixed a bug in one of the yuy2 checkcombed mmx assembly routines
+
+
+    04/09/2006  v0.9.12.1
+
+         + minor field matching improvements
+         + optimized postprocessing (mmx/sse2 cubic/blend deint, mmx/sse2 motion map creation,
+              mmx/sse2 clip2 copy, faster link/denoise routines)
+         + added ovr help information listing to bottom of output file
+         - call setcachehints for clip2 when used
+
+
+    03/23/2006  v0.9.12.0
+
+         + Added metric parameter and new spatial combing metric
+         + Added hint parameter
+         - throw an error if the field order of a d2v does not match the
+              user specified field order
+         - replace frame copy with makewritable where possible
+         - fixed cthresh < 0 not working correctly
+
+
+    01/24/2006  v0.9.11.4
+
+         + slow=0 matching mode optimizations
+         + mmx version of isse/sse2 check_combed routine
+         + added opt parameter
+         - fixed sse2 routines using psrldq
+
+
+    01/19/2006  v0.9.11.3
+
+         + assembly optimizations
+
+
+    01/17/2006  v0.9.11.2
+
+         + Support d2v format version 13
+         + Write MIC values into output file
+         + A few new mmx/isse optimizations
+         + sse2 optimizations (only used on P4)
+         - Fixed clip2 crash caused by writing to a referenced frame
+         - Fixed rare crash on d2v input parsing caused by sometimes writing
+             one entry past the end of an array
+
+
+    12/03/2005  v0.9.11.1
+
+         + Added mmx versions of the isse scenechange routines
+         + Optimized combed frame detection routines
+
+
+    11/01/2005  v0.9.11.0
+
+         + Added trimIn parameter
+         + Minor field matching improvement
+
+
+    10/14/2005  v0.9.10.2
+
+         + micmatching can now be limited to scenechanges only, via the "sco" parameter
+         + slow=1/2 matching mode optimizations (~10% speed increase)
+         + display output now shows when scenechanges are detected when sco > 0
+         - changed sco default to 12.0
+
+
+    10/12/2005  v0.9.10.1
+ 
+         + support dgindex d2vformat v12
+
+
+    09/28/2005  v0.9.10.0
+
+         + Allow MI to be changed via overrides (same as field/mode/order/etc...)
+         + Added mode 7 matching routine (specifically for material with blended fields)
+         - changed default MI value to 80
+         - changed default cthresh value to 9
+         - changed default micmatching value to 1
+         - fixed description of micmatching in help file
+
+
+    09/21/2005  v0.9.9.7
+
+         + Field matching improvements
+         + micmatching changed from bool to int, added micmatching 2/3 options
+         - flags parameter now defaults to 4
+         - Fixed IsCombedTIVTC always resulting in an error being thrown (was
+              introduced when micout was added)
+
+
+    09/15/2005  v0.9.9.6
+
+         - Fixed micmatching parameter not being initialized correctly
+
+
+    09/11/2005  v0.9.9.5
+
+         + Added flags=4 option
+         - when micmatching=true only calculate the extra mics if the mic value for the would
+             be final match is > 15
+
+
+    09/02/2005  v0.9.9.4
+
+         + Added micmatching parameter
+         + micout now works with display output
+         - stricter checking for 0123 sections with flags=1
+         - fixed a few debug output format inconsistencies
+
+
+    08/27/2005  v0.9.9.3
+
+         + Added v11 d2v format support
+         + Field matching improvements (improved the code that decided which metrics
+               to use when picking the final match)
+         + Added micout parameter
+
+
+    08/14/2005  v0.9.9.2
+
+         + Added sco parameter (u/b matches only at scenechanges)
+
+
+    07/31/2005  v0.9.9.1
+
+         + Added slowest matching fuction and changed the parameter "slow" from bool to int
+
+
+    07/31/2005  v0.9.9
+
+         + Added new match mode (mode 6)
+         + Added field matching from d2v file and flags parameter to better control
+              how the d2v info is used
+
+
+    06/25/2005  v0.9.8.1
+
+         + Added support for new dgindex d2v's (d2vformat v10)
+
+
+    06/06/2005  v0.9.8
+
+         + Added a new match mode (mode 2, old mode 2 is now mode 3, 3 is 4, and so on)
+         + Added support for new dgindex d2v's (d2vformat v9)
+
+
+    04/20/2005  v0.9.7.3
+
+         + Debug and display options now output a value called MIC (the value that is computed
+              and compared against MI to check if a frame is combed) to make tweaking
+              the MI parameter easier.  The MIC value is computed during combed frame detection and
+              is the single highest value computed for any one of the blockx by blocky sized blocks.
+              Previously, combed frame detection exited immediately upon finding the first block
+              with an MIC value greater than MI... it now scans all blocks and returns the highest.
+              Thus, the white box that is drawn when display=true, PP=1, and a frame is detected
+              as combed now corresponds to the block with the highest MIC value and not the first
+              to be found.
+         - Changed default MI value to 85 (also changed to 85 in IsCombedTIVTC)
+         - Fixed the white box drawn on combed frames when PP=1 sometimes being drawn in the
+              incorrect spot when mode was set to 1, 2, or 4
+
+
+    03/13/2005  v0.9.7.2
+
+         + Post-processing now only links luma->chroma on the motion map, instead of doing full
+              luma->chroma, chroma->luma, and chroma->chroma linking.
+
+
+    03/10/2005  v0.9.7.1
+
+         - Fixed a crash that would occur if the d2v option was enabled and a trim() or some other
+              filter that altered the number of frames was used prior to tfm()
+
+
+    02/19/2005  v0.9.7
+
+         + Added support for new dgindex project file versions 07 and 08 (dgindex v1.2) to the d2v option.
+         - Fixed the d2v method of fixing illegal transitions.
+         + TFM now uses the rff flags from the d2v to help tdecimate identify duplicates and 24p film.
+         - Changed default MI value to 100.
+         - Fixed the readme file indicating chroma=true, when it actually defaults to false
+
+
+    01/08/2005  v0.9.6.3
+
+         - Fixed SetCacheHints being called incorrectly and always defaulting to CACHE_ALL
+
+
+    01/02/2005  v0.9.6.2
+
+         - Changed the d2v method of fixing illegal transitions to one that doesn't alter
+              the total # of fields in the clip or the # of fields from each of the original
+              frames in the stream.
+         - Changed default value for the chroma option to false
+         + Some other optimizations and internal changes.
+
+
+    12/22/2004  v0.9.6.1
+
+         - Fixed passing AsClip() a NULL argument during TFM and TFMPP object creation if no clip
+               was given for clip2.  This would cause assertion failure when compiled in debug mode.
+
+
+    12/19/2004  v0.9.6
+
+         - Fixed not invoking a cache between TFM and TFMPP when PP > 4
+         + Some internal additions to allow TDecimate to tell the difference between c matches
+               and deinterlaced frames
+         + Added debug output to d2v checking... when debug=true and a d2v file is specified it will
+               report the type of d2v detected, the detected field order from the d2v if order = -1,
+               and report the errors if any are found
+
+
+    11/30/2004  v0.9.4
+
+         + significant speed up (30-50%) to modes 1, 2, and 4 with PP > 0, due to some missing logic
+              the output frame would needlessly get checked twice for combing
+
+
+    11/28/2004  v0.9.3.1
+
+         - Fixed crashing when mode = 0 or mode = 3 and PP was greater than 0, the conditions
+              for an array allocation were not adjusted as needed when the PP option was
+              added in v0.9.1
+
+
+    11/28/2004  v0.9.3
+
+         + Added crc checking to input/output files.  Whenever an output file is
+              created, TFM creates a crc32 value based off the first 15 frames in
+              the current clip.  When the file is loaded via the "input" option
+              the crc value from the file is checked against the current clips crc
+              value.
+
+
+    11/27/2004  v0.9.2
+
+         - Fixed "slow" and "mChroma" parameters defaulting to false instead of true
+         - Fixed display option not writing any part of a line if the total line
+              length exceeded the width of the frame instead of writing what would fit
+         - Changed default cthresh value to 10
+         - Changed default PP value to 6 (motion-adaptive cubic interpolation)
+         + Added d2v and ovrDefault options
+         + Added IsCombedIVTC() conditional function
+         + Added cubic deinterlacing method
+         + Re-did input/output parameters.  Files created via the output option can
+              no longer be read via the ovr option!  You must use the input parameter
+              to read files created via the output parameter!
+         + Output option no longer requires linear access
+
+
+    11/21/2004  v0.9.1
+
+         - Changed default mode value to 1
+         - Changed default MI value to 128
+         - Allow blockx and blocky sizes up to 2048
+         - Reordered the parameter syntax slightly
+         + Added exclusion band (y0/y1)
+         + Added post-processing (PP parameter) and related stuff
+             - Added clip2 and mthresh parameters
+         + Added hinting in preparation for tdecimate
+
+
+    11/11/2004  v0.9.0
+
+         - initial release
+
+
+
+H.)  TO DO LIST:
+
+
+    - bugfixes as needed for the 1.0 line
+
+
+
+contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu

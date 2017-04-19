@@ -1,0 +1,34 @@
+
+                           TIVTC v1.0.5   HELP FILE - (17 January, 2008)
+
+INFO:
+
+       TIVTC is actually a combination of 7 different filters and 3 conditional functions.
+   The seven filters included are TFM, TDecimate, MergeHints, FrameDiff, FieldDiff,
+   ShowCombedTIVTC, and RequestLinear.  TFM is a field matching filter that will recreate the
+   original progressive frames in a telecined source, and TDecimate is a decimation filter that
+   removes duplicates. These filters can be used together to achieve an ivtc or separately to
+   accomplish other tasks.  TDecimate also provides special options for handling hybrid material
+   which include vfr via matroska (using a timecodes file) and blend decimation/upconversion for
+   cfr solutions.  Mergehints, RequestLinear, FrameDiff, FieldDiff, and ShowCombedTIVTC are
+   special utility filters included to help perform specific functions. The conditional functions
+   are IsCombedTIVTC, CFieldDiff, and CFrameDiff which can be used via Avisynth's conditional
+   filtering environment to test if frames are combed, determine how well two fields fit together,
+   or calculate the difference between frames.
+
+       For more info about using each of the filters/functions consult the individual readme files.
+
+
+  current filter versions:  TFM             v1.0.4     (17 January 2008)
+                            TDecimate       v1.0.3     (28 September 2007)
+                            MergeHints      v1.2       (22 October 2006)
+                            FieldDiff       v1.3       (23 March 2006)
+                            FrameDiff       v1.6       (21 November 2007)
+                            ShowcombedTIVTC v1.2       (23 March 2006)
+                            RequestLinear   v1.2       (21 November 2007)
+
+
+
+
+
+contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu

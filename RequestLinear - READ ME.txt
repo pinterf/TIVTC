@@ -1,0 +1,153 @@
+
+
+                       RequestLinear v1.2  -  HELP FILE  (11/21/2007)
+
+
+GENERAL INFO:
+
+
+     * RequestLinear supports all colorspaces
+
+       A little diagram to show downstream vs upstream in a script:
+
+               UpstreamFilter()
+               RequestLinear()
+               DownstreamFilter()
+
+       RequestLinear makes sure that all requests for frames from the filter
+    downstream are turned into linear requests for frames from the filter
+    upstream of it.  This can be useful when you want to use a filter that
+    requests frames non-linearly in combination with a filter that requires
+    linear requests.
+
+       For example, if the filter downstream requests frame 0 and then requests
+    frame 5, RequestLinear would get the request for frame 5 and then request
+    frames 1, 2, 3, 4, and then 5 from the filter upstream.
+
+       It is possible to set a maximum number of frames for the gap that it
+    will fill and to specify how many frames it should cache.     
+
+
+   syntax=>
+
+        RequestLinear(int rlim, int clim, int elim, bool rall, bool debug)
+
+
+
+PARAMETERS:
+
+
+     rlim -
+
+         If the current frame request if greater than the last delivered frame
+         and the difference between the two is less than or equal to rlim, then
+         all frames between the last request and the current request will be
+         requested.  If the current request is less than or equal to the 
+         last request then the distance is measured from 0 to the current
+         request. rlim must be >= 0.
+
+         Default:  50  (int)
+
+
+     clim -
+
+         Sets the number of frames that the filter should cache.  Frames that
+         are in the cache can be delivered without having to request any frames
+         from upstream.  clim must be >= 0.
+
+         Default:  10  (int)
+
+
+     elim -
+
+         If the current frame ends up being requested without the previous frames
+         being requested (due to rlim not being large enough, clim not being large
+         enough, etc...), elim sets the number of frames prior to the current frame
+         to request in linear order prior to requesting the current frame.
+
+         Default:  5  (int)
+
+
+     rall -
+
+         If true, it is the same as if rlim is set to infinity.  If false,
+         it does nothing.
+
+         Default:  false  (bool)
+
+
+     debug -
+
+         Will show which frames are being requested from upstream and
+         downstream.  Use the utility "Debugview" from sysinternals to
+         view the output.
+
+         Default:  false  (bool)
+
+
+
+EXAMPLE SCENARIOS:
+
+
+   1.) Downstream filter has requested every frame from 0 to 20 and then
+       requests frame 25.
+
+           if rlim >= 5 or rall = true, then RequestLinear will request frames
+              21 through 25 from the upstream filter
+
+           else if elim > 0, then all frames from 25-elim to 25 will be requested
+
+           else, frame 25 is requested by itself
+
+
+   2.) Downstream filter has requested every frame from 0 to 50 and then
+       requests frame 10.
+
+           if clim >= 40, then frame 10 will be returned from the cache w/o
+              making any upstream requests
+
+           else if rlim >= 10 or rall = true, then frames 0 through 10 will be
+              requested from the upstream filter
+
+           else if elim > 0, then all frames from 10-elim to 10 will be requested
+
+           else, frame 10 will be requested by itself
+
+
+   3.) Given RequestLinear(50,10,5) and last requested frame = 300 (assume linear
+       access so far)
+
+           current request: frame 320
+           -> linear request of all frames 301, ..., 320   (due to rlim)
+
+           current request: frame 295
+           -> read from cache   (due to clim)
+
+           current request: frame 400
+           -> linear request 395,396,397,398,399,400   (due to elim)
+
+           current request: frame 230
+           -> linear request 225,226,227,228,229,230   (due to elim)
+
+
+
+CHANGE LIST:
+
+
+   v1.2   (11/21/2007)
+
+      - added elim parameter
+
+
+   v1.1 - (4/09/2006)
+
+      - fixed not testing if n <= rlim if the current request was <=
+           to the last request (it was only testing if rall=true)
+
+   v1.0 - (3/23/2006)
+
+      - initial release
+
+
+
+contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu

@@ -1,0 +1,1120 @@
+
+
+                              TDecimate v1.0.3  -  HELP FILE  (09/28/2007)
+
+
+
+CONTENTS OF FILE:
+
+
+    A.) General Info
+    B.) Basic Parameters
+    C.) Advanced Parameters
+    D.) File Input/Output Parameters
+    E.) Debug/Display Parameters
+    F.) Overrides Info
+    G.) Change List
+    H.) To Do List
+
+
+
+A.)  GENERAL INFO:
+
+
+     * Currently TDecimate only supports YV12 and YUY2 colorspaces!
+
+      TDecimate is a decimaton filter intended to remove duplicates from a video
+   stream.  It supports a couple types of operation which include M-in-N decimation
+   and an arbitrary framerate decimation scheme that can support ratios not achievable
+   with M-in-N. It also includes special handling for hybrid material such as
+   blend decimation (for a single frame rate solution) or vfr via mkv using a timecodes
+   file.
+
+
+   syntax=>
+
+       	TDecimate(int mode, int cycleR, int cycle, float rate, float dupThresh, float vidThresh,
+                  float sceneThresh, int hybrid, int vidDetect, int conCycle, int conCycleTP,
+                  String ovr, String output, String input, String tfmIn, String mkvOut, int nt,
+                  int blockx, int blocky, bool debug, bool display, int vfrDec, bool batch,
+                  bool tcfv1, bool se, bool chroma, bool exPP, int maxndl, bool m2PA,
+                  bool denoise, bool noblend, bool ssd, int hint, PClip clip2, int sdlim, int opt)
+
+
+
+B.)  BASIC PARAMETERS:
+
+
+    mode -
+
+        Sets the mode of operation.  Possible settings:
+
+
+           Mode 0 =  Straight M-in-N decimation.  TDecimate will examine each set of N
+                     frames and decimate the M most similar frames.  The values of M and
+                     N are controlled via the cycleR and cycle parameters.  Blend decimation
+                     of video (30p) is supported in the this mode (hybrid = 1), as well as
+                     blending of 24p into 30p (hybrid = 3).
+
+
+           Mode 1 =  Exactly like mode 0, except instead of decimating the M most similar
+                     frames, frames are decimated from the longest remaining strings of
+                     duplicates. The duplicate detection uses the dupThresh parameter.  This
+                     mode is the correct type of decimation for anime and other sources where
+                     frames are repeated 2, 3 or 4 times in a row, and also supports blend
+                     decimation of video (30p) with hybrid = 1, as well as blending of 24p
+                     into 30p (hybrid = 3).
+
+
+           Mode 2 =  This mode uses a separate decimation algorithm that can achieve any
+                     arbitrary framerate.  It is useful when you cannot achieve the desired
+                     framerate with M-in-N decimation. The output framerate for this mode is
+                     set using the "rate" parameter.  The maxndl parameter can be used to
+                     tweak behavior on sources with uneven duplicate distribution. No hybrid
+                     handling can be used in this mode!
+
+                     This mode's output will be slightly different if you run it with a metrics
+                     input file (created on a previous pass in mode 4 for example) that lets
+                     it analyze the entire video at the very beginning than if you run it
+                     straight and let it analyze the video as it goes.  Generally the differences
+                     will be small, but the 2 pass method (i.e. full analysis from an input file)
+                     will generally produce a smoother result.  The m2PA parameter can be used
+                     to force the one pass version of mode 2 to produce the same results as the
+                     two pass version by reading ahead in the stream as much as is required
+                     (the one pass version limits the read ahead to 100 frames max).
+
+
+           Mode 3 =  This is a one-pass vfr for mkv with timecodes output mode.  Hybrid must be
+                     set to 2 in this mode!  It uses M-in-N decimation and cycleR must be set
+                     to 1!  The type of decimation that is used on film sections (most similar or
+                     longest string) is controlled via the vfrDec setting.  For this mode to work
+                     all access must be linear from start to finish... an error will be thrown
+                     if non-linear access is detected.
+
+                     Since vfw needs to know the # of frames before processing starts this
+                     mode does not change the # of frames and simply pads the output as needed
+                     with black frames.  The last actual frame will be recorded as a comment at
+                     the end of the mkv timecodes file, and will be reported on the padded frames
+                     as well once at least 300+ extra frames are returned.  If the se option is
+                     set to true, then TDecimate will throw an error once the 306th extra frame
+                     is reached, stopping processing and alerting the user.  If your gonna be
+                     around when its done and not doing batch encoding this option can save you
+                     some time.
+
+                     The name and path of the mkv timecodes file to output is set using the
+                     mkvOut parameter.
+
+
+           Mode 4 =  Metrics output.  No decimation is done, but metrics are calculated allowing
+                     for the output, display, or debug options to be enabled and outputting of
+                     the metrics for later use.  (first pass for two pass mkv vfr using mode 5)
+
+
+           Mode 5 =  This is similar to mode 3 (mkv vfr, and requires hybrid=2 and cycleR=1), but
+                     as part of a two pass process.  It requires a complete input file (obtained
+                     via the output parameter on a previous pass), and a complete tfmIn file (see
+                     the batch option for a way around these requirements).  The advantages of this
+                     mode over Mode 3 are that it does not require linear access (seeking is
+                     supported), it uses the conCycleTP parameter instead of the conCycle parameter
+                     which allows for values greater than 2, and it will have a correct frame count
+                     with no padded frames.
+
+                     As of version 0.9.11.8 of TDecimate, an input and tfmIn file are no longer
+                     required for mode 5.  If an input file is not specified then a value of
+                     ULLONG_MAX-1 (the maximum value tdecimate has) is assigned to all metrics.
+                     Likewise, if a tfmIn file is not specified then all matches are assigned as 'c',
+                     not combed, and not a d2v duplicate.
+
+
+           Mode 6 =  This is for doing 120fps->vfr w/ timecode file.  It requires a complete metrics
+                     input file generated via mode 4 on a previous pass.  It will decimate bit for bit
+                     identical frames only.  All decimation will be into one of the following frame
+                     rates:  119.880, 59.940, 39.960, 29.970, 23.976.
+
+           Mode 7 =  This mode is similar to mode 2 in that it uses a decimation algorithm that can
+                     achieve any arbitrary framerate. However, it operates quite differently
+                     from mode 2.  It is useful for when you cannot achieve the desired framerate
+                     with M-in-N decimation and cannot afford to go with two-passes in mode 2 (in which
+                     case mode 7 will usually give better results if the duplicate distribution is
+                     at least somewhat consistent).
+
+                     The output framerate for this mode is set using the "rate" parameter.  It
+                     also uses the "dupthresh" and "vidthresh" parameters... dupthresh sets a
+                     threshold such that any frames with difference values under dupthresh are
+                     considered duplicates, and vidthresh sets a threshold such that any frames
+                     with difference values above vidthresh are considered non-duplicates.  Frames
+                     with difference values inbetween dupthresh and vidthresh are classified as
+                     similar unless they represent a descernable local minimum or maximum in the
+                     difference values string.  By default dupthresh is set to 0.5 and vidthresh
+                     is set to 4.0 (they use the usual 0 to 100 normalized scale).
+
+
+	Default:  0  (int)
+
+
+    cycleR -
+
+        Sets the "M" for the M-in-N decimation modes.  In other words, setting this to 1
+        means 1 frame in every cycle frames will be dropped.  This setting can be
+        anything in the range 1 to (cycle-1).  It must be less than the value of the cycle
+        setting!
+
+           *NOTE:  all hybrid handling options only support cycleR = 1.  So if hybrid > 0
+                   this value must be set to 1!
+
+	Default:  1  (int)
+
+
+    cycle -
+
+        Sets the "N" for the M-in-N decimation modes.  In other words, setting this to 5
+        means cycleR frames in every 5 frames will be dropped.  This setting can be
+        anything in the range 2 to (number of frames in video).  It must also be greater
+        than the cycleR setting.
+
+	Default:  5  (int)
+
+
+    rate -
+
+        This sets the output frame rate when using mode = 2 or 7.  Frames will be dropped
+        so that this frame rate is acheived while keeping audio/video sync as close as
+        possible.  This must be less than the input frame rate.
+
+        Default:  23.976  (float)
+
+
+    hybrid -
+
+        Controls how or if video sections (30p) should be dealt with.  Possible
+        settings:
+
+            0 - no handling
+            1 - blend decimation of 30p sections into 24p and leave 24p untouched   (modes 0 and 1)
+            2 - vfr via mkv w/ timecodes file output                                (modes 3 and 5)
+            3 - blend conversion of 24p sections into 30p and leave 30p untouched   (modes 0 and 1)
+
+          * The hybrid option is not used when mode = 2 or mode = 4, and hybrid > 0
+            is only currently supported for cycleR = 1!
+
+        Default:  0  (int)
+
+
+    vfrDec -
+
+        Sets the type of decimation to use for film sections when using modes 3 and 5.
+        Possible settings:
+
+             0 - drop most similar frame in cycle
+             1 - decimate from longest string of duplicates
+
+        Default:  1  (int)
+
+
+
+C.)  ADVANCED PARAMETERS:
+
+
+    dupThresh - 
+
+        This sets the threshold for duplicate detection.  This setting is used in mode 1
+        and also in modes 3 and 5 if vfrDec = 1.  If the difference metric for a frame is less
+        than or equal to this value then it is declared a duplicate.  NOTE:  metrics will be
+        slightly different between YV12 and YUY2 processing if chroma=true... the metrics have
+        been normalized so they should match closely, but on average the YUY2 metrics tend to be
+        slightly higher (5-10%) than the YV12 metrics for the same frame when chroma=true.
+        When chroma=false YV12 and YUY2 metrics will be the same, however chroma=false metrics
+        will be higher than chroma=true metrics so if you set chroma=false be sure to account
+        for this.  This value is a % of maximum change for a block defined by the blockx and
+        blocky values.... so 1.1 means 1.1% of maximal possible change.
+
+        When in mode 7, dupThresh is used to set a threshold below which frames are considered
+        to absolutely be duplicates.  Use display=true to see what the calculated metric values
+        for the frames are and what the threshold values (translated into unnormalized values) are.
+
+	Default:  1.1  (if chroma = true)  (float) -- modes 1, 3, 5
+                  1.4  (if chroma = false)
+
+                  0.4  (if chroma = true)  (float) -- mode 7
+                  0.5  (if chroma = false)
+
+
+    vidThresh -
+
+        This setting is used for detecting video sections (30p) based off frame metrics
+        when hybrid > 0.  If all frames in a cycle have metrics above this threshold then
+        the cycle is declared video metrics wise.  This setting is similar to dupThresh,
+        but should be set slightly higher if your vidDetect setting is set to 1 and not 3.
+        If you know that your source has a lot of video sequences then set this lower vs if
+        you know your source is pure film then you can set this really high to prevent any
+        possible misdetections.  This value is a % of maximum change for a block defined by
+        the blockx and blocky values.... so 1.1 means 1.1% of maximal possible change.
+
+        When in mode 7, vidThresh is used to set a threshold above which frames are considered
+        to absolutely be non-duplicates.  Use display=true to see the unnormalized threshold
+        values and the frame difference values.
+
+        Default:  1.1  (if chroma = true)  (float) -- modes 1, 3, 5 && hybrid > 0
+                  1.4  (if chroma = false)
+
+                  3.5  (if chroma = true)  (float) -- mode 7
+                  4.0  (if chroma = false)
+
+
+    sceneThresh -
+
+        Sets the threshold for detecting scene changes when using blend decimation for video
+        sections (hybrid = 1) or blend conversion for 24p->30p (hybrid = 3).  This value is a
+        % of maximum change for the luma plane.  Good values are between 10 and 15.  Must be
+        in the range 0 to 100.
+
+        Default:  15  (float)
+
+
+    vidDetect -
+
+        This sets what is required for single cycle video detection when hybrid > 0. Whether
+        a single cycle alone is enough or whether two consecutive cycles or more must be
+        detected as video is controlled via the "conCycle" and "conCycleTP" parameters.
+
+        Video detection via frame matches:   (Labeled Type A)
+
+            i.)  The matches that were used by TFM do not indicate that there are duplicates
+                     in the cycle
+
+        Video detection via metrics:   (Labeled Type B)
+
+            i.)  All frames in the cycle have metrics above vidThresh.
+
+        Video detection via absence of local minima:  (Labeled Type C)
+
+            i.)  All frames in the cycle have metrics that are within 150% of each other (1.5x)
+                 and within 2.0 (abs value difference) of each other.  The maximum metric value
+                 within the cycle must greater than or equal to 0.3.
+
+        How these types of information are used as a whole to determine video sections
+        is determined by vidDetect.  Each vidDetect setting has a condition that if met will
+        result in the current cycle being detected as video.  (refer above for the A and B
+        labels).  Please note that ovr (overrides) overrules vidDetect!
+
+           0 - A        (if matches indicate video then consider it video)
+	   1 - B        (if metrics indicate video then consider it video)
+	   2 - A or B   (if either matches or metrics indicate video then consider it video)
+	   3 - A and B  (if both matches and metrics indicate video then consider it video)
+           4 - A and (B or C)  (if matches indicate video and metrics indicate video or
+                                matches indicate video and there are no local minima consider
+                                it video)
+
+        Default:  3  (int)
+
+
+    conCycle -
+
+        conCycle sets the required minimum # of consecutive cycles detected as video for any
+        section to be considered video when hybrid > 0.  Meaning, if conCycle is set to 2, and
+        a single cycle is detected as video but both the cycle before it and after it are
+        detected as film then that cycle will be considered film as well.  If conCycle had been
+        set to 1 in the previous example then the standalone video cycle would have been consider
+        video.  This setting is used in all cases except two pass mkv vfr (mode 5) where
+        conCycleTP is used instead!  The difference is conCycle is limited to a maximum value of
+        2 while conCycleTP has no upper limit.  Possible values are 1 or 2.
+
+        default:  1  if vidDetect = 3  (int)
+                  2  otherwise
+
+
+    conCycleTP -
+
+        This is the same as conCycle, but is used in mode 5 (two pass) and allows for any
+        value (not just 1 or 2) and has no upper limit.
+
+        Default:  1  if vidDetect = 3  (int)
+                  2  otherwise
+
+
+    nt -
+
+        Sets the noise threshold used when calculating difference metrics.  If the abs()
+        difference between two pixels is less than or equal to this value, then the
+        difference is considered 0.  This can help lower the metrics of actual duplicate
+        frames thus widening the difference between dups and non dups making it easier to
+        set correct thresholds.  Avoid setting this value to high or very similar objects
+        moving over one another will start to not be detected etc... Good values are in the
+        range 1-2.  For clean video using a value of 0 seems to work best.
+
+        Default:  0  (int)
+
+
+    blockx -
+
+        Sets the x-axis size of the blocks used for metric calculations.  Larger blocks
+        give better noise suppression, but also give worse detection of small movements.
+        Possible values are any power of 2 from 4 up to 2048 (4, 8, 16, 32, ... 2048).
+
+        Default:  32  (int)
+
+
+    blocky -
+
+        Sets the y-axis size of the blocks used for metric calculations.  Larger blocks
+        give better noise suppression, but also give worse detection of small movements.
+        Possible values are any power of 2 from 4 up to 2048 (4, 8, 16, 32, ... 2048).
+
+        Default:  32  (int)
+
+
+    batch -
+
+        This setting is intended to be used only with mode 5. Basically, it sets some
+        arrays to fake values and disables a few checks allowing for an avisynth script
+        with tdecimate(mode=5, ...) to be loaded when the tfmIn and input files do not
+        have any entries.  This is useful and needed for setting up a two pass system
+        in vdub's job control.  i.e. you make the first pass and second pass scripts, and
+        then set up both to encode in vdub's job control.  NOTE:  if you set batch = true
+        and the tfmIn and input files do not have entries for all frames then you will
+        get borked output!
+
+        As of v0.9.12.3, batch also disables crc checking when using an input file (this
+        applies to all modes), and it will only set arrays to fake values if mode is set
+        to 5.
+
+            true - enables fake values and disables checks
+            false - doesn't
+
+        Default:  false  (bool)
+
+
+    tcfv1 -
+
+        Sets the type of timecode format to use for mkv timecode files when they are
+        created in modes 3 and 5.  The two format types are those defined and used
+        by mkvtoolnix.  verion 1 sets the framerate for frame ranges while version 2
+        gives the timecode for each frame in milliseconds.  See the mkvtoolnix documentation
+        for more info about the two formats.
+
+            true - use version 1
+            false - use version 2
+
+        Default:  true  (bool)
+
+
+    se -
+
+        Only used when in mode 3.  It will cause TDecimate to throw an error once the 306th
+        padded frame is reached, alerting the user that it has finished, so that time wont be
+        spent processing unneeded frames.  This option should not be used when doing batch
+        encoding or something similar, because the error will usually pop-up a window which requires
+        the user to click, thus it would stop any subsequent processing as well.
+
+            true - stop early (throw error)
+            false - don't
+
+        Default:  false (bool)
+
+
+    chroma -
+
+        Sets whether or not chroma is considered when calculating frame difference metrics.
+        Setting this to false can give a speed up... it a quality vs speed setting (though
+        in some cases setting chroma=false can improve operation).
+
+            true - consider chroma
+            false - don't
+
+        Default:  true (bool)
+
+
+    exPP -
+
+        Set this to true if you're using a tfmIn file, have tfm set to PP=1, and are using a
+        separate filter (such as tdeint) to do post-processing based on tfm's combed frame hints.
+        If you don't set this to true when PP=1 in tfm, then tdecimate assumes the interlaced
+        frames marked in the tfmIn file are not being deinterlaced... if this is not the case
+        (they are actually being deinterlaced by a separate filter) then those frames will not
+        be handled correctly.
+
+        Default:  false (bool)
+
+
+    maxndl -
+
+        This setting is used only with mode 2 and stands for "max non-duplicate length".  It tells
+        TDecimate the maximum consecutive number of non-duplicates. This info is used when planning
+        the decimation strategy.  In normal cases, when duplicates are evenly distributed in the
+        video, it should not be necessary to set this.  Only in cases where the length indicated
+        by the decimation ratio is too short should this need setting.  For example, say we have
+        the following pattern in a video:
+
+                  5 5 7 7 2
+
+        where the numbers indicate how many frames there are between duplicates.  In this case we
+        want to remove 5 in every 26 frames.  This decimation ratio (5/26) would indicate that
+        there is one duplicate in every 5.2 frames  (5/26 = 1/5.2).  Obviously, as the pattern
+        above shows, this is the not the case as there are runs of up to 7 without a duplicate. So
+        we would need to set maxndl to 7.
+
+        Another example would be decimating a 59.94fps video to 23.976.  This ratio would indicate
+        one duplicate in every 1.667 (5/3) frames.  However, if the video has sections where two
+        non-duplicates are back to back then maxndl would need to be set to 2 to correctly handle it.
+
+
+        EXTRA INFORMATION:
+
+           While maxndl stands for "max non-duplicate length", it is actually more like a trade off
+           between maintaining video sync and producing a smooth result.  The larger maxndl is the
+           more the decimation can be non-uniformly spread throughout the video, which helps the 
+           smoothness of the result in cases where duplicates are not evenly spread.  Anyways,
+           experiment with increasing maxndl and see what happens.
+
+
+        Possible settings for maxndl are any integer greater than 0.
+
+        Default:  not set  (int)
+
+
+    m2PA -
+
+        Will override the default read-ahead maximum of 100 for mode 2.  This will allow the
+        one pass mode (metrics not available from an input file) to produce the same results
+        as if the metrics were available.
+
+         **NOTE:  the cycle size could very well be in the 1000's or 10000's, so there is the
+                  possibility setting m2PA=true could mean the processing will stall for quite
+                  some time (5-10 minutes or more) when a new cycle starts!!!  Please check the
+                  largest cycle size that will be used using debug=true before setting m2PA=true!
+
+           true = override the default maximum
+           false = don't
+
+        Default:  false  (bool)
+
+
+    noblend -
+
+        Even with hybrid=0 there is a special case when tdecimate will use blend decimation, and
+        that is when it detects two duplicates in a cycle, cycleR=1, and neither duplicate is next
+        to a scenechange.  In such cases tdecimate will drop one of the duplicates and replace the
+        other with a blend of its neighbors.  The "noblend" parameter is used to disable this so
+        that no blending is ever done when hybrid = 0.
+
+           true - no blending when hybrid = 0
+           false - use blending in the two duplicate case
+
+        Default:  true  (bool)
+
+
+    denoise -
+
+        Sets whether or not to denoise frames prior to doing difference metric calculations.
+        This can greatly improve metrics for noisy sources (i.e. stabilize duplicate frame
+        metrics and make it easier to tell the difference between duplicates and non-duplicates).
+        It also works very well for sources with lots of dot-crawl because the denoising
+        effectively cancels all dot-crawl, whereas the dot-crawl would usually inflate difference
+        values of duplicates.  Using denoising will slow things down somewhat, but it is MMX
+        optimized and pretty fast.
+
+          true - use denoising
+          false - don't
+
+        Default:  false (bool)
+
+
+     ssd -
+
+        Controls whether the metrics are calculated as SAD (sum of absolute differences) or SSD
+        (sum of squared differences).
+
+           true - use ssd
+           false - use sad
+
+          ** Prior to v0.9.11.0 of tdecimate SAD was always used... and it is almost always best
+             for TDecimate's purposes and the default thresholds for dupThresh, vidTresh, and
+             sceneThresh are based on SAD values.
+
+        Default:  false (bool)
+
+
+     hint -
+
+        Enables or disables reading of tfm's hints.  The information in the hints can effect
+        tdecimate's decisions (i.e. in mode 0 it can lead to dropping a frame other than the
+        lowest metric'd frame in a cycle).  Hint information contains match used, combed vs.
+        progressive, d2v rff info... that info is also used for hybrid detection (depending
+        on the vidDetect setting).  true enables reading, false disables.  If not explicitly
+        set by the user, tdecimate checks if hints are present in the stream on load and sets
+        the 'hint' parameter accordingly.
+
+        Default:  auto-detect on load (bool)
+
+
+     clip2 -
+
+        Allows specification of a second clip from which to take frames. Metric calculation
+        and decimation are still done on the input clip, but the frames that tdecimate
+        returns are from clip2.  Clip2 must have the same number of frames are the input clip
+        and be in YUY2 or YV12 colorspace (it does not have to have the same colorspace as
+        the input clip).
+
+        Default:  null (PClip)
+
+
+     sdlim -
+
+        When using mode 0, 1, or 3, with cycleR > 1, sdlim sets the minimum distance in frames
+        between removed duplicates.  For example, with sdlim=2, tdecimate will not remove any
+        frame that is within two frames of a frame already marked for decimation.  Frames are
+        marked for decimation in order from lowest to highest difference metric within the current
+        cycle.  The maximum value for sdlim is governed by the following equation:
+
+                 (sdlim+1)*(cycleR-1) < cycle 
+
+        When using longest string decimation (mode 1 or mode 3 w/ vfrdec=1), sdlim will only come
+        into play if the number of frames with difference metrics < dupthresh is < cycleR-1.
+
+        It is possible to use an sdlim value that could result in tdecimate not being able to
+        mark a full cycleR worth of frames.  In this case, if sdlim is positive (i.e. > 0), then
+        tdecimate will mark as many frames as possible with the given sdlim value and then simply
+        mark the remaining number frames without regard to how close they are to already marked frames.
+        If sdlim is negative (i.e. < 0), then tdecimate will decrease sdlim for that cycle by 1 and
+        then start over from scratch marking frames.  This process of decreasing sdlim will continue
+        until a value that allows a full cycleR worth of frames to be marked is found.  When sdlim
+        is given as a negative value, the absolute value is actually used.  The sign is simply used
+        to determine which method of dealing with the "unable to mark a full cycleR worth of frames"
+        scenario is used.
+
+        Default:  0  (int)
+
+
+     opt -
+
+         Controls which optimizations are used.  Possible settings:
+
+            0 - use c routines
+            1 - use mmx routines
+            2 - use isse routines
+            3 - use sse2 routines
+            4 - auto detect
+
+         Default:  4  (int)
+
+
+
+D.)  FILE INPUT/OUTPUT PARAMETERS:
+
+
+   ovr -
+
+        Sets the name and path to an overrides file.  An overrides file can be used to
+        force ranges of frames to be considered film or video and to specify drop frames
+        or decimation patterns over ranges of frames.  For more info on using an ovr file
+        see the OVERRIDES section at the bottom of this file.
+
+        Mode 7 does not currently support using an overrides file.
+
+        Default:  ""  (String)
+
+
+   output -
+
+        Sets the name and path to an output file.  The output file will include all metrics
+        caculated.  Each line will include a frame number, plus the difference metric, and
+        the scene change metric.  This file can be used for input (via the input parameter)
+        on another pass to avoid having to recalculate the metrics or for the mode 5 two pass
+        vfr support.
+
+        Default:  ""  (String)
+
+
+   input -
+
+        Sets the name and path to a metrics file to use as input.  This file should have
+        been created with the "output" parameter on a previous pass.
+
+        Default:  ""  (String)
+
+
+   tfmIn -
+
+        Sets the name and path to an output file from TFM.  This option is useful when using
+        hint=true and a tfm output file has been generated on a previous pass.  This option
+        allows TDecimate to get info from tfm without having to check frames for hints, which
+        can result in a very large speed up for large cycle sizes (even small cycle sizes should
+        get a noticable speed increase). The only case where a tfmIn file is absolutely required
+        is in mode 5!
+
+        Default:  ""  (String)
+
+
+   mkvOut -
+
+        This sets the name and path for the mkv timecodes file that is generated in
+        modes 3 and 5.
+
+        Default:  ""  (String)
+
+
+
+E.)  DEBUG/DISPLAY PARAMETERS:
+
+
+     debug -
+
+        Enabling this will make TDecimate output information about its internal states and
+        decisions via OutputDebugString().  You can use a program called DebugView from
+        System Internals:
+
+                        http://www.sysinternals.com/ntw2k/utilities.shtml
+
+        to view this output.  This can be useful in setting thresholds and seeing what is 
+        happening.  To find out exactly what all it shows you'll have to use it ;)
+
+        When mode = 2 and debug=true, TDecimate will spit out the cycle sizes for the
+        series of M-in-N decimations.  That output will look something like this:
+
+                     [1004] mode2_cfs 0 = 7
+                     [1004] mode2_cfs 1 = 7
+                     [1004] mode2_cfs 2 = 14
+                     [1004] mode2_cfs 3 = 56
+                     [1004] mode2_cfs 4 = 392
+
+        The last "mode2_cfs # = ##" line shows the largest cycle size being used (the number
+        after the "=").  So if you set m2PA=true, and the metrics are not available from an
+        input file, TDecimate will be reading that ## frames (392 in the above case) ahead
+        in the video stream, and will have to process those many frames at each cycle boundary!
+
+        default:  false  (bool)
+
+
+     display -
+
+        Outputs almost exactly the same information as debug, but draws it on the actual frames
+        in the upper left hand corner.  This is usually easier to read and use then the debug
+        output.  To find out exactly what all it shows you'll have to use it ;)
+
+        default:  false  (bool)
+
+
+
+F.)  OVERRIDES:
+
+
+        An overrides file can be used to manually set drop frames, declare video/film sections,
+        or specify decimation patterns over ranges of frames.
+
+
+           specifying video cycles:
+
+              To specify a range of frames for TDecimate to consider video... first, enter the
+              starting frame number, then put a comma (","), then enter the ending frame number,
+              and finally put a "v" as the specifier.  This range is inclusive, meaning that the
+              starting and ending frame numbers will be counted as video! Remember that video
+              sections are only considered when hybrid > 0!
+
+              example:     10,334 v
+
+
+           specifying film cycles:
+
+              Same as video but use "f" as the specifier.  Doing this will only make a difference
+              when using hybrid > 0 and detecting video sections.  In all the other modes everything
+              is considered film to begin with.
+
+              example:     10,334 f
+
+
+           specifying drop frames:
+
+              To specify a drop frame enter the frame number you want to drop and put a "-" specifier.
+              If you manually specify more than cycleR drop frames for one cycle then the ones that come
+              first chronologically will be used.  If using mode 2, and not an M-in-N decimation mode,
+              the same restriction applies, but instead of cycleR being the limiter it is an internally
+              computed number.
+
+              example:     226 -
+
+
+           specifying a decimation pattern:
+
+              Use the drop frame specifier along with keep frame specifiers (+) as place holders.
+
+              example:     10,334 +-+++
+
+              In this example every 2nd frame will be dropped starting at frame 10 and going to
+              frame 334. 
+
+
+           EXTRA NOTES:
+
+              1.) If you specify overlapping entries then the entry that comes last in the ovr
+                  file will be used.
+
+              2.) All frame number entries correspond to the frame numbers in the input clip
+                  (i.e. the input into TDecimate).  They do not correspond to the frame numbers after
+                  decimation (this is the cause of a lot of headaches).
+
+              3.) You can only give cycleR drop frames per cycle.  If you specify more than that,
+                  then the first cycleR worth specified will be used.
+
+
+
+G.)  CHANGE LIST:
+
+
+    28/09/2007  v1.0.3
+
+         - fixed "number of frames after decimation doesn't match" error
+             being incorrectly thrown in mode 2
+
+
+    25/05/2007  v1.0.2
+
+         - Lots of fixes for mode 2 and non-standard framerates
+         - fixed problem in mode 0 decimation when using tfm hints and looking
+             for singleton match duplicates
+
+
+    19/02/2007  v1.0.1
+
+         - fixed reading in tfm output files created with PP=0
+         - fixed a bug in destroying hints on frame output
+         - fixed a bug in drop/keep frame overrides in the last
+              cycle of a video if the cycle was not full length
+
+
+    18/01/2007  v1.0
+
+         - nothing
+
+
+    07/12/2006  v0.9.12.7
+
+         - sdlim changes
+
+
+    26/11/2006  v0.9.12.6
+
+         + added sdlim parameter
+         - expanded file input line buffers from 80 bytes to 1024 bytes
+         - small change to debug output format of match/d2v duplicate info lines
+
+
+    04/11/2006  v0.9.12.5
+
+         - switch setfps() with muldivfps() for modes 0, 1, and 5
+         - use FloatToFPS() from assumefps/changefps/convertfps for modes 2 and 7
+
+
+    22/10/2006  v0.9.12.4
+
+         + auto detect hints on load if hint is not explicitly set to true or false by the user
+         + restore hints passed through tfm when outputting frames
+         - fixed batch option setting arrays to fake values even if mode was not set to 5
+         - fixed unneeded requesting of frames under certain conditions due to some logic errors
+         - a few caching changes/fixes
+
+
+    10/03/2006  v0.9.12.3
+
+         + Removed maximum limit on cycle value (upper limit is now the # of frames in the video)
+         + batch option now disables input file crc checking (applies to all modes)
+         + Minor changes to tfm match and d2v aided decimation routines
+         + Display crc values in error msg when crcs don't match
+
+
+    07/26/2006  v0.9.12.2
+
+         + set fps to average value of the clip in mode 5 (so duration stays the same)
+         + use 6 decimal places in v2 tc output
+
+
+    04/09/2006  v0.9.12.1
+
+         - fixed opt parameter not be respected in the blurring functions used
+              when predenoise=true
+
+
+    03/23/2006  v0.9.12.0
+
+         + Added clip2 parameter
+         + Added hint parameter
+         + Modes 0/1 fully support seeking when complete input/tfmIn files
+             are present (tfmIn file not required if hint=false)
+         - fixed a few mmx/isse routines containing paddq sse2 instruction
+         - replace frame copy with makewritable where possible
+         - fixed not allowing tfmIn file with hybrid=0
+         - changed noblend default to true
+
+
+    01/24/2006  v0.9.11.9
+
+         + added opt parameter
+         - fixed sse2 routines using psrldq
+
+
+    01/19/2006  v0.9.11.8
+
+         - don't require input and tfmIn files for mode 5
+
+
+    01/17/2006  v0.9.11.7
+
+         - sse2 optimizations (only used on P4)
+
+
+    12/20/2005  v0.9.11.6
+
+         - Fixed slow down problems with internal caching
+
+
+    12/19/2005  v0.9.11.5
+
+         + internal caching for modes 0, 1, and 3
+         + show cycleR value in display output
+         - Fixed a problem with display output wrap around for the drop frame #'s listing
+         - Fixed metric prebuffering computing metrics for the incorrect frames within
+              a cycle after a seek to a random frame.  It was causing a minor slow down
+              when seeking.
+         - Fixed requesting frames an extra time in modes 0, 1, and 3 when no
+              field matching hints from tfm were present in the stream.
+
+
+    12/18/2005  v0.9.11.4
+
+         + wrap display=true text to multiple columns and mark frames that will
+             be dropped with "**"
+         + round to microsecond accuracy for all v1/v2 timecode output files
+         + slightly more efficient metric cycle calculation
+
+
+    12/04/2005  v0.9.11.3
+
+         - Fixed bug in metric pre-buffering that would cause TDecimate to always throw
+              an error when processing the last 2 cycles of a clip (introduced in v0.9.11.2).
+
+
+    12/03/2005  v0.9.11.2
+
+         + speeded up some of the mmx functions that were added in the last release
+         + modes 0, 1, and 3 now pre-compute metrics for the next needed cycle while
+              delivering frames for the current cycle in order to evenly distribute
+              cpu usage
+
+
+    11/21/2005  v0.9.11.1
+
+         + optimized c metric calculation routine (~2.5-3x faster)
+         + removed width restrictions on isse yuy2 scenechange detection routine
+         + added mmx yuy2 scenechange detection routine
+         + removed all pitch and width restrictions on isse sad/ssd block metric calculation routines
+         + added mmx sad routines
+         + require mmx and not isse for the assembly ssd routines because they use only mmx instructions
+         + removed width restrictions on mmx denoise routines
+         - fixed possible divide by zero crash with vidDetect = 4
+
+
+    11/01/2005  v0.9.11.0
+
+         + Added ssd parameter
+         + Added vidDetect = 4 mode
+         + Converted all metric storage/calculation to __int64 to prevent possible overflow
+              on large frames
+         - Fixed mode 0/1 incorrect decimation of the last cycle of a clip when cycleR > 1
+              and the number of frames wasn't a multiple of the cycle length
+
+
+    10/07/2005  v0.9.10.1
+
+         + Expanded mode 7 display/debug output
+         - Fixed a bug in mode 7's frame decision code
+
+
+    09/28/2005  v0.9.10.0
+
+         + Added "noblend" parameter (disable 2 drop scenario blending when hybrid=0)
+         + Added mode 7, an arbitrary framerate decimation mode (like mode 2), but based on
+              some ideas from smartdecimate
+         + Added denoising parameter, enables denoising of frames before calculating difference
+              values (good for noisy sources or sources with lots of dot-crawl)
+
+
+    09/11/2005  v0.9.9.7
+
+         - Fixed crash when reading in tfmIn files that did not have +/- markings
+
+
+    09/02/2005  v0.9.9.6
+
+         - Fixed vfrDec=0 crash due to heap corruption
+
+
+    08/27/2005  v0.9.9.5
+
+         + Added fast isse routine for 50/50 blending case
+         - Fixed a bug in hybrid=3 operation that caused it to handle certain scenechange
+              situations incorrectly.
+
+
+    08/15/2005  v0.9.9.4
+
+         + mode=1 w/ d2v info and hybrid=3 decimation improvements
+
+
+    08/14/2005  v0.9.9.3
+
+         + Added hybrid=3 handling (blend convert 24p sections into 30p)
+         + Added generalized isse metric calculation routine (yv12 blocksizes 16x16 or up
+              and yuy2 blocksizes 8x8 or up now use isse when nt <= 0 instead of only the
+              32x32 case)
+
+
+    06/25/2005  v0.9.9.2
+
+         + Added mode 6 (120fps -> vfr w/ timecodes file)
+
+
+    05/24/2005  v0.9.9.1
+
+         + Added iSSE optimizations for default metric calculation path 
+              (32x32 blocks + nt<=0 + mod 16 width and height)
+
+
+    05/18/2005  v0.9.9
+
+         + First cut at new mode 2 operation.
+         + Added maxndl/m2PA parameters, go with mode 2.
+
+
+    04/19/2005  v0.9.8.3
+
+         + Added exPP parameter, fixes handling of interlaced frames marked in tfmIn files when
+              PP=1 in tfm and an external post-processor is used to deinterlace the combed frames.
+         - Fixed crash caused by above circumstances
+
+
+    03/13/2005  v0.9.8.2
+
+         + Added missing logic to most similar decimation mode.  It can now correctly handle
+             panning->static and static->panning areas like longest string.  It can also detect
+             cycles that need two duplicates dropped.  Assuming match info is present.
+         + Tweaked decimation decisions for both longest string/most similar.  These are the decisions
+             that use the extra info such as match info and d2v rff info from tfm.
+         + Added isse luma diff calculation routine for yuy2
+         - Fixed a bug in the longest string decimation decision that utilized match info from tfm.
+
+
+    03/10/2005  v0.9.8.1
+
+         + Scene change metrics are calculated using only luma, regardless of the chroma option
+         + There can only be one change above sceneThresh within the current cycle as well as the
+             surrounding two cycles for it to be detected as a scene change (as long as cycle length
+             is 10 or less)
+         + D2V rff duplicate info is taken into account when deciding what frames to drop, instead 
+             of only for hybrid detection
+         + When hybrid > 0 and concycle or concycleTP is greater than 1, single cycles that are detected
+             as video and that have a scene change detected in them are treated as video
+
+
+    02/19/2005  v0.9.8
+
+         + Most similar decimation mode now takes duplicate via match info into account
+         + Match duplicate info and d2v duplicate info is shown with debug/display options
+         + rff info from d2v option in tfm is now taken into account when doing hybrid detection
+         + Increased the maximum possible cycle value to 300
+
+
+    01/08/2005  v0.9.7.2
+
+         - Fixed SetCacheHints being called incorrectly and always defaulting to CACHE_ALL
+         - Small change to protect against overflow with 1.0 weight when blending frames
+
+
+    01/04/2005  v0.9.7.1
+
+         + Improved longest string decimation algo by having it look for an obvious duplicate case
+               based off matches/metrics
+
+
+    01/03/2005  v0.9.7
+
+         - Fixed mode 4 display output saying "mode 3" instead of "mode 4"
+         + Added chroma parameter
+         + mode 4 display and debug output now display the sceneChange metrics along with the
+               block difference metrics
+
+
+    01/02/2005  v0.9.6.2
+
+         - Fixed incorrect setcachehints call due to checking the value of the wrong argument
+         + Faster and more accurate mmx/sse2 blending routines, thanks to Leak
+         + Optimized the metric calculation routines.  Exactly how much of a speed increase is dependent
+               on the source being processed.
+         + Some other optimizations and internal changes.
+
+
+    12/22/2004  v0.9.6.1
+
+         - Fixed a problem with timecode file generation that would occur in mode 5 with tcfv1 = true.
+               If the cycle following a cycle that needed 2 dups removed was detected as video then
+               an erroneous line would be written to the file.
+         - Fixed not initializing mkvOutF file handle
+
+
+    12/19/2004  v0.9.6
+
+         - Fixed not differentiating between c matches and deinterlaced frames when hybrid > 0
+               and checking for dups via matches
+         - Fixed crash with debug=true and large cycles (> 50) due to too small of a string buffer
+         - Changed default sceneThresh to 13
+         - conCycle and conCycleTP now default to 1 when vidDetect = 3 and still default to 2
+               when vidDetect != 3
+         + Added handling for cycles around scene changes which need 2 dups removed
+         + Some other internal changes
+
+
+    12/14/2004  v0.9.4
+
+         - Fixed problems with longest string decimation and static to panning and panning to
+               static scene workarounds in longest string decimation
+         + added se parameter (causes mode 3 to stop early once the last actual frame is delivered)
+         + mmx and sse2 blending routines now work with any width (not just mod 8 and mod 16)
+
+
+    12/07/2004  v0.9.3
+
+         - fixed outputting of extra timecode entries when using tcfv1=false (v2 format) in
+               mode 3 or mode 5 and the last frame was not a cycle boundary
+         - fixed incorrect formatting of the first 2 lines of the mkvOut file when
+               in mode 3 and using tcfv1=false (v2 format)
+         + added mmx and sse2 blending routines (used when hybrid = 1)
+
+
+    11/30/2004  v0.9.2
+
+         - fixed mishandling of the last cycle of a clip when in mode 3 and the
+               last cycle was film
+         - removed a mode 5 specific vidDetect = 3 action that wasn't suppose to be there
+         + write blockx and blocky sizes into tdecimate metric log files
+         + timecode v2 format support
+
+
+    11/28/2004  v0.9.1
+
+         + Added batch parameter
+         + Added crc checking of input/output files to make sure that a file loaded via the
+              input parameter actually goes with the current video
+
+
+    11/27/2004  v0.9
+
+         - Initial release
+
+
+
+H.)  TO DO LIST:
+
+
+    - bugfixes as needed for the 1.0 line
+
+
+
+contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu

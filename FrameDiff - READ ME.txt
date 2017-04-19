@@ -1,0 +1,235 @@
+
+
+                            FrameDiff v1.6  -  HELP FILE  (11/21/2007)
+
+
+GENERAL INFO:
+
+
+     ** Currently FrameDiff only supports YV12 and YUY2 colorspaces!
+
+      FrameDiff exposes tdecimate's metric calculation routines to allow for some
+   interesting operations and visualizations. There is also a version of FrameDiff
+   that can be used in conditional filtering called "CFrameDiff" that allows using
+   tdecimate's metric calculation abilities in Avisynth's conditional environment.
+   CFrameDiff returns either the calculated metric or the position of the block 
+   to the script.
+
+   Syntax=>
+
+	FrameDiff(int mode, bool prevf, int nt, int blockx, int blocky, bool chroma,
+                    float thresh, int display, bool debug, bool norm, bool denoise,
+                    bool ssd, int opt)
+
+	CFrameDiff(int mode, bool prevf, int nt, int blockx, int blocky, bool chroma,
+                    bool debug, bool norm, bool denoise, bool ssd, bool rpos, int opt)
+
+   example =>
+
+        conditionalfilter(last,source1,source2,"CFrameDiff",">","2.0")
+
+
+
+PARAMETERS:
+
+
+     mode -
+
+         Sets whether the highest metric value or the lowest metric value for the
+         frame is returned.
+
+            0 - lowest
+            1 - highest
+
+         Default:  1  (int)
+
+
+     prevf -
+
+         Sets whether the difference to the previous frame or the difference to the
+         next frame is calculated.
+
+            true -  previous
+            false - next
+
+         Default:  true  (bool)
+
+
+     nt -
+
+         The noise threshold used when calculating the metrics.  This is the same as
+         the nt parameter in TDecimate.
+
+         Default:  0  (int)
+
+
+     blockx/blocky -
+
+         Defines the size of the blocks used during metric calculations. blockx = x-axis
+         size, blocky = y-axis size.  Must be powers of 2 that are greater than or equal
+         to 4 and less than or equal to 2048.  These are the same as the blockx/blocky
+         settings in TDecimate.
+
+         Default:  blockx = 32  (int)
+                   blocky = 32  (int)
+
+
+     chroma -
+
+         Sets whether or not chroma is considered in the metric calculations.
+
+         Default:  false  (bool)
+
+
+     display -
+
+         Controls what, if anything, is drawn on the frames.  Possible settings:
+
+            0 - nothing
+            1 - debug info + a box is drawn around the block that the metric
+                   came from (the lowest metric'd block for mode = 0 and the
+                   highest metric'd block for mode = 1)
+            2 - debug info + if mode = 0 then all blocks with a metric that
+                   is <= to the "thresh" parameter will be filled in white,
+                   else if mode = 1 then all blocks with a metric that is >=
+                   "thresh" will be filled in white.  (A black single pixel
+                   mark is added to the middle of each filled block)
+            3 - the frame is set to 0 except for the block that the metric came
+                from (the lowest metric'd block for mode = 0 and the highest
+                metric'd block for mode = 1), which is set to 255
+            4 - same as 2, except no debug info is written, no single pixel
+                mark is added, and the rest of the frame (the non marked blocks)
+                is set to 0.
+
+         Default:  0  (int)
+
+
+     thresh -
+
+         Used by display=2 to determine what blocks to fill.  Is based on the normalized
+         (0.0 to 100.0) scale used by tdecimate.
+
+         Default:  2.0 (float)
+
+
+     debug -
+
+         Output metric information via OutputDebugString().
+
+         Default:  false (bool)
+
+
+     norm -
+
+         Sets whether to return the normalized metrics (0.0 to 100.0 scale) or the
+         unnormalized metrics when using CFrameDiff in conditional filtering. Also
+         effects which metrics are displayed by the "display" option for FrameDiff.
+
+            true - return normalized metrics
+            false - return unnormalized metrics
+
+         Default:  true (bool)
+
+
+     denoise -
+
+         Sets whether or not to denoise frames prior to doing the difference calculations.
+         This can greatly improve metrics for noisy sources (i.e. stabilize duplicate
+         frame metrics and make it easier to tell the difference between duplicates and
+         non-duplicates).  It also works very well for sources with lots of dotcrawl
+         because the denoising effectively cancels all dot-crawl.  Using denoising
+         will slow things down somewhat, but it is MMX optimized and pretty fast.
+
+           true - use denoising
+           false - don't
+
+         Default:  false (bool)
+
+
+      ssd -
+
+         Controls whether the metrics are calculated as SAD (sum of absolute differences)
+         or SSD (sum of squared differences).
+
+           true - use ssd
+           false - use sad
+
+         Default:  false (bool)
+
+
+      rpos -
+
+         Controls whether CFrameDiff returns the metric or the position of the block.  The
+         position is returned as a single integer coded as:
+
+             return value =  y*width+x
+
+         Where x and y are coordinates of the top left pixel of the block.  If set to true
+         then the position is returned. Otherwise, the metric is returned.
+
+         Default:  false (bool)
+
+
+      opt -
+
+         Controls which optimizations are used.  Possible settings:
+
+            0 - use c routines
+            1 - use mmx routines
+            2 - use isse routines
+            3 - use sse2 routines
+            4 - auto detect
+
+         Default:  4  (int)
+
+
+
+CHANGE LIST:
+
+
+   v1.6 - (11/21/2007)
+
+      - fixed CFrameDiff returning invalid positions when rpos=true and there
+          was no motion
+
+
+   v1.5 - (09/28/2007)
+
+      + added display modes 3/4 to framediff
+      + added ability to return block position to cframediff
+      - fixed bug in cframediff which caused mode=0 to return the highest
+          value instead of the lowest when norm was set to true
+
+
+   v1.4 - (03/23/2006)
+
+      - replace frame copy with makewritable
+
+
+   v1.3 - (01/24/2006)
+
+      + ported new mmx/isse/sse2 optimizations from TDecimate
+      + added opt parameter
+      - fixed ssd missing in CFrameDiff parameter string
+
+
+   v1.2 - (11/01/2005)
+
+      + added ssd parameter
+
+
+   v1.1 - (9/28/2005)
+
+      + added denoise parameter
+
+
+
+TO DO LIST:
+
+
+    - nothing
+
+
+
+
+contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu
