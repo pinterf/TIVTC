@@ -111,6 +111,15 @@ static void calcCRC(PClip hclip, int stop, unsigned int &crc, IScriptEnvironment
     pitch = src->GetPitch(PLANAR_Y);
     height = src->GetHeight(PLANAR_Y);
     modulo = pitch - width;
+#ifdef _M_X64
+    while (height--) {
+      int size = width;
+      while (size--)
+        crc = ptrCrcTable[(crc ^ *buffer++) & 0xFF] ^ (crc >> 8);
+      buffer += modulo;
+    }
+    //crc = crc ^ ~0U;
+#else
     __asm
     {
       mov eax, crc				// load the pointer to crc
@@ -136,5 +145,6 @@ static void calcCRC(PClip hclip, int stop, unsigned int &crc, IScriptEnvironment
         mov eax, crc				// load the pointer to crc
         mov[eax], ecx			// write the result
     }
+#endif
   }
 }
