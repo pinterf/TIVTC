@@ -27,6 +27,11 @@
 
 bool checkForIntelP4()
 {
+  // if there is no P4, then SSE2 is disabled.
+  // this happens even for Intel Ivy Bridge, because this function returns false
+#if 1 // _M_X64
+  return true;
+#else
   unsigned int reg_eax = 0, vendor_id[3] = { 0, 0, 0 };
   __try
   {
@@ -51,6 +56,7 @@ bool checkForIntelP4()
     vendor_id[0] == 'uneG' && vendor_id[1] == 'Ieni' &&
     vendor_id[2] == 'letn') return true;
   return false;
+#endif
 }
 
 bool IsIntelP4()
@@ -59,8 +65,15 @@ bool IsIntelP4()
   return isp4;
 }
 
-void fmemset_16_SSE2(unsigned char* p, int sizec, __m128 val)
+void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val)
 {
+#ifdef _M_X64
+  for (int i = 0; i < sizec; i+=16)
+  {
+    _mm_stream_si128(reinterpret_cast<__m128i *>(p), val);
+    p += 16;
+  }
+#else
   _asm
   {
     mov edi, p
@@ -91,8 +104,10 @@ void fmemset_16_SSE2(unsigned char* p, int sizec, __m128 val)
       lxend :
     sfence
   }
+#endif
 }
 
+#ifndef _M_X64
 void fmemset_16_iSSE(unsigned char* p, int sizec, __int64 val)
 {
   _asm
@@ -274,6 +289,7 @@ void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val)
     emms
   }
 }
+#endif // _M_X64
 
 void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
 {
@@ -287,6 +303,7 @@ void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
   }
   if ((cpu&CPUF_SSE2) && !(sizec & 15))
   {
+#if 0
     __int64 v[2];
     v[0] = (val << 8) + val;
     v[0] += (v[0] << 48) + (v[0] << 32) + (v[0] << 16);
@@ -297,8 +314,11 @@ void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
       movups xmm0, xmmword ptr[v]
       movaps v128, xmm0
     }
+#endif
+    __m128i v128 = _mm_set1_epi8(val);
     fmemset_16_SSE2(p, sizec, v128);
   }
+#ifndef _M_X64
   else if ((cpu&CPUF_INTEGER_SSE) && !(sizec & 7))
   {
     __int64 v = (val << 8) + val;
@@ -313,5 +333,6 @@ void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
     if (sizec & 15) fmemset_8_MMX(p, sizec, v);
     else fmemset_16_MMX(p, sizec, v);
   }
+#endif
   else memset(p, val, sizec);
 }
