@@ -23,6 +23,8 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#ifndef _M_X64
+
 #include "profUtil.h"
 
 static void getTimeRDTSC(__int64 &time)
@@ -66,3 +68,4 @@ static void warmUpTimeRDTSC()
     mov totaltime, eax
   }
 }
+#endif
