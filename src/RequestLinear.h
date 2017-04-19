@@ -3,9 +3,9 @@
 **
 **   TIVTC includes a field matching filter (TFM) and a decimation
 **   filter (TDecimate) which can be used together to achieve an
-**   IVTC or for other uses. TIVTC currently supports YV12 and 
+**   IVTC or for other uses. TIVTC currently supports YV12 and
 **   YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2008 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
@@ -31,28 +31,28 @@
 class RFrame
 {
 public:
-	int num, valid;
-	PVideoFrame data;
-	RFrame::RFrame();
+  int num, valid;
+  PVideoFrame data;
+  RFrame::RFrame();
 };
 
 class RequestLinear : public GenericVideoFilter
 {
 private:
-	char buf[512];
-	bool debug, rall;
-	int last_request, rlim, clim, elim, start_pos;
-	RFrame **frames;
-	int RequestLinear::mapn(int n);
-	int RequestLinear::getCachePos(int n);
-	void RequestLinear::insertCacheFrame(int pframe, IScriptEnvironment *env);
-	PVideoFrame RequestLinear::findCachedFrame(int pframe, IScriptEnvironment *env);
-	void RequestLinear::clearCache(int n, IScriptEnvironment *env);
-	PVideoFrame RequestLinear::requestFrame(int n, IScriptEnvironment *env);
+  char buf[512];
+  bool debug, rall;
+  int last_request, rlim, clim, elim, start_pos;
+  RFrame **frames;
+  int RequestLinear::mapn(int n);
+  int RequestLinear::getCachePos(int n);
+  void RequestLinear::insertCacheFrame(int pframe, IScriptEnvironment *env);
+  PVideoFrame RequestLinear::findCachedFrame(int pframe, IScriptEnvironment *env);
+  void RequestLinear::clearCache(int n, IScriptEnvironment *env);
+  PVideoFrame RequestLinear::requestFrame(int n, IScriptEnvironment *env);
 
 public:
-	RequestLinear::RequestLinear(PClip _child, int _rlim, int _clim, int _elim, 
-		bool _rall, bool _debug, IScriptEnvironment *env);
-	RequestLinear::~RequestLinear();
-	PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env);
+  RequestLinear::RequestLinear(PClip _child, int _rlim, int _clim, int _elim,
+    bool _rall, bool _debug, IScriptEnvironment *env);
+  RequestLinear::~RequestLinear();
+  PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env);
 };

@@ -3,9 +3,9 @@
 **
 **   TIVTC includes a field matching filter (TFM) and a decimation
 **   filter (TDecimate) which can be used together to achieve an
-**   IVTC or for other uses. TIVTC currently supports YV12 and 
+**   IVTC or for other uses. TIVTC currently supports YV12 and
 **   YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2008 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
@@ -31,12 +31,12 @@
 class MergeHints : public GenericVideoFilter
 {
 private:
-	char buf[512];
-	bool debug;
-	PClip hintClip;
+  char buf[512];
+  bool debug;
+  PClip hintClip;
 
 public:
-	MergeHints::MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnvironment *env);
-	MergeHints::~MergeHints();
-	PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env);
+  MergeHints::MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnvironment *env);
+  MergeHints::~MergeHints();
+  PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env);
 };

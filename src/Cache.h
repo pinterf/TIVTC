@@ -3,9 +3,9 @@
 **
 **   TIVTC includes a field matching filter (TFM) and a decimation
 **   filter (TDecimate) which can be used together to achieve an
-**   IVTC or for other uses. TIVTC currently supports YV12 and 
+**   IVTC or for other uses. TIVTC currently supports YV12 and
 **   YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2008 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
@@ -29,27 +29,27 @@
 class CacheFrame
 {
 public:
-	int num, valid;
-	PVideoFrame data;
-	CacheFrame::CacheFrame();
+  int num, valid;
+  PVideoFrame data;
+  CacheFrame::CacheFrame();
 };
 
 class CacheFilter : public GenericVideoFilter
 {
 private:
-	int size, mode, start_pos, ctframe, cycle;
-	CacheFrame **frames;
-	int mapn(int n);
-	void CacheFilter::clearCache();
+  int size, mode, start_pos, ctframe, cycle;
+  CacheFrame **frames;
+  int mapn(int n);
+  void CacheFilter::clearCache();
 
 public:
-	PVideoFrame __stdcall CacheFilter::GetFrame(int n, IScriptEnvironment *env);
-	CacheFilter::~CacheFilter();
-	CacheFilter::CacheFilter(PClip _child, int _size, int _mode, int _cycle, 
-		IScriptEnvironment *env);
-	void CacheFilter::resetCacheStart(int first, int last);
-	int CacheFilter::getCachePos(int n);
-	bool CacheFilter::copyToFrame(PVideoFrame &dst, int pframe, IScriptEnvironment *env);
-	void CacheFilter::processCache(int cframe, int pframe, IScriptEnvironment *env);
-	void __stdcall CacheFilter::SetCacheHints(int cachehints, int frame_range);
+  PVideoFrame __stdcall CacheFilter::GetFrame(int n, IScriptEnvironment *env);
+  CacheFilter::~CacheFilter();
+  CacheFilter::CacheFilter(PClip _child, int _size, int _mode, int _cycle,
+    IScriptEnvironment *env);
+  void CacheFilter::resetCacheStart(int first, int last);
+  int CacheFilter::getCachePos(int n);
+  bool CacheFilter::copyToFrame(PVideoFrame &dst, int pframe, IScriptEnvironment *env);
+  void CacheFilter::processCache(int cframe, int pframe, IScriptEnvironment *env);
+  void __stdcall CacheFilter::SetCacheHints(int cachehints, int frame_range);
 };

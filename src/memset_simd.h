@@ -3,9 +3,9 @@
 **
 **   TIVTC includes a field matching filter (TFM) and a decimation
 **   filter (TDecimate) which can be used together to achieve an
-**   IVTC or for other uses. TIVTC currently supports YV12 and 
+**   IVTC or for other uses. TIVTC currently supports YV12 and
 **   YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2008 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 
 bool checkForIntelP4();
 bool IsIntelP4();
-void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val=0);
+void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val = 0);
 void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val);
 void fmemset_8_iSSE(unsigned char* p, int sizec, __int64 val);
 void fmemset_16_MMX(unsigned char* p, int sizec, __int64 val);
