@@ -130,8 +130,8 @@ private:
   int TDecimate::findNumerator(double decRatio, int divisor);
   double TDecimate::findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env);
   void TDecimate::sortMetrics(unsigned __int64 *metrics, int *order, int length);
-  void TDecimate::SedgeSort(unsigned __int64 *metrics, int *order, int length);
-  void TDecimate::pQuickerSort(unsigned __int64 *metrics, int *order, int lower, int upper);
+  //void TDecimate::SedgeSort(unsigned __int64 *metrics, int *order, int length);
+  //void TDecimate::pQuickerSort(unsigned __int64 *metrics, int *order, int lower, int upper);
   void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
     bool scene, bool hnt);
   unsigned __int64 TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
