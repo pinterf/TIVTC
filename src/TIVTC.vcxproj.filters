@@ -149,6 +149,27 @@
     <ClInclude Include="TFMPP.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="avs\alignment.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="avs\capi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="avs\config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="avs\cpuid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="avs\minmax.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="avs\types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="avs\win.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TIVTC.rc">
