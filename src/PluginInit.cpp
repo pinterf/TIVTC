@@ -28,17 +28,34 @@
 
 AVSValue __cdecl Create_TFM(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnvironment* env);
+// porting only TFM and TDecimate at the moment
 AVSValue __cdecl Create_MergeHints(AVSValue args, void* user_data, IScriptEnvironment* env);
+#ifndef _M_X64
 AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_FrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_ShowCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env);
+#endif
 AVSValue __cdecl Create_RequestLinear(AVSValue args, void* user_data, IScriptEnvironment* env);
 
-extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env)
-{
+#ifdef AVISYNTH_PLUGIN_25
+extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env) {
+#else
+/* New 2.6 requirement!!! */
+// Declare and initialise server pointers static storage.
+const AVS_Linkage *AVS_linkage = 0;
+
+/* New 2.6 requirement!!! */
+// DLL entry point called from LoadPlugin() to setup a user plugin.
+extern "C" __declspec(dllexport) const char* __stdcall
+AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
+
+  /* New 2.6 requirment!!! */
+  // Save the server pointers.
+  AVS_linkage = vectors;
+#endif
   env->AddFunction("TFM", "c[order]i[field]i[mode]i[PP]i[ovr]s[input]s[output]s[outputC]s" \
     "[debug]b[display]b[slow]i[mChroma]b[cNum]i[cthresh]i[MI]i" \
     "[chroma]b[blockx]i[blocky]i[y0]i[y1]i[mthresh]i[clip2]c[d2v]s" \
@@ -50,7 +67,9 @@ extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScri
     "[blocky]i[debug]b[display]b[vfrDec]i[batch]b[tcfv1]b[se]b" \
     "[chroma]b[exPP]b[maxndl]i[m2PA]b[denoise]b[noblend]b[ssd]b" \
     "[hint]b[clip2]c[sdlim]i[opt]i", Create_TDecimate, 0);
+  // porting only TFM and TDecimate at the moment
   env->AddFunction("MergeHints", "c[hintClip]c[debug]b", Create_MergeHints, 0);
+#ifndef _M_X64
   env->AddFunction("FieldDiff", "c[nt]i[chroma]b[display]b[debug]b[sse]b[opt]i",
     Create_FieldDiff, 0);
   env->AddFunction("CFieldDiff", "c[nt]i[chroma]b[debug]b[sse]b[opt]i", Create_CFieldDiff, 0);
@@ -62,6 +81,7 @@ extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScri
     "[debug]b[display]i[fill]b[opt]i", Create_ShowCombedTIVTC, 0);
   env->AddFunction("IsCombedTIVTC", "c[cthresh]i[MI]i[chroma]b[blockx]i[blocky]i[metric]i" \
     "[opt]i", Create_IsCombedTIVTC, 0);
+#endif
   env->AddFunction("RequestLinear", "c[rlim]i[clim]i[elim]i[rall]b[debug]b",
     Create_RequestLinear, 0);
   return 0;
