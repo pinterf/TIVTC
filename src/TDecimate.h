@@ -137,28 +137,6 @@ private:
   unsigned __int64 TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
     int &xblocksI, unsigned __int64 &metricF, IScriptEnvironment *env, bool scene);
 
-  template<bool use_sse2>
-  void calcDiffSSD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-
-#ifndef _M_X64
-  void calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-#endif
-  template<bool use_sse2>
-  void calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-  
-  void calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2);
-
-  template<bool use_sse2>
-  void calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-#ifndef _M_X64
-  void calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
-    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np);
-#endif
   unsigned __int64 TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
   unsigned __int64 TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,

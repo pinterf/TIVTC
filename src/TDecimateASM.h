@@ -179,4 +179,32 @@
 
   void HorizontalBlurSSE2_YUY2_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
+
+//-- helpers
+  template<bool use_sse2>
+  void calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma);
+
+#ifndef _M_X64
+  void calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma);
+#endif
+
+  void calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2, unsigned __int64 *diff, bool chroma);
+
+  template<bool use_sse2>
+  void calcDiffSSD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+
+  template<bool use_sse2>
+  void calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+
+#ifndef _M_X64
+  void calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
+    int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+#endif
+
+
 #endif // __TDECIMATEASM_H__
