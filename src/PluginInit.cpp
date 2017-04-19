@@ -35,9 +35,9 @@ AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnviron
 AVSValue __cdecl Create_CFieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_FrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
+#endif
 AVSValue __cdecl Create_ShowCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env);
-#endif
 AVSValue __cdecl Create_RequestLinear(AVSValue args, void* user_data, IScriptEnvironment* env);
 
 #ifdef AVISYNTH_PLUGIN_25
