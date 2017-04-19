@@ -36,6 +36,8 @@ AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
   return checkCombed(child->GetFrame(n, env), n, env, np, 1, blockN, xblocks, mics, false);
 }
 
+#ifndef _M_X64
+
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
   AVSValue cnt = env->GetVar("current_frame");
@@ -1180,6 +1182,7 @@ __declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00
 __declspec(align(16)) const __int64 threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
 __declspec(align(16)) const __int64 ffMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
 
+// duplicate! Same as TFM::check_combing_SSE2_Luma!
 void ShowCombedTIVTC::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w)
 {
@@ -1568,6 +1571,8 @@ void ShowCombedTIVTC::check_combing_MMX(const unsigned char *srcp, unsigned char
   }
 }
 
+// Duplicate!
+// Same as FM::check_combing_SSE2_Luma
 void ShowCombedTIVTC::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w)
 {
@@ -2032,6 +2037,8 @@ void ShowCombedTIVTC::check_combing_MMX_M1(const unsigned char *srcp, unsigned c
   }
 }
 
+// duplicate!
+// same as TFM::check_combing_SSE2_M1
 void ShowCombedTIVTC::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128 thresh)
 {
@@ -2156,6 +2163,8 @@ void ShowCombedTIVTC::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsig
   }
 }
 
+// duplicate!
+// Same as TFM::check_combing_SSE2_Luma_M1
 void ShowCombedTIVTC::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128 thresh)
 {
@@ -2206,3 +2215,4 @@ void ShowCombedTIVTC::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsi
       jnz yloop
   }
 }
+#endif
