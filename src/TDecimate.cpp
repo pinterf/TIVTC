@@ -24,6 +24,7 @@
 */
 
 #include "TDecimate.h"
+#include "TDecimateASM.h"
 
 #ifdef _M_X64
 #define USE_C_NO_ASM
