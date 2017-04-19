@@ -170,6 +170,9 @@
     <ClInclude Include="avs\win.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TFMasm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TIVTC.rc">
