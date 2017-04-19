@@ -36,6 +36,7 @@
 #ifndef __Internal_H__
 #define __Internal_H__
 
+/*
 #define AVS_VERSION 2.57
 #define AVS_VERSTR "AviSynth 2.57, build:"__DATE__" ["__TIME__"]"
 #define AVS_COPYRIGHT "\n\xA9 2000-2006 Ben Rudiak-Gould, et al.\nhttp://www.avisynth.org"
@@ -48,9 +49,9 @@ extern const char _AVS_VERSTR[], _AVS_COPYRIGHT[];
 #define MC_ReturnVideoFrameBuffer  0xFFFF0001
 #define MC_PromoteVideoFrameBuffer 0xFFFF0002
 #define MC_MarkNotReturned         0xFFFF0003
-
+*/
 #include "avisynth.h"
-
+/*
 
 
 struct AVSFunction {
@@ -70,16 +71,17 @@ PClip Create_MessageClip(const char* message, int width, int height,
 PClip new_Splice(PClip _child1, PClip _child2, bool realign_sound, IScriptEnvironment* env);
 PClip new_SeparateFields(PClip _child, IScriptEnvironment* env);
 PClip new_AssumeFrameBased(PClip _child);
-
+*/
+/*
 void BitBlt(BYTE* dstp, int dst_pitch, const BYTE* srcp,
   int src_pitch, int row_size, int height);
 
 void asm_BitBlt_ISSE(BYTE* dstp, int dst_pitch, const BYTE* srcp, int src_pitch, int row_size, int height);
 void asm_BitBlt_MMX(BYTE* dstp, int dst_pitch, const BYTE* srcp, int src_pitch, int row_size, int height);
+*/
+//long GetCPUFlags();
 
-long GetCPUFlags();
-
-
+#if 0
 class _PixelClip {
   enum { buffer = 320 };
   BYTE clip[256 + buffer * 2];
@@ -93,7 +95,7 @@ public:
 };
 
 extern _PixelClip PixelClip;
-
+*/
 
 template<class ListNode>
 static __inline void Relink(ListNode* newprev, ListNode* me, ListNode* newnext) {
@@ -120,7 +122,7 @@ static __inline bool IsClose(int a, int b, unsigned threshold)
   return (unsigned(a - b + threshold) <= threshold * 2);
 }
 
-
+#endif
 
 
 #endif  // __Internal_H__
