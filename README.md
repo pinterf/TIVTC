@@ -1,6 +1,6 @@
 # TIVTC v1.0.6 (20170421)
 
-This is a moderization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
 
 **v1.0.6 (20170421) - pinterf**
 - project migrated to VS 2015
