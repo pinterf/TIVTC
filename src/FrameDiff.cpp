@@ -25,6 +25,16 @@
 
 #include "FrameDiff.h"
 
+#ifdef _M_X64
+#define USE_C_NO_ASM
+#undef ALLOW_MMX
+#else
+#define USE_C_NO_ASM
+#define ALLOW_MMX
+#undef ALLOW_MMX
+#endif
+
+
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
   bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise, bool _ssd,
   bool _rpos, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child), mode(_mode), prevf(_prevf),
