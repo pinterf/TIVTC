@@ -921,6 +921,8 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     // TFM 874
     __asm
     {
+      push ebx // pf170421
+
       mov y, 2
       yloop:
       mov ecx, y0a
@@ -1025,6 +1027,8 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
         add mapn, edi
         cmp y, esi
         jl yloop
+
+        pop ebx // pf170421
     }
 #endif // todo
   }
@@ -1247,6 +1251,8 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     // TFM 1144
     __asm
     {
+      push ebx // pf170421
+
       mov y, 2
       yloop:
       mov ecx, y0a
@@ -1365,6 +1371,9 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
         add mapn, edi
         cmp y, esi
         jl yloop
+
+        pop ebx // pf170421
+
     }
 #endif
   }
@@ -1729,6 +1738,8 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       // TFM 1436
       __asm
       {
+        push ebx // pf170421
+
         mov y, 2
         yloop0:
         mov ecx, y0a
@@ -1917,6 +1928,8 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
           add nxtppf, ecx
           cmp y, esi
           jl yloop0
+
+          pop ebx // pf170421
       }
     }
     else
@@ -1924,6 +1937,8 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       // TFM 1633
       __asm
       {
+        push ebx // pf170421
+
         mov y, 2
         yloop1:
         mov ecx, y0a
@@ -2112,6 +2127,9 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
           add nxtnnf, ecx
           cmp y, esi
           jl yloop1
+
+          pop ebx // pf170421
+
       }
     }
 #endif // todo

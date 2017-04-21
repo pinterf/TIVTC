@@ -1028,6 +1028,8 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
     // TFMYUV2 636
     __asm
     {
+      push ebx // pf170421
+
       mov y, 2
       yloopl:
       mov edi, Width
@@ -1436,6 +1438,8 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
         add dstp, eax
         cmp y, ecx
         jl yloopl
+
+        pop ebx // pf170421
     }
   }
   else
@@ -1443,6 +1447,8 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
     // TFMYUV2 1051
     __asm
     {
+      push ebx // pf170421
+
       mov y, 2
       yloop:
       mov edi, Width
@@ -1662,6 +1668,8 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
         add dstp, eax
         cmp y, ecx
         jl yloop
+
+        pop ebx // pf170421
     }
   }
 #endif
