@@ -28,7 +28,6 @@
 
 AVSValue __cdecl Create_TFM(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnvironment* env);
-// porting only TFM and TDecimate at the moment
 AVSValue __cdecl Create_MergeHints(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
