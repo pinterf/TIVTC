@@ -2641,57 +2641,6 @@ void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
   // in sse2, we use sad
   __m128i tmpsum = _mm_sad_epu8(summa, zero);  // sum(lo 8 bytes)(needed) / sum(hi 8 bytes)(not needed)
   sum = _mm_cvtsi128_si32(tmpsum);
-#if 0
-  __asm
-  {
-    mov eax, srcp
-    mov edi, pitch
-    mov ecx, 4
-    movq mm0, [eax]
-    movq mm1, [eax + edi]
-    movq mm5, onesMask
-    lea eax, [eax + edi * 2]
-
-    pxor mm6, mm6
-    pxor mm7, mm7
-    align 16
-    loopy:
-    movq mm2, [eax]
-      movq mm3, [eax + edi]
-
-      movq mm4, mm2
-
-      pand mm0, mm1
-      pand mm4, mm3
-      pand mm0, mm2
-      pand mm4, mm1
-
-      pand mm0, mm5
-      pand mm4, mm5
-      paddusb mm7, mm0
-
-      lea eax, [eax + edi * 2]
-      movq mm0, mm2
-      movq mm1, mm3
-      paddusb mm7, mm4
-      dec ecx
-      jnz loopy
-
-      movq mm0, mm7
-      mov eax, sum
-      punpcklbw mm7, mm6
-      punpckhbw mm0, mm6
-      paddusw mm7, mm0
-      movq mm0, mm7
-      punpcklwd mm7, mm6
-      punpckhwd mm0, mm6
-      paddd mm7, mm0
-      movq mm0, mm7
-      psrlq mm7, 32
-      paddd mm0, mm7
-      movd[eax], mm0
-  }
-#endif
 }
 
 #pragma warning(push)

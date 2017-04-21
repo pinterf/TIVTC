@@ -262,18 +262,6 @@ void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
   }
   if ((cpu&CPUF_SSE2) && !(sizec & 15))
   {
-#if 0
-    __int64 v[2];
-    v[0] = (val << 8) + val;
-    v[0] += (v[0] << 48) + (v[0] << 32) + (v[0] << 16);
-    v[1] = v[0];
-    __m128 v128;
-    __asm
-    {
-      movups xmm0, xmmword ptr[v]
-      movaps v128, xmm0
-    }
-#endif
     __m128i v128 = _mm_set1_epi8(val);
     fmemset_16_SSE2(p, sizec, v128);
   }

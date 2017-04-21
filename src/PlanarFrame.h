@@ -31,14 +31,6 @@
 
 #define MIN_ALIGNMENT 16
 
-#if 0
-#define CPU_MMX 0x00000001
-#define CPU_ISSE 0x00000002
-#define CPU_SSE 0x00000004
-#define CPU_SSE2 0x00000008
-#define CPU_3DNOW 0x00000010
-#define CPU_3DNOW2 0x00000020
-#endif
 #define PLANAR_420 1
 #define PLANAR_422 2
 #define PLANAR_444 3
@@ -57,11 +49,6 @@ private:
   bool PlanarFrame::allocSpace(VideoInfo &viInfo);
   bool PlanarFrame::allocSpace(int specs[4]);
   int PlanarFrame::getCPUInfo();
-#if 0
-  int PlanarFrame::checkCPU();
-  void PlanarFrame::checkSSEOSSupport(int &cput);
-  void PlanarFrame::checkSSE2OSSupport(int &cput);
-#endif
   void PlanarFrame::copyInternalFrom(PVideoFrame &frame, VideoInfo &viInfo);
   void PlanarFrame::copyInternalFrom(PlanarFrame &frame);
   void PlanarFrame::copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
