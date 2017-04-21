@@ -25,17 +25,7 @@
 
 #include "TFMPP.h"
 
-
-#ifdef _M_X64
-#define USE_INTR
-#undef ALLOW_MMX
-#else
-#define USE_INTR
-#define ALLOW_MMX
-#undef ALLOW_MMX
-#endif
-
-#ifndef _M_X64
+#if !defined(USE_INTR) || defined(ALLOW_MMX)
 __declspec(align(16)) const __int64 onesMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
 __declspec(align(16)) const __int64 onesByte[2] = { 0x0101010101010101, 0x0101010101010101 };
 __declspec(align(16)) const __int64 twosByte[2] = { 0x0202020202020202, 0x0202020202020202 };
@@ -440,7 +430,7 @@ void TFMPP::buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned cha
 #endif
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TFMPP::buildMotionMask1_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
   unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width,
   int height, long cpu)
@@ -687,7 +677,7 @@ void TFMPP::buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned cha
 #endif
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TFMPP::buildMotionMask2_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
   const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
   int s3_pitch, int dst_pitch, int width, int height, long cpu)
@@ -1135,7 +1125,7 @@ void TFMPP::blendDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int 
 #endif
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TFMPP::blendDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -1295,7 +1285,7 @@ void TFMPP::blendDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
 #endif
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TFMPP::blendDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
   const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
@@ -1638,7 +1628,7 @@ void TFMPP::cubicDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int 
 #endif
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TFMPP::cubicDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -1848,7 +1838,7 @@ void TFMPP::cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
 #endif
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TFMPP::cubicDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
   const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
@@ -2626,7 +2616,7 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
   }
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TFMPP::maskClip2_MMX(const unsigned char *srcp, const unsigned char *dntp,
   const unsigned char *maskp, unsigned char *dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height)

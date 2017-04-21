@@ -26,15 +26,6 @@
 #include "TFM.h"
 #include "TFMasm.h"
 
-#ifdef _M_X64
-#define USE_INTR
-#undef ALLOW_MMX
-#else
-#define USE_INTR
-#define ALLOW_MMX
-//#undef ALLOW_MMX
-#endif
-
 AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;

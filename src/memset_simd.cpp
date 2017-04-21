@@ -67,7 +67,7 @@ void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val)
 #endif
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void fmemset_16_iSSE(unsigned char* p, int sizec, __int64 val)
 {
   _asm
@@ -249,7 +249,7 @@ void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val)
     emms
   }
 }
-#endif // _M_X64
+#endif
 
 void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
 {
@@ -265,7 +265,7 @@ void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
     __m128i v128 = _mm_set1_epi8(val);
     fmemset_16_SSE2(p, sizec, v128);
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   else if ((cpu&CPUF_INTEGER_SSE) && !(sizec & 7))
   {
     __int64 v = (val << 8) + val;

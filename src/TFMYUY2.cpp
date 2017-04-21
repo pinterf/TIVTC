@@ -26,15 +26,6 @@
 #include "TFM.h"
 #include "TFMasm.h"
 
-#ifdef _M_X64
-#define USE_C_NO_ASM
-#undef ALLOW_MMX
-#else
-#define USE_C_NO_ASM
-#define ALLOW_MMX
-#undef ALLOW_MMX
-#endif
-
 
 bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
   int *blockN, int &xblocksi, int *mics, bool ddebug)

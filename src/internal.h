@@ -38,4 +38,15 @@
 
 #include "avisynth.h"
 
+#ifdef _M_X64
+#define USE_INTR
+#undef ALLOW_MMX
+#define USE_C_NO_ASM
+#else
+#define USE_INTR
+//#define ALLOW_MMX
+//#define USE_C_NO_ASM
+// USE_C_NO_ASM: inline non-simd asm in tfm.cpp, tfmyuy2.cpp and tfmyv12.cpp, maybe it's faster in tritical's optimization
+#endif
+
 #endif  // __Internal_H__

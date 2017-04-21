@@ -26,15 +26,6 @@
 #include "TFM.h"
 #include "TFMasm.h"
 
-#ifdef _M_X64
-#define USE_C_NO_ASM
-#undef ALLOW_MMX
-#else
-#define USE_C_NO_ASM
-#define ALLOW_MMX
-#undef ALLOW_MMX
-#endif
-
 bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
   int *blockN, int &xblocksi, int *mics, bool ddebug)
 {
@@ -58,7 +49,7 @@ bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     }
     return false;
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   bool use_mmx = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
   bool use_isse = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
 #else
@@ -417,7 +408,7 @@ bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int 
           cArray[temp2 + box2 + 3] += sum;
         }
       }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
       _mm_empty(); // __asm emms;
 #endif
     }

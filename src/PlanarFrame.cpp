@@ -472,7 +472,7 @@ void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, uns
 {
   if ((cpu&CPUF_SSE2) && useSIMD && !((intptr_t(src) | pitch1) & 15))
     convYUY2to422_SSE2(src, py, pu, pv, pitch1, pitch2Y, pitch2UV, width, height);
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   else if ((cpu&CPUF_MMX) && useSIMD)
     convYUY2to422_MMX(src, py, pu, pv, pitch1, pitch2Y, pitch2UV, width, height);
 #endif
@@ -496,7 +496,7 @@ void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, uns
   }
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
   unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
 {
@@ -548,7 +548,7 @@ void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py,
 void PlanarFrame::convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
   unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
 {
-#ifdef _M_X64
+#ifdef USE_INTR
   width >>= 1; // mov ecx, width
   __m128i Ymask = _mm_set1_epi16(0x00FF);
   for (int y = 0; y < height; y++) {
@@ -617,7 +617,7 @@ void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned c
 {
   if ((cpu&CPUF_SSE2) && useSIMD && !(intptr_t(dst) & 15))
     conv422toYUY2_SSE2(py, pu, pv, dst, pitch1Y, pitch1UV, pitch2, width, height);
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   else if ((cpu&CPUF_MMX) && useSIMD)
     conv422toYUY2_MMX(py, pu, pv, dst, pitch1Y, pitch1UV, pitch2, width, height);
 #endif
@@ -641,7 +641,7 @@ void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned c
   }
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void PlanarFrame::conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsigned char *pv,
   unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
 {
@@ -683,7 +683,7 @@ void PlanarFrame::conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsign
 void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
   unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
 {
-#ifdef _M_X64
+#ifdef USE_INTR
   width >>= 1; // mov ecx, width
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x += 4) {
@@ -776,7 +776,7 @@ void PlanarFrame::BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char
   int src_pitch, int row_size, int height)
 {
   if (!height || !row_size) return;
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   if (cpu&CPUF_INTEGER_SSE && useSIMD)
   {
     if (height == 1 || (src_pitch == dst_pitch && dst_pitch == row_size))
@@ -801,7 +801,7 @@ void PlanarFrame::BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char
   /*****************************
   * Assembler bitblit by Steady
    *****************************/
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void PlanarFrame::asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
   const unsigned char* srcp, int src_pitch, int row_size, int height)
 {

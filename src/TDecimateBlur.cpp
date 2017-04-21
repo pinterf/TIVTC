@@ -26,16 +26,6 @@
 #include "TDecimate.h"
 #include "TDecimateASM.h"
 
-#ifdef _M_X64
-#define USE_INTR
-#undef ALLOW_MMX
-#else
-#define USE_INTR
-#define ALLOW_MMX
-#undef ALLOW_MMX
-#endif
-
-
 void TDecimate::blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
   bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti)
 {
@@ -334,7 +324,7 @@ void TDecimate::HorizontalBlurMMXorSSE2_YV12(const unsigned char *srcp, unsigned
 {
   if(use_sse2)
     HorizontalBlurSSE2_YV12_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   else
     HorizontalBlurMMX_YV12_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
 #endif
@@ -361,7 +351,7 @@ template<bool use_sse2>
 void TDecimate::HorizontalBlurMMXorSSE2_YUY2_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
-#ifdef _M_X64
+#ifndef ALLOW_MMX
   HorizontalBlurSSE2_YUY2_R_luma(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
 #else
   if (use_sse2)
@@ -389,7 +379,7 @@ template<bool use_sse2>
 void TDecimate::HorizontalBlurMMXorSSE2_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
-#ifdef _M_X64
+#ifndef ALLOW_MMX
   HorizontalBlurSSE2_YUY2_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
 #else
   if (use_sse2)
@@ -420,7 +410,7 @@ void TDecimate::HorizontalBlurMMXorSSE2_YUY2(const unsigned char *srcp, unsigned
   }
 }
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void TDecimate::VerticalBlurMMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {

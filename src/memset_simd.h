@@ -27,10 +27,13 @@
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include "avisynth.h"
+#include "internal.h"
 
 void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val = 0);
+#ifdef ALLOW_MMX
 void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val);
 void fmemset_8_iSSE(unsigned char* p, int sizec, __int64 val);
 void fmemset_16_MMX(unsigned char* p, int sizec, __int64 val);
 void fmemset_16_iSSE(unsigned char* p, int sizec, __int64 val);
+#endif
 void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val);

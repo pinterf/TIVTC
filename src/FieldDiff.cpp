@@ -25,16 +25,6 @@
 #include "FieldDiff.h"
 #include <xmmintrin.h>
 
-#ifdef _M_X64
-#define USE_INTR
-#undef ALLOW_MMX
-#else
-#define USE_INTR
-#define ALLOW_MMX
-//#undef ALLOW_MMX
-#endif
-
-
 FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _debug,
   bool _sse, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child), nt(_nt),
   chroma(_chroma), display(_display), debug(_debug), sse(_sse), opt(_opt)

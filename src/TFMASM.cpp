@@ -26,17 +26,7 @@
 #include "TFMasm.h"
 #include "emmintrin.h"
 
-#ifdef _M_X64
-#define USE_INTR
-#undef ALLOW_MMX
-#else
-//#define USE_INTR
-#define ALLOW_MMX
-//#undef ALLOW_MMX
-#endif
-
-
-#ifndef USE_INTR
+#if !defined(USE_INTR) || defined(ALLOW_MMX)
 __declspec(align(16)) const __int64 onesMask[2] = { 0x0101010101010101, 0x0101010101010101 };
 __declspec(align(16)) const __int64 onesMaskLuma[2] = { 0x0001000100010001, 0x0001000100010001 };
 __declspec(align(16)) const __int64 twosMask[2] = { 0x0202020202020202, 0x0202020202020202 };

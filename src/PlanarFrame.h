@@ -54,13 +54,13 @@ private:
   void PlanarFrame::copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
   void PlanarFrame::copyInternalTo(PlanarFrame &frame);
   void PlanarFrame::copyInternalPlaneTo(PlanarFrame &frame, int plane);
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   static void PlanarFrame::asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
     const unsigned char* srcp, int src_pitch, int row_size, int height);
 #endif
   void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
 #endif

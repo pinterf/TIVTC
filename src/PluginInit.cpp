@@ -30,10 +30,8 @@ AVSValue __cdecl Create_TFM(AVSValue args, void* user_data, IScriptEnvironment* 
 AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnvironment* env);
 // porting only TFM and TDecimate at the moment
 AVSValue __cdecl Create_MergeHints(AVSValue args, void* user_data, IScriptEnvironment* env);
-#ifndef _M_X64
 AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
-#endif
 AVSValue __cdecl Create_FrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env);
 AVSValue __cdecl Create_ShowCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env);
@@ -67,13 +65,10 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
     "[blocky]i[debug]b[display]b[vfrDec]i[batch]b[tcfv1]b[se]b" \
     "[chroma]b[exPP]b[maxndl]i[m2PA]b[denoise]b[noblend]b[ssd]b" \
     "[hint]b[clip2]c[sdlim]i[opt]i", Create_TDecimate, 0);
-  // porting only TFM and TDecimate at the moment
   env->AddFunction("MergeHints", "c[hintClip]c[debug]b", Create_MergeHints, 0);
-#ifndef _M_X64
   env->AddFunction("FieldDiff", "c[nt]i[chroma]b[display]b[debug]b[sse]b[opt]i",
     Create_FieldDiff, 0);
   env->AddFunction("CFieldDiff", "c[nt]i[chroma]b[debug]b[sse]b[opt]i", Create_CFieldDiff, 0);
-#endif
   env->AddFunction("FrameDiff", "c[mode]i[prevf]b[nt]i[blockx]i[blocky]i[chroma]b[thresh]f" \
     "[display]i[debug]b[norm]b[denoise]b[ssd]b[opt]i", Create_FrameDiff, 0);
   env->AddFunction("CFrameDiff", "c[mode]i[prevf]b[nt]i[blockx]i[blocky]i[chroma]b[debug]b" \

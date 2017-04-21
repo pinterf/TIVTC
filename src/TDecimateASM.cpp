@@ -26,16 +26,6 @@
 #include "TDecimate.h"
 #include "TDecimateASM.h"
 
-#ifdef _M_X64
-#define USE_INTR
-#undef ALLOW_MMX
-#else
-#define USE_INTR
-#define ALLOW_MMX
-//#undef ALLOW_MMX
-#endif
-
-
 #if defined(ALLOW_MMX) || !defined(USE_INTR)
 __declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 //__declspec(align(16)) const __int64 hdd_mask[2] = { 0x00000000FFFFFFFF, 0x00000000FFFFFFFF }; // pf: not used
@@ -3666,7 +3656,7 @@ void calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char
       }
     }
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   _mm_empty(); // __asm emms;
 #endif
 }
@@ -3678,7 +3668,7 @@ template void calcDiffSAD_32x32_iSSEorSSE2<false>(const unsigned char *ptr1, con
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma);
 #endif
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma)
 {
@@ -3919,7 +3909,7 @@ void calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
       }
     }
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   _mm_empty(); // __asm emms;
 #endif
 }
@@ -4314,7 +4304,7 @@ void calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char 
       }
     }
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   _mm_empty(); // __asm emms;
 #endif
 }
@@ -4654,7 +4644,7 @@ void calcDiffSSD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned cha
       }
     }
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   _mm_empty(); // __asm emms;
 #endif
 }
@@ -4999,7 +4989,7 @@ void calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned cha
       }
     }
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   _mm_empty(); // __asm emms;
 #endif
 }
@@ -5012,7 +5002,7 @@ template void calcDiffSAD_Generic_MMXorSSE2<false>(const unsigned char *ptr1, co
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
 #endif
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
 void calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
 {
@@ -5279,7 +5269,7 @@ void calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *pt
       }
     }
   }
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   _mm_empty(); // __asm emms;
 #endif
 }

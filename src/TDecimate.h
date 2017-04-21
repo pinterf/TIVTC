@@ -151,7 +151,7 @@ private:
   int TDecimate::diff_f(int f1, int f2, IScriptEnvironment *env);
   int TDecimate::mode7_analysis(int n, IScriptEnvironment *env);
 
-#ifndef _M_X64
+#ifdef ALLOW_MMX
   static void VerticalBlurMMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
 #endif
