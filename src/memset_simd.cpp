@@ -25,46 +25,6 @@
 
 #include "memset_simd.h"
 
-bool checkForIntelP4()
-{
-  // if there is no P4, then SSE2 is disabled.
-  // this happens even for Intel Ivy Bridge, because this function returns false
-#if 1 // _M_X64
-  return true;
-#else
-  unsigned int reg_eax = 0, vendor_id[3] = { 0, 0, 0 };
-  __try
-  {
-    __asm
-    {
-      xor eax, eax
-      cpuid			// get vendor id string
-      mov vendor_id, ebx
-      mov vendor_id + 4, edx
-      mov vendor_id + 8, ecx
-      mov eax, 1
-      cpuid
-      mov reg_eax, eax	// eax contains cpu family type info
-    }
-  }
-  __except (EXCEPTION_EXECUTE_HANDLER)
-  {
-    return false;
-  }
-  if (((reg_eax & 0x0f00) == 0x0f00 || ((reg_eax & 0x0f00) == 0x0600 &&
-    ((reg_eax & 0x00f0) == 0x00f0 || (reg_eax & 0x00f0) == 0x00e0))) &&
-    vendor_id[0] == 'uneG' && vendor_id[1] == 'Ieni' &&
-    vendor_id[2] == 'letn') return true;
-  return false;
-#endif
-}
-
-bool IsIntelP4()
-{
-  static bool isp4 = checkForIntelP4();
-  return isp4;
-}
-
 void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val)
 {
 #ifdef _M_X64
@@ -293,7 +253,6 @@ void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val)
 
 void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
 {
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;

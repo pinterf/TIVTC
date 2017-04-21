@@ -164,7 +164,6 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   PlanarFrame *mask, int use, int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -941,7 +940,6 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -1367,7 +1365,6 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   int field, int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -2572,7 +2569,6 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
   PVideoFrame &dst, int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;

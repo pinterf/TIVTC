@@ -124,7 +124,6 @@ __int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, in
   else if (ntIn < 0) ntIn = 0;
   const int nt6 = ntIn * 6;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opti != 4)
   {
     if (opti == 0) cpu &= ~0x2C;
@@ -284,7 +283,6 @@ __int64 FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
   else if (ntIn < 0) ntIn = 0;
   const int nt6 = ntIn * 6;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opti != 4)
   {
     if (opti == 0) cpu &= ~0x2C;

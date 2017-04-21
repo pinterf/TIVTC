@@ -61,7 +61,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   }
   bool use_mmx = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
   bool use_isse = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
-  bool use_sse2 = ((env->GetCPUFlags()&CPUF_SSE2) && IsIntelP4()) ? true : false;
+  bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
   if (opt != 4)
   {
     if (opt == 0) use_mmx = use_isse = use_sse2 = false;

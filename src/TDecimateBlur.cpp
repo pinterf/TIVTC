@@ -55,7 +55,6 @@ void TDecimate::HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool 
   int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   if (vi_t.IsYV12() && !bchroma) np = 1;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opti != 4)
   {
     if (opti == 0) cpu &= ~0x2C;
@@ -254,7 +253,6 @@ void TDecimate::VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bc
   int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   if (vi_t.IsYV12() && !bchroma) np = 1;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opti != 4)
   {
     if (opti == 0) cpu &= ~0x2C;

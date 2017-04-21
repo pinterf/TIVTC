@@ -983,7 +983,6 @@ unsigned __int64 TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, i
   int widtha, heighta, u, v, diffs;
   unsigned __int64 highestDiff = 0;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -1278,7 +1277,6 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
   unsigned __int64 highestDiff;
   int next_num = -20, next_numd = -20;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -1629,7 +1627,6 @@ unsigned __int64 TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const
 {
   unsigned __int64 diff = 0;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -1727,7 +1724,6 @@ unsigned __int64 TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const
 {
   unsigned __int64 diff = 0;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -2707,7 +2703,7 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
   int s1_pitch, dst_pitch, s2_pitch, widthM;
   bool useMMX = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
   bool useISSE = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
-  bool useSSE2 = ((env->GetCPUFlags()&CPUF_SSE2) && IsIntelP4()) ? true : false;
+  bool useSSE2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
   if (opt != 4)
   {
     if (opt == 0) useMMX = useISSE = useSSE2 = false;

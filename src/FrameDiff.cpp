@@ -365,7 +365,6 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
   int yhalf, xhalf, yshift, xshift, b, plane;
   int widtha, heighta, u, v, diffs;
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;

@@ -2364,7 +2364,6 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   srcp += (1 - field)*(src_pitch >> 1);
   nxtp += (1 - field)*(nxt_pitch >> 1);
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -2623,7 +2622,6 @@ void TFM::buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxt
   int Width, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
@@ -2667,7 +2665,6 @@ void TFM::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
   IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (!IsIntelP4()) cpu &= ~CPUF_SSE2;
   if (opt != 4)
   {
     if (opt == 0) cpu &= ~0x2C;
