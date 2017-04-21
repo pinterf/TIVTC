@@ -1,12 +1,12 @@
 /*
-**                    TIVTC v1.0.5 for Avisynth 2.5.x
+**                    TIVTC v1.0.6 for Avisynth 2.6 interface
 **
 **   TIVTC includes a field matching filter (TFM) and a decimation
 **   filter (TDecimate) which can be used together to achieve an
 **   IVTC or for other uses. TIVTC currently supports YV12 and
 **   YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2008 Kevin Stone
+**   Copyright (C) 2004-2008 Kevin Stone, additional work (C) 2017 pinterf
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
