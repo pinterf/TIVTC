@@ -7,7 +7,7 @@ This is a moderization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
 - AVS 2.6 interface, no Avisynth 2.5.x support
 - some fixes
 - x64 port and readability: move all inline asm to simd intrinsics or C
-- support and requires SSE2
+- supports and requires SSE2
 - MMX and ISSE is not supported, but kept in the source code for reference
 - source code cleanups
 
@@ -20,7 +20,7 @@ All credit goes to tritical, thanks for his work.
 
 Useful links:
 
-General filter info: http://avisynth.nl/index.php/TIVTC
-This mod is based on the original code http://web.archive.org/web/20140420181748/http://bengal.missouri.edu/~kes25c/TIVTCv105.zip
-Project source: https://github.com/pinterf/TIVTC
-Doom9 topic: https://forum.doom9.org/showthread.php?t=82264
+- General filter info: http://avisynth.nl/index.php/TIVTC
+- This mod is based on the original code http://web.archive.org/web/20140420181748/http://bengal.missouri.edu/~kes25c/TIVTCv105.zip
+- Project source: https://github.com/pinterf/TIVTC
+- Doom9 topic: https://forum.doom9.org/showthread.php?t=82264
