@@ -1,6 +1,9 @@
-# TIVTC v1.0.6 (20170421)
+# TIVTC v1.0.7 (20170427)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+
+**v1.0.7 (20170427)**
+- fix crash in FieldDiff (in new SIMD SSE2 rewrite)
 
 **v1.0.6 (20170421) - pinterf**
 - project migrated to VS 2015
