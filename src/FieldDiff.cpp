@@ -450,7 +450,7 @@ static void calcFieldDiff_SADorSSE_SSE2_simd_8(const unsigned char *src2p, int s
   __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF);
 
   const unsigned char *src2p_odd = src2p + src_pitch;
-  auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(diff));
+  auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(&diff));
   while (height--) {
     __m128i sum = _mm_setzero_si128();
     for (int x = 0; x < width; x += 8) {
@@ -500,7 +500,7 @@ static void calcFieldDiff_SADorSSE_SSE2_simd_8(const unsigned char *src2p, int s
     src2p_odd += src_pitch;
     src2p += src_pitch;
   }
-  _mm_storel_epi64(reinterpret_cast<__m128i *>(diff), diff64);
+  _mm_storel_epi64(reinterpret_cast<__m128i *>(&diff), diff64);
 }
 
 
@@ -512,7 +512,7 @@ static void calcFieldDiff_SADorSSE_SSE2_simd(const unsigned char *src2p, int src
   __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF);
 
   const unsigned char *src2p_odd = src2p + src_pitch;
-  auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(diff));
+  auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(&diff));
   while (height--) {
     __m128i sum = _mm_setzero_si128();
     for (int x = 0; x < width; x += 16) {
@@ -574,7 +574,7 @@ static void calcFieldDiff_SADorSSE_SSE2_simd(const unsigned char *src2p, int src
     src2p_odd += src_pitch;
     src2p += src_pitch;
   }
-  _mm_storel_epi64(reinterpret_cast<__m128i *>(diff), diff64);
+  _mm_storel_epi64(reinterpret_cast<__m128i *>(&diff), diff64);
 
 }
 
