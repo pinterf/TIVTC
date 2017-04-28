@@ -962,7 +962,7 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
       srcpn += src_pitch;
       srcpnn += src_pitch;
       cmkp += cmk_pitch;
-      for (x = 0; x < Width; ++x)
+      for (int x = 0; x < Width; ++x)
       {
         const int sFirst = srcp[x] - srcpp[x];
         const int sSecond = srcp[x] - srcpn[x];

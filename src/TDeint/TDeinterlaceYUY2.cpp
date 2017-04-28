@@ -2216,10 +2216,10 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
           if (APType > 0)
           {
             const int inc = stop > 1 ? 1 : x & 1 ? 4 : 2;
-            const startx = x - (inc << 1) < 0 ? x - inc < 0 ? x : x - inc : x - (inc << 1);
-            const stopx = x + (inc << 1) > Width - 1 ? x + inc > Width - 1 ? x : x + inc : x + (inc << 1);
-            const starty = y - 4 < 0 ? y - 2 < 0 ? y : y - 2 : y - 4;
-            const stopy = y + 4 > Height - 1 ? y + 2 > Height - 1 ? y : y + 2 : y + 4;
+            const int startx = x - (inc << 1) < 0 ? x - inc < 0 ? x : x - inc : x - (inc << 1);
+            const int stopx = x + (inc << 1) > Width - 1 ? x + inc > Width - 1 ? x : x + inc : x + (inc << 1);
+            const int starty = y - 4 < 0 ? y - 2 < 0 ? y : y - 2 : y - 4;
+            const int stopy = y + 4 > Height - 1 ? y + 2 > Height - 1 ? y : y + 2 : y + 4;
             int neighbors = 0, moving = 0;
             const unsigned char *maskpT = maskp + starty*maskp_pitch;
             for (int u = starty; u <= stopy; u += 2)
