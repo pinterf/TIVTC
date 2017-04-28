@@ -1,0 +1,891 @@
+<html>
+<head>
+<title>TDeint</title>
+<style type="text/css">
+body      { font-family: verdana, arial, helvetica, sans-serif; color: #000000; 
+            font-size: 12px; background-color: #C8D4D8; text-align: Left; 
+            line-height: 150%;
+            padding: 0px;
+            margin: 6px;}
+
+h1        { font-family: verdana, arial, helvetica, sans-serif; font-size: 26px; 
+            line-height: 150%; color: #000000;
+            padding: 0px 0px 0px 8px
+            margin-left: 0px; margin-right: 0px; margin-top: 12px; margin-bottom: 12px;}
+
+h2        { font-family: verdana, arial, helvetica, sans-serif; font-size: 22px; 
+            line-height: 150%; color: #000000; 
+            background-color: #90A0C0;
+            padding:  0px 0px 0px 8px;
+            margin-left: 0px; margin-right: 0px; margin-top: 12px; margin-bottom: 12px; 
+            border: #8080D0; border-style: solid;
+            border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px}
+
+h3        { font-family: verdana, arial, helvetica, sans-serif; font-size: 18px; 
+            line-height: 150%; color: #000000;
+            padding: 0px 0px 0px 8px;
+            margin-left: 0px; margin-right: 0px; margin-top: 12px; margin-bottom: 12px;
+            border: #8080D0; border-style: solid; border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px}
+
+h4        { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 12px;
+            font-style: normal; font-weight: bold; text-decoration: underline}
+
+a         { color: #005090; text-decoration: none; font-family: verdana, arial, helvetica, sans-serif }
+a:link    { color: #005090}
+a:visited { color: #005090}
+a:hover   { background-color: #FF6060; color: #005090}
+
+table     { font-size: 12px; margin-left: 0px; margin-top: 12px; margin-bottom: 12px;
+            line-height: 150% }
+
+pre       { font-size: 12px; font-family: Courier, mono;
+            margin-top: 10px; margin-bottom: 10px; 
+            background-color: #D0D0C0;
+            padding-left: 12px; padding-top: 12px; padding-right: 12px; padding-bottom: 12px;
+            border: #908030; border-style: solid; border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px}
+
+code      { font-family: Courier, mono; font-size: 12px; letter-spacing: 1px; color: #660033}
+var       { font-family: Verdana, Arial, Helvetica, sans-serif; font-weight: normal; font-size: 12px;
+            font-style: italic; letter-spacing: 1px; color: #660033}
+tt        { font-family: Courier, mono; font-size: 12px}
+em        { font-family: Courier, mono; font-weight: normal; color: #FFFFFF; font-style: normal}
+strong    { font-family: Courier, mono; font-weight: bold; color: #FFFF66; font-style: normal}
+cite      { border: 1px #3030A0 dotted; padding-left: 2px; padding-right: 2px; padding-top: 1px; padding-bottom: 1px}
+kbd       { color: #808000; font-family: Verdana, Arial, Helvetica, sans-serif; font-weight: normal; font-size: 10px; font-style: normal}
+</style>
+</head>
+<body>
+<h1>TDeint</h1>
+<hr size=2 width="100%" align=center>
+<h2>Abstract</h2>
+<b>author:</b>    tritical
+<br><b>version:</b> v1.1<br>
+<b>download:</b>   <a href="http://bengal.missouri.edu/~kes25c/">http://bengal.missouri.edu/~kes25c/</a>
+<br><b>category:</b>   Deinterlacing &amp; Pulldown Removal
+<br><b>requirements:</b>&nbsp;
+<ul>
+  <li>YV12 &amp; YUY2 Colorspace</li>
+</ul>
+
+<p><b>license:</b> GPL</p>
+
+<hr size=2 width="100%" align=center>
+
+<!-- #EndTemplate -->
+<h2>Description</h2>
+<p>TDeint is a bi-directionally, motion adaptive, sharp deinterlacer.  It can adaptively
+choose between using per-field and per-pixel motion adaptivity, and can use cubic interpolation, 
+kernel interpolation (with temporal direction switching), or one of two forms of modified ELA 
+interpolation which help to reduce "jaggy" edges in moving areas where interpolation must be used.  
+TDeint also supports user overrides through an input file, and can act as a smart bobber or same 
+frame rate deinterlacer, as well as an IVTC post-processor.</p>
+<h3>Syntax</h3>
+<p><code>TDeint</code> (clip, int <var>&quot;mode&quot;</var>, int <var>&quot;order&quot;</var>, 
+int <var>&quot;field&quot;</var>, int <var>&quot;mthreshL&quot;</var>, int <var>&quot;mthreshC&quot;</var>, 
+int <var>&quot;map&quot;</var>, string <var>&quot;ovr&quot;</var>, int <var>&quot;ovrDefault&quot;</var>, 
+int <var>&quot;type&quot;</var>, bool <var>&quot;debug&quot;</var>, int <var>&quot;mtnmode&quot;</var>, 
+bool <var>&quot;sharp&quot;</var>, bool <var>&quot;hints&quot;</var>, PClip <var>&quot;clip2&quot;</var>, 
+bool <var>&quot;full&quot;</var>, int <var>&quot;cthresh&quot;</var>, bool <var>&quot;chroma&quot;</var>, 
+int <var>&quot;MI&quot;</var>, bool <var>&quot;tryWeave&quot;</var>, int <var>&quot;link&quot;</var>, 
+bool <var>&quot;denoise&quot;</var>, int <var>&quot;AP&quot;</var>, int <var>&quot;blockx&quot;</var>, 
+int <var>&quot;blocky&quot;</var>, int <var>&quot;APType&quot;</var>, PClip <var>"edeint"</var>, 
+PClip <var>"emask"</var>, float <var>"blim"</var>, int <var>"metric"</var>, int <var>"expand"</var>, 
+int <var>"slow"</var>, PClip <var>"emtn"</var>, bool <var>"tshints"</var>, int <var>"opt"</var>)</p>
+
+
+<h3>PARAMETERS</h3>
+
+
+<p><var>mode</var>:</p>
+<ul>
+<p>Sets the mode of operation.  Modes -2 and -1 require progressive input.</p>
+<ul>
+<li>-2 - double height using modified ELA
+<li>-1 - double height using modified ELA-2
+<li>&nbsp;0 - same rate output
+<li>&nbsp;1 - double rate output (bobbing)
+<li>&nbsp;2 - smartbobbed field-matching (same rate output, blend frames from bobbed stream)
+</ul>
+<p>default -&nbsp;&nbsp;0  (int)</p>
+</ul>
+
+
+<p><var>order</var>:</p>
+<ul>
+<p>Sets the field order of the video.</p>
+<ul>
+<li>-1 - use parity from Avisynth
+<li>&nbsp;0 - bottom field first (bff)
+<li>&nbsp;1 - top field first (tff)
+</ul>
+<p>default -&nbsp;&nbsp;-1  (int)</p>
+</ul>
+
+
+<p><var>field</var>:</p>
+<ul>
+<p>When in mode 0 and 2, this sets the field to be interpolated.  When in mode 1, this 
+setting does nothing.</p>
+<ul>
+<li>-1 - will set field equal to order if hints = false or to 0 if hints = true
+<li>&nbsp;0 - interpolate top field (keep bottom field)
+<li>&nbsp;1 - interpolate bottom field (keep top field)
+</ul>
+<p>default -&nbsp;&nbsp;-1  (int)</p>
+</ul>
+
+
+<p><var>mthreshL</var>/<var>mthreshC</var>:</p>
+<ul>
+<p>The motion thresholds for luma and chroma (mthreshL for luma, mthreshC for chroma). If 
+the difference between two pixels is less than this value they are declared static. 
+Smaller values will reduce residual combing, larger values will decrease flicker and 
+increase the accuracy of field construction in static areas.  The spatially corresponding 
+parts of the luma and chroma planes are linked (if link != 0), so mthreshC and mthreshL 
+may be somewhat interconnected.  Setting both values to 0 or below will disable motion 
+adaptation (i.e. every pixel will be declared moving) allowing for a dumb bob.</p>
+<p>default -&nbsp;&nbsp;<var>mthreshL</var> - 6  (int)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<var>mthreshC</var> - 6  (int)</p>
+</ul>
+
+
+<p><var>map</var>:</p>
+<ul>
+<p>Displays an output map instead of the deinterlaced frame.  There are five possible options:</p>
+<ul>
+<li>0 - No map.
+<li>1 - value (binary) map.  This will output a frame in which all the pixels have one of the
+        following values (indicating how the frame is to be constructed):
+                 <ul>
+                 <li>0   (use pixel from current frame)
+                 <li>51  (use pixel from previous frame)
+                 <li>102 (use pixel from next frame)
+                 <li>153 (use average of curr/next)
+                 <li>204 (use average of curr/prev)
+                 <li>230 (use [1 2 1] average of prev/curr/next)
+                 <li>255 (interpolate pixel)
+                 </ul>
+<li>2 - Merged map.  This will output a frame in which all the static parts of the frame (values 
+        0, 51, 102, 153, 204, and 230 from map=1) have been constructed as they would appear in the 
+        deinterlaced frame, and the pixels that are to be interpolated are marked in white (255).
+<li>3 - Outputs the deinterlaced frame and the value (binary) map stacked vertically (the map is on the bottom).
+<li>4 - Outputs the deinterlaced frame and the merged map stacked vertically (the map is on the bottom).
+</ul>
+<p>default -&nbsp;&nbsp;0  (int)</p>
+</ul>
+
+
+<p><var>ovr</var>:</p>
+<ul>
+<p>Sets the name and path to an overrides file.  When mode=0, an overrides file can be used to 
+control the values of <var>mthreshL</var>, <var>mthreshC</var>, <var>field</var>, <var>order</var>, and 
+<var>type</var> for single frames or for ranges of frames, as well as control which frames are 
+deinterlaced. When mode=1, an overrides file can be used to control the values of <var>mthreshL</var>,
+<var>mthreshC</var>, and <var>type</var> for specific frames or ranges of frames.</p>
+<p>Overrides file specifiers:</p>
+<ul>
+<li>+ = mark frame to be deinterlaced (only useful if ovrDefault = 1)
+<li>- = mark frame to not be deinterlaced
+<li>f = field
+<li>o = order
+<li>l = mthreshL
+<li>c = mthreshC
+<li>t = type
+<p>*The c, f, o, l, t specifiers also require a change value to be specified when they are used 
+(look at the overrides syntax to see how this is done)</p>
+</ul>
+<p>Override syntax:</p>
+<ul>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;[] = not required for +, - specifiers</p>
+<DL>
+  <DT>single frame override:
+  <DD><br>frame_number specifier [change_value]
+  <DD><br>examples:<ul>
+<pre>
+245 f 1
+345 +
+400 -
+450 c -1
+</pre></ul><br>
+  <DT>override for range of frames:
+  <DD><br>start_frame_number,end_frame_number specifier [change_value]
+  <DD><br>examples:<ul>
+<pre>
+100,200 +
+346,352 f 0
+900,1200 l 5
+</pre></ul><br>
+<DD>** The range is inclusive, meaning the end frame and start frame are both included.
+<DD><br>Pattern based frame range overrides (only for +,- specifiers):
+<DD><br>examples:<ul>
+<pre>
+100,300 +-+++--+++
+400,456 ---+---++
+</pre></ul><br>
+<DD>** Will use the given pattern over the specified frame range.
+</DL>
+</ul>
+<p>Things to remember (key points/rules):</p>
+<ul>
+<ol>
+  <li>Ranges are inclusive
+  <li>When mode = 1 (bobbing) all overrides except for mthreshL/mthreshC, and type overrides are ignored. 
+        Also, frame #'s correspond to the input clip not the output clip, thus one frame will be two frames 
+        in the output.
+  <li>The changed value is always set back to what it was originally set to after the override goes out 
+        of the specified range. (i.e. if you specify an mthresh override for frame 600 to 700 after 
+        frame 700 mthresh is set back to its original value automatically, you don't need to set it back 
+        in the overrides file!  The original value is what it is set to on load (i.e. either the default 
+        or what you set it to in your avisynth script).
+  <li>Frame numbers must be within range for the file.
+  <li>Frame numbers for specific specifiers must be ascending (if they are not, the last entry in the 
+        file takes precedence ex. if you specify 300,400 c 10 then later do 350,450 c 12 frames 350 to 400 
+        will use 12 not 10).
+  <li>Frames numbers for the (+, -) specifiers cannot overlap (e.g. don't do 300,400 - and then later in the 
+        file write 350,500 + or strange things will happen.  The other specifiers don't have to meet this 
+        requirement as they all effect different things.
+  <li>+, - specifiers require no change value.
+  <li>The spacing is important! Just look at the examples.
+  <li>Only +, - specifiers can be used in pattern specifications.
+  <li>You can change multiple specifiers over the same frame range as long as you follow the rules above 
+        (+, - ascending frame numbers for example).
+  <li>You can comment out a line (i.e. it will be ignored) by adding a '#' or ';' to the beginning of the line.
+  <li>Entering 0 as the end_frame for a range of frames is taken as meaning the last frame of the video.
+</ol>
+</ul>
+<p>Example overrides file:</p>
+<ul>
+<p>Syntax example => TDeint(order=1,ovr=&quot;c:\path\myoverridesfile.txt&quot;)</p>
+<pre>
+100,300 o 0
+100,300 f 1
+90,250 c 3
+40,500 -
+505 -
+300,700 l -1
+#700,3000 f 1 &lt;- commented out, will be ignored
+800,1000 -++-
+500,1000 c 13
+</pre>
+</ul>
+<p>default -&nbsp;&nbsp;""  (string)</p>
+</ul>
+
+
+<p><var>ovrDefault</var>:</p>
+<ul>
+<p>When using an overrides file in mode 0, this specifies the default action for all frames in the video. 
+Using ovrDefault=1 makes it easy to deinterlace only a few specific frames in a video.  When mode = 1, 
+this setting does nothing.</p>
+<ul>
+<li>0 - all frames not specified as '-' in the overrides file are deinterlaced
+<li>1 - all frames not specified as '+' in the overrides file are not deinterlaced and simply returned as is
+</ul>
+<p>default -&nbsp;&nbsp;0  (int)</p>
+</ul>
+
+
+<p><var>type</var>:</p>
+<ul>
+<p>Sets the type of interpolation to use.  Cubic is the fastest, modified ELA and ELA2 will give 
+smoother, less "jaggy", edges and are the slowest (ELA2 is faster), and kernel interpolation will 
+cause significantly less flickering than cubic or ela when interpolation gets used in almost static 
+areas.  Modified ELA and ELA2 work best with anime/cartoon type material... they are not that great with 
+real life sources (sometimes they are, test for yourself).</p>
+<ul>
+<li>0 - cubic interpolation
+<li>1 - modified ELA interpolation
+<li>2 - kernel interpolation (can be normal or sharp, controlled by the sharp setting)
+<li>3 - modified ELA-2 interpolation
+<li>4 - blend interpolation
+<li>5 - bi-directional blend interpolation
+</ul>
+<p>default -&nbsp;&nbsp;2  (int)</p>
+</ul>
+
+
+<p><var>debug</var>:</p>
+<ul>
+<p>Will enable debug output, which for each frame will list the values of <var>order</var>, <var>field</var>, 
+<var>mthreshL</var>, <var>mthreshC</var>, and <var>type</var> if the frame is being deinterlaced.  If the 
+frame is not being deinterlaced (due to user overrides, <var>hints</var>, or <var>full</var>=false), it will 
+simply say the frame is not being deinterlaced and list the specific reason. If the output frame is weaved, 
+then debug output will report which field the current field was weaved with (PREV or NEXT).  The debug 
+information is output using OutputDebugString().  To view the output you can use 
+<a href="http://www.sysinternals.com/Utilities/DebugView.html">DebugView</a> from Sysinternals.</p>
+<p>default -&nbsp;&nbsp;false  (bool)</p>
+</ul>
+
+
+<p><var>mtnmode</var>:</p>
+<ul>
+<p>Controls whether a 4 field motion check or a 5 field motion check is used.  5 field will prevent more 
+artifacts and can deal with duplicate interlaced frames; however, it is quite a bit slower than the 4 field 
+motion check.  Modes 2 and 3 are like 0 and 1 except that in areas where an average of the prev and next 
+field would have been used in mode 0 or 1, the pixel value from the most similar field (computed via field 
+differencing) is used instead (i.e. no averages are used).</p>
+<ul>
+<li>0 - 4 field check
+<li>1 - 5 field check
+<li>2 - 4 field check (no averages, replace with most similar field)
+<li>3 - 5 field check (no averages, replace with most similar field)
+</ul>
+<p>default -&nbsp;&nbsp;1  (int)</p>
+</ul>
+
+
+<p><var>sharp</var>:</p>
+<ul>
+<p>Controls whether the sharp or normal kernel is used when using kernel interpolation (<var>type</var> = 2). 
+The sharp kernel includes more pixels and produces a sharper result but is slightly slower.</p>
+<ul>
+<li>true - use sharp kernel
+<li>false - use normal kernel
+</ul>
+<p>default -&nbsp;&nbsp;true  (bool)</p>
+</ul>
+
+
+<p><var>hints</var>:</p>
+<ul>
+<p>Read hints from telecide or tfm indicating which frames are interlaced and which are not if hints 
+are present in the video stream.  To make this work you need to set post=1 in telecide or PP=1 in tfm 
+and put TDeint immediately afterwards.  TDeint will not effect the hints (as long as your video has a 
+width of at least 64 pixels) in case any filters later on need to read them.  If hints is set to true, 
+but no hints from telecide or tfm are detected in the video stream, then all frames will be deinterlaced 
+(TDeint will operate as if hints=false).  If you do not specify a value for hints explicitly, then 
+TDeint will check to see if hints are present in the stream on load and set hints to true if they are 
+or false if they aren't (i.e. it is automatically set).</p>
+<p>**NOTE:  for IVTC post-processing by reading hints it is recommended to use TDeint in
+the following fashion making use of the clip2 parameter.</p>
+<ul>
+<pre>
+orig = last
+fieldmatcher()
+TDeint(clip2 = orig)
+</pre><br>
+<li>true - read hints if present
+<li>false - don't read hints
+</ul>
+<p>default -&nbsp;&nbsp;automatically detected on load  (bool)</p>
+</ul>
+
+
+<p><var>clip2</var>:</p>
+<ul>
+<p>If using tdeint as a postprocessor for telecide or tfm via the hints parameter (or any field matcher), 
+incorrect deinterlacing can occur due to the fact that telecide changes the order of the fields in the 
+original stream (it is a field matcher after all).  This can cause problems in some cases since TDeint 
+really needs to have the original stream.  To work around this, you can specify a second clip "clip2" 
+for TDeint to do the actual deinterlacing from.</p>
+<p>In a script this is how it would work:</p>
+<pre>
+mpeg2source(&quot;c:\mysource.d2v&quot;)
+orig = last
+telecide(guide=1, order=1, hints=true, post=1)
+tdeint(order=1, clip2=orig)
+</pre>
+<p>So TDeint reads the output clip from telecide as usual.  When hints indicate an interlaced
+frame, it does the deinterlacing of the frame using clip2.  This method also perserves the hints 
+in the output stream so any other filters that need them later on will still work.</p>
+<p>With the addition of full=false, another way to use TDeint as a post-processor is to
+have it use its own combed frame detection as follows (this also allows it to work with any field matcher, 
+not just telecide or tfm):</p>
+<pre>
+mpeg2source(&quot;c:\mysource.d2v&quot;)
+orig = last
+fieldmatcherofchoice()
+tdeint(order=1, full=false, clip2=orig)
+</pre>
+<p>default -&nbsp;&nbsp;NULL  (PClip)</p>
+</ul>
+
+
+<p><var>full</var>:</p>
+<ul>
+<p>If full is set to true, then all frames are processed as usual.  If full=false, all frames
+are first checked to see if they are combed.  If a frame isn't combed, then it is returned as is. 
+If a frame is combed, then it is processed as usual.  The parameters that effect combed frame 
+detection are <var>cthresh</var>, <var>chroma</var>, <var>blockx</var>, <var>blocky</var>, and 
+<var>MI</var>. full=false allows TDeint to be an ivtc post-processor without the need for hints.</p>
+<ul>
+<li>true - normal processing
+<li>false - check all input frames for combing first
+</ul>
+<p>default -&nbsp;&nbsp;true  (bool)</p>
+</ul>
+
+
+<p><var>cthresh</var>:</p>
+<ul>
+<p>Area combing threshold used for combed frame detection.  It is like dthresh or dthreshold
+in telecide() and fielddeinterlace().  This essentially controls how "strong" or "visible" combing 
+must be to be detected.  Good values are from 6 to 12. If you know your source has a lot of combed 
+frames set this towards the low end (6-7). If you know your source has very few combed frames set 
+this higher (10-12).  Going much lower than 5 to 6 or much higher than 12 is not recommended.</p>
+<p>default -&nbsp;&nbsp;6  (int)</p>
+</ul>
+
+
+<p><var>blockx</var>:</p>
+<ul>
+<p>Sets the x-axis size of the window used during combed frame detection.  This has to do with 
+the size of the area in which <var>MI</var> number of pixels are required to be detected as combed for 
+a frame to be declared combed.  See the <var>MI</var> parameter description for more info.  Possible 
+values are any number that is a power of 2 starting at 4 and going to 2048 (e.g. 4, 8, 16, 32, ... 2048).</p>
+<p>default -&nbsp;&nbsp;16  (int)</p>
+</ul>
+
+
+<p><var>blocky</var>:</p>
+<ul>
+<p>Sets the y-axis size of the window used during combed frame detection.  This has to do with 
+the size of the area in which <var>MI</var> number of pixels are required to be detected as combed for 
+a frame to be declared combed.  See the <var>MI</var> parameter description for more info.  Possible 
+values are any number that is a power of 2 starting at 4 and going to 2048 (e.g. 4, 8, 16, 32, ... 2048).</p>
+<p>default -&nbsp;&nbsp;16  (int)</p>
+</ul>
+
+
+<p><var>chroma</var>:</p>
+<ul>
+<p>Includes chroma combing in the decision about whether a frame is combed.  Only use this if 
+you have one of those weird sources where the chroma can be temporally separated from the luma 
+(i.e. the chroma moves but the luma doesn't in a field).  Otherwise, it will just help to screw 
+up the decision most of the time.</p>
+<ul>
+<li>true - include chroma combing
+<li>false - don't
+</ul>
+<p>default -&nbsp;&nbsp;false  (bool)</p>
+</ul>
+
+
+<p><var>MI</var>:</p>
+<ul>
+<p>The number of required combed pixels inside any of the <var>blockx</var> by <var>blocky</var> sized 
+blocks on the frame for the frame to be considered combed.  While <var>cthresh</var> controls how "visible" 
+or "strong" the combing must be, this setting controls how much combing there must be in any localized area (a 
+<var>blockx</var> by <var>blocky</var> sized window) on the frame.  Min setting = 0, max setting = 
+<var>blockx</var> x <var>blocky</var> (at which point no frames will ever be detected as combed).</p>
+<p>default -&nbsp;&nbsp;64  (int)</p>
+</ul>
+
+
+<p><var>tryWeave</var>:</p>
+<ul>
+<p>If set to true, when TDeint deinterlaces a frame it will first calculate which field (PREV or NEXT) 
+is most similar to the current field.  It will then weave this field to create a new frame and check 
+this new frame for combing.  If the new frame is not combed, then it returns it. If it is, then it 
+deinterlaces using the usual per-pixel motion adaptation.  Basically, this setting allows TDeint to 
+try to use per-field motion adaptation instead of per-pixel motion adaptation where possible.</p>
+<p>default -&nbsp;&nbsp;false  (bool)</p>
+</ul>
+
+
+<p><var>link</var>:</p>
+<ul>
+<p>Controls how the three planes (Y, U, and V) are linked during comb map creation. Possible settings:</p>
+<ul>
+<li>0 - no linking
+<li>1 - Full linking (each plane to every other)
+<li>2 - Y to UV (luma to chroma)
+<li>3 - UV to Y (chroma to luma)
+</ul>
+<p>default -&nbsp;&nbsp;2  (int)</p>
+</ul>
+
+
+<p><var>denoise</var>:</p>
+<ul>
+<p>Controls whether the comb map is denoised or not.  True enables denoising, false disables.</p>
+<p>default -&nbsp;&nbsp;false  (bool)</p>
+</ul>
+
+
+<p><var>AP</var>:</p>
+<ul>
+<p>Artifact protection threshold.  If AP is set to a value greater than or equal to 0, then before 
+outputting a deinterlaced frame TDeint will scan all weaved pixels to see if any create a value 
+greater than AP.  Any pixels that do will be interpolated.  Use this to help prevent very obvious 
+motion adaptive related artifacts. A large value for AP is recommended (25+, or as large as removes 
+the artifacts that can be seen during full-speed playback), as smaller values will destroy the 
+benefits of motion adaptivity in static, detailed areas.  The AP metric is the same as the <var>cthresh</var> 
+metric... so the scale is 0-255. At zero everything but completely flat areas will be detected as 
+combing. At 255 nothing will be detected. Using AP will slow down processing. Set AP to a value less 
+than 0 or greater than 254 to disable.</p>
+<p>default -&nbsp;&nbsp;-1 (disabled)  (int)</p>
+</ul>
+
+
+<p><var>APType</var>:</p>
+<ul>
+<p>When <var>AP</var> post-processing is being used (<var>AP</var> is set >= 0 and < 255), APType 
+controls whether the motion of surrounding pixels should be taken into account.  There are 3 
+possible settings:</p>
+<ul>
+<li>0 = Don't take surrounding motion into account.  If a weaved pixel creates a value that
+        exceeds the AP threshold then it will be interpolated.
+<li>1 = If a weaved pixel creates a value that exceeds the AP threshold and at least half of
+        pixels in a 5x5 window centered on that pixel were detected as moving then that
+        pixel will be interpolated.
+<li>2 = Exactly like 1, except instead of 1/2 only 1/3 of the pixels in the surrounding 5x5
+        window must have been detected as moving.
+</ul>
+<p>Modes 1 and 2 provide a way to catch more artifacts (low AP values) without completely
+sacrificing static areas.</p>
+<p>default -&nbsp;&nbsp;1  (int)</p>
+</ul>
+
+
+<p><var>edeint</var>:</p>
+<ul>
+<p>Allows the specification of an external clip from which to take interpolated pixels instead 
+of having TDeint use one of its internal interpolation methods.  If a clip is specified, then 
+TDeint will process everything as usual except that instead of computing interpolated pixels 
+itself it will take the needed pixels from the corresponding spatial positions in the same frame 
+of the edeint clip.  To disable the use of an edeint clip simply don't specify a value for edeint.</p>
+<p>default -&nbsp;&nbsp;NULL (PClip)</p>
+</ul>
+
+
+<p><var>emask</var>:</p>
+<ul>
+<p>Allows the specification of an external clip from which to take the motion mask instead of 
+having TDeint build the mask internally.  Using this option makes the following parameters of 
+TDeint have no effect:  <var>mthreshL</var>, <var>mthreshC</var>, <var>mtnmode</var>, <var>denoise</var>, 
+<var>link</var>.  The possible values that can be present in the motion mask frames are defined as 
+follows:</p>
+<ul>
+<li>10 - Use pixel from current frame
+<li>20 - Use pixel from previous frame
+<li>30 - Use pixel from next frame
+<li>40 - Use avg of pixels from current and next
+<li>50 - Use avg of pixels from current and previous
+<li>60 - Interpolate
+<li>70 - Use [1 2 1] blend of pixels from prev/curr/next
+</ul>
+<p>Behavoir is undefined for other values, but they should end up being treated internally 
+as though they were 60.</p>
+<p>default -&nbsp;&nbsp;NULL (PClip)</p>
+</ul>
+
+
+<p><var>blim</var>:</p>
+<ul>
+<p>Sets the maximum difference value for mode 2.  If both differences (src-prev and src-next) are 
+above this value then src is returned as is.  Otherwise, src is blended with either prev or next 
+depending on which is most similar to src.  This value is on a 0.0 to 100.0 scale based on luma plane 
+difference.  Use debug=true to see the difference values generated and the limit value.  The debug 
+output will look like the following:</p>
+<pre>[5776] TDeint:  frame 0:  d1 = 0  d2 = 0  lim = 1513728</pre>
+<p>d1 is the src-prev difference and d2 is the src-next difference.  lim is the maximum value 
+translated from the float value into an unsigned long value.  Set blim to a negative value to 
+disable checking (src will always be blended with either prev or next).</p>
+<p>default -&nbsp;&nbsp;-2.0  (float)</p>
+</ul>
+
+
+<p><var>metric</var>:</p>
+<ul>
+<p>Sets which spatial combing metric is used to detect combed pixels.  Possible options:</p>
+<ul>
+<p>Assume 5 neighboring pixels (a,b,c,d,e) positioned vertically.</p>
+<ul><p>
+a<br>
+b<br>
+c<br>
+d<br>
+e<br>
+</p></ul>
+<pre>
+0:  d1 = c - b;
+    d2 = c - d;
+    if ((d1 > cthresh && d2 > cthresh) || (d1 < -cthresh && d2 < -cthresh))
+    {
+       if (abs(a+4*c+e-3*(b+d)) > cthresh*6) it's combed;
+    }
+
+1:  val = (b - c) * (d - c);
+    if (val > cthresh*cthresh) it's combed;
+</pre>
+</ul>
+<p>Metric 0 is what tdeint always used previous to v1.0 RC7.  Metric 1 is the combing metric 
+used in Donald Graft's FieldDeinterlace()/IsCombed() funtions in decomb.dll.</p>
+<p>default -&nbsp;&nbsp;0  (int)</p>
+</ul>
+
+
+<p><var>expand</var>:</p>
+<ul>
+<p>Sets the number of pixels to expand the comb mask horizontally on each side of combed pixels. 
+Basically, if  expand is greater than 0 then TDeint will consider all pixels within 'expand' distance 
+horizontally of a detected combed pixel to be combed as well.</p>
+<p>default -&nbsp;&nbsp;0  (int)</p>
+</ul>
+
+
+<p><var>slow</var>:</p>
+<ul>
+<p>Sets which field matching function is used.  These functions match the corresponding functions 
+in tfm.  Possible values:</p>
+<ul>
+<li>0 - normal  (should have the worst accuracy)
+<li>1 - slower
+<li>2 - slowest (should have the best accuracy)
+</ul>
+<p>default -  1&nbsp;&nbsp;(int)</p>
+</ul>
+
+
+<p><var>emtn</var>:</p>
+<ul>
+<p>Specifies an external clip that TDeint will use for motion detection instead of running it on the 
+input clip.  The input clip is still used for deinterlacing.  The <var>emtn</var> clip is simply used for 
+calculating pixel changes between frames.</p>
+<p>default -  NULL&nbsp;&nbsp;(PClip)</p>
+</ul>
+
+
+<p><var>tshints</var>:</p>
+<ul>
+<p>Enables outputting of hints for use by TSwitch().  If TSwitch is being used after TDeint then set this to 
+true.  Otherwise, set this to false.</p>
+<p>default -  false&nbsp;&nbsp;(bool)</p>
+</ul>
+
+
+<p><var>opt</var>:</p>
+<ul>
+<p>Controls which cpu optimizations are used.  Possible settings:</p>
+<ul>
+<li>0 - use c routines
+<li>1 - use mmx routines
+<li>2 - use isse routines
+<li>3 - use sse2 routines
+<li>4 - auto detect
+</ul>
+<p>default -&nbsp;&nbsp;4  (int)</p>
+</ul>
+
+
+<hr size=2 width="100%" align=center>
+
+
+
+<h2>TSwitch</h2>
+
+<p>TSwitch is able to read hints from TDeint indicating which frames were deinterlaced or not deinterlaced.  Based 
+on these hints, TSwitch then delivers frames from one of two clips (<var>c1</var> or <var>c2</var>).  If the input 
+frame was not deinterlaced, then the corresponding frame from clip <var>c1</var> is returned.  If the input frame was 
+deinterlaced, then the corresponding frame from clip <var>c2</var> is returned.</p>
+<p>To use TSwitch, you must set <var>tshints</var>=true in TDeint and place TSwitch immediately after TDeint in 
+your Avisynth script.</p>
+<p>The reasons why a frame may not have been deinterlaced by TDeint are overrides, hints, full=false, or 
+tryweave=true.</p>
+
+<h3>Syntax</h3>
+<p><code>TSwitch</code> (clip, clip <var>&quot;c1&quot;</var>, clip <var>&quot;c2&quot;</var>, 
+bool <var>&quot;debug&quot;</var>)</p>
+
+<h3>PARAMETERS</h3>
+
+<p><var>c1</var>:</p>
+<ul>
+<p>Sets the clip to return frames from when the input frame was not deinterlaced.</p>
+<p>default -  NULL&nbsp;&nbsp;(PClip)</p>
+</ul>
+
+<p><var>c2</var>:</p>
+<ul>
+<p>Sets the clip to return frames from when the input frame was deinterlaced.</p>
+<p>default -  NULL&nbsp;&nbsp;(PClip)</p>
+</ul>
+
+<p><var>debug</var>:</p>
+<ul>
+<p>Enables debug output, which for each frame will say whether or not the input frame was deinterlaced and 
+which clip (<var>c1</var> or <var>c2</var>) the output frame is being taken from.  The debug 
+information is output using OutputDebugString().  To view the output you can use 
+<a href="http://www.sysinternals.com/Utilities/DebugView.html">DebugView</a> from Sysinternals.</p>
+<p>default -&nbsp;&nbsp;false  (bool)</p>
+</ul>
+
+<hr size=2 width="100%" align=center>
+
+
+
+<h2>Example Scripts</h2>
+
+<p><b>Same rate deinterlacing:</b></p>
+<ul><pre>mpeg2source()
+tdeint()</pre></ul>
+
+<p><b>Bobbing:</b></p>
+<ul><pre>mpeg2source()
+tdeint(mode=1)</pre></ul>
+
+<p><b>Deinterlacing with EEDI2 for interpolation:</b></p>
+<ul><pre>mpeg2source()
+interp = separatefields().selecteven().eedi2()
+tdeint(edeint=interp)</pre></ul>
+
+<p><b>Bobbing with EEDI2 for interpolation:</b></p>
+<ul><pre>mpeg2source()
+interp = separatefields().eedi2(field=-2)
+tdeint(mode=1,edeint=interp)</pre></ul>
+
+<p><b>Smartbobbed field-matching (same rate deinterlacing via blending of bobbed frames):</b></p>
+<ul><pre>mpeg2source()
+tdeint(mode=2)</pre></ul>
+
+<p><b>Smartbobbed field-matching with EEDI2 for interpolation:</b></p>
+<ul><pre>mpeg2source()
+interp = separatefields().eedi2(field=-2)
+tdeint(mode=2,edeint=interp)</pre></ul>
+
+<p><b>Using TSwitch to sharpen only deinterlaced frames:</b></p>
+<ul><pre>mpeg2source()
+tdeint(tshints=true)
+tswitch(c1=last,c2=last.sharpen())</pre></ul>
+
+
+<hr size=2 width="100%" align=center>
+
+
+<h2>Changelog</h2>
+
+<p>   01/21/2006  v1.1<br>
+      + added TSwitch() filter<br>
+      + added new blend deinterlacing mode (type = 5)<br>
+      + expanded ovr line input buffers<br>
+      + added new map outputs (map=3/4) which output both a map and deinterlaced frame<br>
+      + map output works correctly with ap post-processing<br>
+      + map output works correctly with hints/ovr/full/tryweave<br>
+      + support passing through of dgdecode hints and tivtc's new hints<br>
+      + added ability to run motion detection on a separate clip (emtn parameter)<br>
+      - motion map now checks top/bottom lines<br>
+
+<p>   10/16/2006  v1.0 Final<br>
+      + added blend deinterlacing option (type = 4)<br>
+      - changed denoise default to false<br>
+      - pixels detected as moving, but with absolute difference < 4 to both vertical neighbors are 
+          no longer automatically weaved (should fix problems with slow fades)</p>
+
+<p>   10/04/2006  v1.0 RC8<br>
+      + added expand parameter<br>
+      + added slow parameter and slow=1/2 matching modes from tfm<br>
+      - fixed a typo causing mode 2 to crash with yuy2 input</p>
+
+<p>   04/10/2006  v1.0 RC7<br>
+      + optimized combed frame detection functions (now matches tivtc)<br>
+      + added second spatial combing metric and "metric" parameter (same as tfm and is/showcombeditvtc)<br>
+      + optimized denoise routines<br>
+      + improved the field comparison routine (now equal to slow=0 in tfm)<br>
+      + mode 2 uses the field comparison routine instead of full frame subtract for determining the best 
+           matching frame (more accurate)<br>
+      - directly assign frames from emask clip (no need to copy)<br>
+      - changed blim default to -2.0 (disabled)<br>
+      - call setcachehints for emask/edeint clips when used</p>
+
+<p>   03/22/2006  v1.0 RC6<br>
+       + optimized motion map and field comparison routines<br>
+       + added opt parameter<br>
+       - fixed missing cache in mode 2</p>
+
+<p>   03/21/2006  v1.0 RC5<br>
+       - fixed mode 2 mmx/isse subtract frames functions (contained paddq sse2 instruction)</p>
+
+<p>   03/19/2006  v1.0 RC4<br>
+       + output MIC values in debug info when tryweave=true or full=false<br>
+       + added value 70 to emask input<br>
+       + added mmx versions of isse/sse2 compare/blend routines for mode=2<br>
+       - refactored/rewrote a lot of the code to clean up and simply things, no changes that effect output... 
+            should give a slight speed up</p>
+
+<p>   03/18/2006  v1.0 RC3<br>
+       + Added mode 2 and blim parameter</p>
+
+<p>   12/18/2005  v1.0 RC2<br>
+       + Added emask parameter<br>
+       - Fixed edeint not working correctly with mode=1<br>
+       - Changed field=-1 operation when hints=false</p>
+
+<p>   12/03/2005  v1.0 RC1<br>
+       + Added edeint parameter</p>
+
+<p>   08/14/2005  v1.0 beta 4<br>
+       - SetCacheHints call to diameter instead of radius<br>
+       - Fixed type=1 YUY2 interpolation routine giving messed up chroma output (bug was introduced in v1.0 beta 3)</p>
+
+<p>   05/14/2005  v1.0 beta 3<br>
+       + Added APType parameter, adds 2 new AP post-processing modes that take surrounding motion into account<br>
+       + Small changes (hopefully improvements) to type 3 (ELA-2) interpolation</p>
+
+<p>   04/26/2005  v1.0 beta 2<br>
+       + Added modes -2 and -1... will upsize vertically by a factor of 2 using ELA or ELA2<br>
+       + Call SetCacheHints in filter constructor<br>
+       + Some small optimizations, should give a very small speed up</p>
+
+<p>   04/23/2005  v1.0 beta 1<br>
+       + Added AP threshold and post-processing<br>
+       + Added blockx and blocky for variable window size during combed frame detection<br>
+       - Changed default MI value to 64 (default window size is now 16x16 = 256 pixels)<br>
+       - changed default cthresh value to 6<br>
+       - Small change to denoising routine</p>
+
+<p>   04/20/2005  v0.9.7.2<br>
+       - Fixed not correctly using the field information from tfm's hints when acting as a post-processor for it. 
+            Also fixed not correctly altering the match info of tfm's hints when acting as a post-processor for it 
+            (PP=1 in tfm).<br>
+       + Improvements to type 3 interpolation, renamed to modified ELA-2</p>
+
+<p>   03/10/2005  v0.9.7.1<br>
+       + Fixed not correctly reading hints from newer versions of tivtc and if colorimetry hints 
+            were present from dgdecode.</p>
+
+<p>   01/20/2005  v0.9.7<br>
+       + Added link and denoise parameters, link defaults to 2 and denoise to true<br>
+       + Added ELA interpolation (tomsmocomp version) as type = 3<br>
+       + Hints option can now read hints from tfm as well as telecide<br>
+       + map = 2 now sets the chroma pixels that are to be interpolated to 255 and not just the luma<br>
+       - Changed default type value to 2 (kernel interpolation)<br>
+       - Changed default tryWeave value to false</p>
+
+<p>   10/03/2004  v0.9.6<br>
+       + Added full parameter, allows for ivtc post-processing.  full defaults to true.<br>
+       + Added cthresh, chroma, and MI parameters... these are used when full=false<br>
+       + Added tryWeave option, allows TDeint to adaptively switch between per-field 
+            and per-pixel motion adaptation.  tryWeave defaults to true.<br>
+       + Improved field differencing<br>
+       + changed mtnmode default to 1</p>
+
+<p>   09/26/2004  v0.9.5<br>
+       + Sped up mtnmodes 2 and 3, was doing it the hard way and not the easy way...</p>
+
+<p>   09/25/2004  v0.9.4<br>
+       + Added auto hints detection<br>
+       + Added mtnmodes 2 and 3<br>
+       + Added ability to deinterlace from the original stream when using hints via clip2 parameter<br>
+       - Fixed field differencing using the wrong fields doh!</p>
+
+<p>   09/18/2004  v0.9.3<br>
+       + Added order = -1 option, will detect parity from avisynth<br>
+       + Added hints option for reading telecide hints for interlaced/progressive<br>
+       + 5 field motion check now includes checks over 4 field distances<br>
+       - Fixed a bug in YUY2 type = 1 deinterlacing method</p>
+
+<p>   09/14/2004  v0.9.2<br>
+       + Added kernel interpolation and sharp parameter<br>
+       + Added 5 field motion check and mtnmode parameter<br>
+       + Changed default motion thresholds to 6</p>
+
+<p>   09/12/2004  v0.9.1<br>
+       - Fixed some really stupid bugs, one motion check was incorrect for the first and last 
+            frame of a clip, and mode = 1 would only work for the first half of the video</p>
+
+<p>   09/12/2004  v0.9<br>
+       - Initial Release</p>
+<br>
+</body>
+</html>
