@@ -2,10 +2,10 @@
 **                TDeinterlace v1.1 for Avisynth 2.5.x
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
-**   It also uses a couple modified forms of ela interpolation which 
-**   help to reduce "jaggy" edges in places where interpolation must 
+**   It also uses a couple modified forms of ela interpolation which
+**   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2007 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
@@ -30,15 +30,15 @@
 class TSwitch : public GenericVideoFilter
 {
 private:
-	char buf[512];
-	bool debug;
-	PClip c1, c2;
-	int TSwitch::getHint(PVideoFrame &src, unsigned int &hint, int &htype);
-	void TSwitch::putHint(PVideoFrame &dst, unsigned int hint, int htype);
+  char buf[512];
+  bool debug;
+  PClip c1, c2;
+  int TSwitch::getHint(PVideoFrame &src, unsigned int &hint, int &htype);
+  void TSwitch::putHint(PVideoFrame &dst, unsigned int hint, int htype);
 
 public:
-	PVideoFrame __stdcall TSwitch::GetFrame(int n, IScriptEnvironment *env);
-	TSwitch::TSwitch(PClip _child, PClip _c1, PClip _c2, bool _debug, 
-		IScriptEnvironment *env);
-	TSwitch::~TSwitch();
+  PVideoFrame __stdcall TSwitch::GetFrame(int n, IScriptEnvironment *env);
+  TSwitch::TSwitch(PClip _child, PClip _c1, PClip _c2, bool _debug,
+    IScriptEnvironment *env);
+  TSwitch::~TSwitch();
 };

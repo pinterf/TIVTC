@@ -47,7 +47,7 @@
 struct AVSFunction {
   const char* name;
   const char* param_types;
-  AVSValue (__cdecl *apply)(AVSValue args, void* user_data, IScriptEnvironment* env);
+  AVSValue(__cdecl *apply)(AVSValue args, void* user_data, IScriptEnvironment* env);
   void* user_data;
 };
 
@@ -62,25 +62,25 @@ PClip new_Splice(PClip _child1, PClip _child2, bool realign_sound, IScriptEnviro
 PClip new_SeparateFields(PClip _child, IScriptEnvironment* env);
 PClip new_AssumeFrameBased(PClip _child);
 
-void BitBlt(BYTE* dstp, int dst_pitch, const BYTE* srcp, 
-            int src_pitch, int row_size, int height);
+void BitBlt(BYTE* dstp, int dst_pitch, const BYTE* srcp,
+  int src_pitch, int row_size, int height);
 
-  void asm_BitBlt_ISSE(BYTE* dstp, int dst_pitch, const BYTE* srcp, int src_pitch, int row_size, int height);
-  void asm_BitBlt_MMX(BYTE* dstp, int dst_pitch, const BYTE* srcp, int src_pitch, int row_size, int height);
+void asm_BitBlt_ISSE(BYTE* dstp, int dst_pitch, const BYTE* srcp, int src_pitch, int row_size, int height);
+void asm_BitBlt_MMX(BYTE* dstp, int dst_pitch, const BYTE* srcp, int src_pitch, int row_size, int height);
 
 long GetCPUFlags();
 
 
 class _PixelClip {
-  enum { buffer=320 };
-  BYTE clip[256+buffer*2];
+  enum { buffer = 320 };
+  BYTE clip[256 + buffer * 2];
 public:
-  _PixelClip() {  
+  _PixelClip() {
     memset(clip, 0, buffer);
-    for (int i=0; i<256; ++i) clip[i+buffer] = i;
-    memset(clip+buffer+256, 255, buffer);
+    for (int i = 0; i < 256; ++i) clip[i + buffer] = i;
+    memset(clip + buffer + 256, 255, buffer);
   }
-  BYTE operator()(int i) { return clip[i+buffer]; }
+  BYTE operator()(int i) { return clip[i + buffer]; }
 };
 
 extern _PixelClip PixelClip;
@@ -102,12 +102,14 @@ static __inline void Relink(ListNode* newprev, ListNode* me, ListNode* newnext) 
 
 
 static __inline BYTE ScaledPixelClip(int i) {
-  return PixelClip((i+32768) >> 16);
+  return PixelClip((i + 32768) >> 16);
 }
 
 
-static __inline bool IsClose(int a, int b, unsigned threshold) 
-  { return (unsigned(a-b+threshold) <= threshold*2); }
+static __inline bool IsClose(int a, int b, unsigned threshold)
+{
+  return (unsigned(a - b + threshold) <= threshold * 2);
+}
 
 
 

@@ -2,10 +2,10 @@
 **                TDeinterlace v1.1 for Avisynth 2.5.x
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
-**   It also uses a couple modified forms of ela interpolation which 
-**   help to reduce "jaggy" edges in places where interpolation must 
+**   It also uses a couple modified forms of ela interpolation which
+**   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2007 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
@@ -37,36 +37,36 @@ class TDeinterlace;
 class TDHelper : public GenericVideoFilter
 {
 private:
-	TDeinterlace *tdptr;
-	char buf[512];
-	bool debug;
-	unsigned long lim;
-	int nfrms, field, order, opt, *sa, slow;
-	int TDHelper::mapn(int n);
-	unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptEnvironment *env);
-	void TDHelper::subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch, 
-		const unsigned char *srcp2, int src2_pitch, int height, int width, int inc, 
-		unsigned long &diff);
-	void TDHelper::subtractFramesISSE(const unsigned char *srcp1, int src1_pitch, 
-		const unsigned char *srcp2, int src2_pitch, int height, int width, int inc, 
-		unsigned long &diff);
-	void TDHelper::subtractFramesMMX(const unsigned char *srcp1, int src1_pitch, 
-		const unsigned char *srcp2, int src2_pitch, int height, int width, int inc, 
-		unsigned long &diff);
-	void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env);
-	void TDHelper::blendFramesSSE2(const unsigned char *srcp1, int src1_pitch,
-		const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-		int height, int width);
-	void TDHelper::blendFramesISSE(const unsigned char *srcp1, int src1_pitch,
-		const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-		int height, int width);
-	void TDHelper::blendFramesMMX(const unsigned char *srcp1, int src1_pitch,
-		const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-		int height, int width);
+  TDeinterlace *tdptr;
+  char buf[512];
+  bool debug;
+  unsigned long lim;
+  int nfrms, field, order, opt, *sa, slow;
+  int TDHelper::mapn(int n);
+  unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptEnvironment *env);
+  void TDHelper::subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch,
+    const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
+    unsigned long &diff);
+  void TDHelper::subtractFramesISSE(const unsigned char *srcp1, int src1_pitch,
+    const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
+    unsigned long &diff);
+  void TDHelper::subtractFramesMMX(const unsigned char *srcp1, int src1_pitch,
+    const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
+    unsigned long &diff);
+  void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env);
+  void TDHelper::blendFramesSSE2(const unsigned char *srcp1, int src1_pitch,
+    const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
+    int height, int width);
+  void TDHelper::blendFramesISSE(const unsigned char *srcp1, int src1_pitch,
+    const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
+    int height, int width);
+  void TDHelper::blendFramesMMX(const unsigned char *srcp1, int src1_pitch,
+    const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
+    int height, int width);
 
 public:
-	PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env);
-	TDHelper::~TDHelper();
-	TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debug, 
-		int _opt, int* _sa, int _slow, TDeinterlace *_tdptr, IScriptEnvironment *env); 
+  PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env);
+  TDHelper::~TDHelper();
+  TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debug,
+    int _opt, int* _sa, int _slow, TDeinterlace *_tdptr, IScriptEnvironment *env);
 };

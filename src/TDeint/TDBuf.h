@@ -2,10 +2,10 @@
 **                TDeinterlace v1.1 for Avisynth 2.5.x
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
-**   It also uses a couple modified forms of ela interpolation which 
-**   help to reduce "jaggy" edges in places where interpolation must 
+**   It also uses a couple modified forms of ela interpolation which
+**   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2007 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
@@ -29,23 +29,23 @@
 class TDBuf
 {
 private:
-	unsigned char *y, *u, *v;
-	int pitchy, pitchuv;
-	int lpitchy, lpitchuv;
-	int widthy, widthuv;
-	int heighty, heightuv;
-	int size, spos;
+  unsigned char *y, *u, *v;
+  int pitchy, pitchuv;
+  int lpitchy, lpitchuv;
+  int widthy, widthuv;
+  int heighty, heightuv;
+  int size, spos;
 
 public:
-	int *fnum;
-	TDBuf::TDBuf(int _size, int _width, int _height, int _cp);
-	TDBuf::~TDBuf();
-	const unsigned char* TDBuf::GetReadPtr(int pos, int plane);
-	unsigned char* TDBuf::GetWritePtr(int pos, int plane);
-	int TDBuf::GetPitch(int plane);
-	int TDBuf::GetLPitch(int plane);
-	int TDBuf::GetHeight(int plane);
-	int TDBuf::GetWidth(int plane);
-	int TDBuf::GetPos(int n);
-	void TDBuf::resetCacheStart(int n);
+  int *fnum;
+  TDBuf::TDBuf(int _size, int _width, int _height, int _cp);
+  TDBuf::~TDBuf();
+  const unsigned char* TDBuf::GetReadPtr(int pos, int plane);
+  unsigned char* TDBuf::GetWritePtr(int pos, int plane);
+  int TDBuf::GetPitch(int plane);
+  int TDBuf::GetLPitch(int plane);
+  int TDBuf::GetHeight(int plane);
+  int TDBuf::GetWidth(int plane);
+  int TDBuf::GetPos(int n);
+  void TDBuf::resetCacheStart(int n);
 };

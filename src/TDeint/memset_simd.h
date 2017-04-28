@@ -2,10 +2,10 @@
 **                TDeinterlace v1.1 for Avisynth 2.5.x
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
-**   It also uses a couple modified forms of ela interpolation which 
-**   help to reduce "jaggy" edges in places where interpolation must 
+**   It also uses a couple modified forms of ela interpolation which
+**   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
-**   
+**
 **   Copyright (C) 2004-2007 Kevin Stone
 **
 **   This program is free software; you can redistribute it and/or modify
