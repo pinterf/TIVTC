@@ -1,6 +1,9 @@
-# TIVTC v1.0.7 (20170427)
+# TIVTC v1.0.8 (20170429)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+
+**v1.0.8 (20170429)**
+- Fix: TFM PP=2 and PP=5 (Blend deint)
 
 **v1.0.7 (20170427)**
 - fix crash in FieldDiff (in new SIMD SSE2 rewrite)
