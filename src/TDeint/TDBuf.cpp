@@ -1,5 +1,5 @@
 /*
-**                TDeinterlace v1.1 for Avisynth 2.5.x
+**                TDeinterlace v1.1.1 for Avisynth 2.6 interface
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
 **   It also uses a couple modified forms of ela interpolation which
