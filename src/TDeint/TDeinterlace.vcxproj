@@ -97,6 +97,7 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <DisableSpecificWarnings>4311;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:threadSafeInit- %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\include\</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
@@ -123,6 +124,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <DisableSpecificWarnings>4311;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/Zc:threadSafeInit- %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\include\</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
@@ -155,6 +157,7 @@
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <AssemblerListingLocation>$(ProjectDir)$(Platform)\$(Configuration)\</AssemblerListingLocation>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\include\</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
@@ -187,6 +190,7 @@
       <AdditionalOptions>/Zc:threadSafeInit- %(AdditionalOptions)</AdditionalOptions>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <AssemblerListingLocation>$(ProjectDir)$(Platform)\$(Configuration)\</AssemblerListingLocation>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\include\</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
@@ -208,7 +212,14 @@
     <ClCompile Include="TSwitch.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="avisynth.h" />
+    <ClInclude Include="..\include\avisynth.h" />
+    <ClInclude Include="..\include\avs\alignment.h" />
+    <ClInclude Include="..\include\avs\capi.h" />
+    <ClInclude Include="..\include\avs\config.h" />
+    <ClInclude Include="..\include\avs\cpuid.h" />
+    <ClInclude Include="..\include\avs\minmax.h" />
+    <ClInclude Include="..\include\avs\types.h" />
+    <ClInclude Include="..\include\avs\win.h" />
     <ClInclude Include="internal.h" />
     <ClInclude Include="memset_simd.h" />
     <ClInclude Include="resource.h" />
