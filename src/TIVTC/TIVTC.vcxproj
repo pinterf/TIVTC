@@ -239,14 +239,14 @@
     <ClCompile Include="TFMYV12.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="avisynth.h" />
-    <ClInclude Include="avs\alignment.h" />
-    <ClInclude Include="avs\capi.h" />
-    <ClInclude Include="avs\config.h" />
-    <ClInclude Include="avs\cpuid.h" />
-    <ClInclude Include="avs\minmax.h" />
-    <ClInclude Include="avs\types.h" />
-    <ClInclude Include="avs\win.h" />
+    <ClInclude Include="..\include\avisynth.h" />
+    <ClInclude Include="..\include\avs\alignment.h" />
+    <ClInclude Include="..\include\avs\capi.h" />
+    <ClInclude Include="..\include\avs\config.h" />
+    <ClInclude Include="..\include\avs\cpuid.h" />
+    <ClInclude Include="..\include\avs\minmax.h" />
+    <ClInclude Include="..\include\avs\types.h" />
+    <ClInclude Include="..\include\avs\win.h" />
     <ClInclude Include="Cache.h" />
     <ClInclude Include="calcCRC.h" />
     <ClInclude Include="Cycle.h" />

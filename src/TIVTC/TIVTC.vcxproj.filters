@@ -95,9 +95,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="avisynth.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Cache.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -149,31 +146,34 @@
     <ClInclude Include="TFMPP.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="avs\alignment.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="avs\capi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="avs\config.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="avs\cpuid.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="avs\minmax.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="avs\types.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="avs\win.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TFMasm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TDecimateASM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avisynth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avs\alignment.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avs\capi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avs\config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avs\cpuid.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avs\minmax.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avs\types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\avs\win.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
