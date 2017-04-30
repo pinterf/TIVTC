@@ -22,7 +22,8 @@
 **   along with this program; if not, write to the Free Software
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-
+#include <windows.h>
+#include "internal.h"
 #include "TDeinterlace.h"
 
 PVideoFrame __stdcall TDeinterlace::GetFrame(int n, IScriptEnvironment* env)
@@ -301,7 +302,11 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     env->ThrowError("TDeint:  expand must be greater than or equal to 0!");
   if (slow < 0 || slow > 2)
     env->ThrowError("TDeint:  slow must be set to 0, 1, or 2!");
+#ifdef AVISYNTH_2_5
   child->SetCacheHints(CACHE_RANGE, 5);
+#else
+  child->SetCacheHints(CACHE_GENERIC, 5);
+#endif
   useClip2 = false;
   if ((hints || !full) && mode == 0 && clip2)
   {
@@ -356,7 +361,11 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     if ((mode == 0 && vi.num_frames != vi1.num_frames) ||
       (mode == 1 && vi.num_frames * 2 != vi1.num_frames))
       env->ThrowError("TDeint:  number of frames in emtn clip doesn't match that of the input clip!");
+#ifdef AVISYNTH_2_5
     emtn->SetCacheHints(CACHE_RANGE, 5);
+#else
+    emtn->SetCacheHints(CACHE_GENERIC, 5);
+#endif
   }
   sa_pos = 0;
   xhalf = blockx >> 1;
@@ -745,7 +754,11 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
     try
     {
       v = env->Invoke("InternalCache", v).AsClip();
+#ifdef AVISYNTH_2_5
       v->SetCacheHints(CACHE_RANGE, 5);
+#else
+      v->SetCacheHints(CACHE_GENERIC, 5);
+#endif
     }
     catch (IScriptEnvironment::NotFound) {}
   }
@@ -765,7 +778,11 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
     try
     {
       ret = env->Invoke("InternalCache", ret.AsClip()).AsClip();
+#ifdef AVISYNTH_2_5
       ret.AsClip()->SetCacheHints(CACHE_RANGE, 3);
+#else
+      ret.AsClip()->SetCacheHints(CACHE_GENERIC, 3);
+#endif
     }
     catch (IScriptEnvironment::NotFound) {}
     ret = new TDHelper(ret.AsClip(), args[2].AsInt(order), args[3].AsInt(field),
@@ -777,8 +794,22 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
 
 AVSValue __cdecl Create_TSwitch(AVSValue args, void* user_data, IScriptEnvironment* env);
 
-extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env)
-{
+#ifdef AVISYNTH_PLUGIN_25
+extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env) {
+#else
+/* New 2.6 requirement!!! */
+// Declare and initialise server pointers static storage.
+const AVS_Linkage *AVS_linkage = 0;
+
+/* New 2.6 requirement!!! */
+// DLL entry point called from LoadPlugin() to setup a user plugin.
+extern "C" __declspec(dllexport) const char* __stdcall
+AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
+
+  /* New 2.6 requirment!!! */
+  // Save the server pointers.
+  AVS_linkage = vectors;
+#endif
   env->AddFunction("TDeint", "c[mode]i[order]i[field]i[mthreshL]i[mthreshC]i[map]i[ovr]s" \
     "[ovrDefault]i[type]i[debug]b[mtnmode]i[sharp]b[hints]b[clip2]c[full]b[cthresh]i" \
     "[chroma]b[MI]i[tryWeave]b[link]i[denoise]b[AP]i[blockx]i[blocky]i[APType]i[edeint]c" \
