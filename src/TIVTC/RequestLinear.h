@@ -55,4 +55,8 @@ public:
     bool _rall, bool _debug, IScriptEnvironment *env);
   RequestLinear::~RequestLinear();
   PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env);
+
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
 };

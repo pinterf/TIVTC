@@ -77,4 +77,8 @@ public:
   FieldDiff::~FieldDiff();
   PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env);
   AVSValue FieldDiff::ConditionalFieldDiff(int n, IScriptEnvironment* env);
+
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
 };

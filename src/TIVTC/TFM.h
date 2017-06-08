@@ -166,4 +166,8 @@ public:
     int _micmatching, const char* _trimIn, bool _usehints, int _metric, bool _batch, bool _ubsco,
     bool _mmsco, int _opt, IScriptEnvironment* env);
   TFM::~TFM();
+
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
 };

@@ -69,4 +69,8 @@ public:
   FrameDiff::~FrameDiff();
   PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env);
   AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env);
+
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
 };

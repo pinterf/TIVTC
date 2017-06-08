@@ -112,4 +112,8 @@ public:
   TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _display, PClip _clip2,
     bool _usehints, int _opt, IScriptEnvironment* env);
   TFMPP::~TFMPP();
+
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
 };

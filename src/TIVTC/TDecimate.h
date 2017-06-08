@@ -199,4 +199,8 @@ public:
   static void TDecimate::blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
     bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti);
 
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
+
 };
