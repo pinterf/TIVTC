@@ -1,6 +1,11 @@
-# TIVTC v1.0.8 (20170429)
+# TIVTC v1.0.9 (20170608)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+
+**v1.0.9 (20170608)**
+- Fix (workaround): Move frame hints detection from constructor into the first GetFrame (x64 build with 64 bit x264 crash under mysterious circumstances)
+- Filters autoregister themselves as MT_SERIALIZED for Avisynth+, except MergeHints (MT_MULTI_INSTANCE)
+  Note: for proper serialized behaviour under Avisynth+ MT, please use avs+ r2504 or later.
 
 **v1.0.8 (20170429)**
 - Fix: TFM PP=2 and PP=5 (Blend deint)
