@@ -28,6 +28,26 @@
 
 PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 {
+#ifndef OLD_USEHINTS_DETECT
+  // Before 1.0.9 this part was in TDecimate filter constuctor
+  if (!usehints_requested) {
+    int d2hg;
+    PVideoFrame sthg = child->GetFrame(0, env); 
+    int mhg = getHint(sthg, d2hg);
+    if (mhg != -200) usehints = true;
+    else usehints = false;
+
+    usehints_requested = true;
+  }
+
+  if (!fullinfo_requested) {
+    // moved here from constructor, because usehint is available only here
+    if (metricsFullInfo && (tfmFullInfo || !usehints)) fullInfo = true;
+    else fullInfo = false;
+    fullinfo_requested = true;
+  }
+#endif
+
   if (n < 0) n = 0;
   else if (n > nfrmsN) n = nfrmsN;
   int np = child->GetVideoInfo().IsYV12() ? 3 : 1;
@@ -2950,7 +2970,17 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   mkvOutF = NULL;
   FILE *f = NULL;
   char linein[1024], *linep, *linet;
+  
+  // 170607 these are going to class variables
+#ifdef OLD_USEHINTS_DETECT
   bool tfmFullInfo = false, metricsFullInfo = false;
+#else
+  tfmFullInfo = false;
+  metricsFullInfo = false;
+  usehints_requested = false;
+  fullinfo_requested = false;
+#endif
+  
   fps = (double)(vi.fps_numerator) / (double)(vi.fps_denominator);
   if (!vi.IsYV12() && !vi.IsYUY2())
     env->ThrowError("TDecimate:  YV12 and YUY2 colorspaces only!");
@@ -3069,16 +3099,31 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       child->SetCacheHints(0, -20);
     }
   }
+#ifdef OLD_USEHINTS_DETECT
   if (_usehints == 0) usehints = false;
   else if (_usehints == 1) usehints = true;
   else
   {
     int d2hg;
-    PVideoFrame sthg = child->GetFrame(0, env);
+    
+    PVideoFrame sthg = child->GetFrame(0, env); // ?? 170607 what happens when a constructor calls GetFrame?
     int mhg = getHint(sthg, d2hg);
     if (mhg != -200) usehints = true;
     else usehints = false;
   }
+#else
+  if (_usehints == 0) {
+    usehints = false; usehints_requested = true;
+  }
+  else if (_usehints == 1) {
+    usehints = true; usehints_requested = true;
+  }
+  else {
+    usehints_requested = false; 
+    // fullinfo depends on it later, which is also set in GetFrame since 1.0.9
+  }
+#endif
+
   if (vidDetect == 4)
   {
     vidDetect = 3;
@@ -3671,8 +3716,15 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       }
     }
   }
-  if (metricsFullInfo && (tfmFullInfo || !usehints)) fullInfo = true;
+
+  // 170607 Moved into GetFrame.
+  // fullinfo depends on usehints, but both tfmFullInfo and metricsFullInfo was local
+  // In 1.0.9 usehints detection is moved out of constructor, into the first getframe.
+  // So these two have to be class variable as well
+#ifdef OLD_USEHINT_DETECT
+  if (metricsFullInfo && (tfmFullInfo || !usehints)) fullInfo = true; 
   else fullInfo = false;
+#endif
   if (mode < 2)
   {
     if (hybrid != 3)

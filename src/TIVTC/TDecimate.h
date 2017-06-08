@@ -78,6 +78,14 @@ private:
   FILE *mkvOutF;
   PClip clip2;
   char buf[8192], outputFull[270];
+
+#ifndef OLD_USEHINTS_DETECT
+  bool tfmFullInfo; // was: local in ctor 170607
+  bool metricsFullInfo; // was: local in ctor 170607
+  bool usehints_requested;
+  bool fullinfo_requested;
+#endif
+
   void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env);
   void TDecimate::setBlack(PVideoFrame &dst, int np);
   void TDecimate::checkVideoMetrics(Cycle &c, double thresh);
@@ -190,4 +198,5 @@ public:
   TDecimate::~TDecimate();
   static void TDecimate::blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
     bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti);
+
 };
