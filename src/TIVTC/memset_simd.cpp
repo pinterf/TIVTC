@@ -24,6 +24,7 @@
 */
 
 #include "memset_simd.h"
+#include "avs\config.h"
 
 void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val)
 {
