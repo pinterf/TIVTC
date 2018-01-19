@@ -1,6 +1,9 @@
-# TIVTC v1.0.9 (20170608)
+# TIVTC v1.0.10 (20180119)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+
+**v1.0.10 (20180119)**
+- integrate new orgOut parameter for TDecimate (by 8day) (see TDecimate - READ ME.txt)
 
 **v1.0.9 (20170608)**
 - Fix (workaround): Move frame hints detection from constructor into the first GetFrame (x64 build with 64 bit x264 crash under mysterious circumstances)
