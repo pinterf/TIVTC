@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.3  -  HELP FILE  (09/28/2007)
+                              TDecimate v1.0.3.1  -  HELP FILE  (12/26/2017)
 
 
 
@@ -38,7 +38,7 @@ A.)  GENERAL INFO:
                   String ovr, String output, String input, String tfmIn, String mkvOut, int nt,
                   int blockx, int blocky, bool debug, bool display, int vfrDec, bool batch,
                   bool tcfv1, bool se, bool chroma, bool exPP, int maxndl, bool m2PA,
-                  bool denoise, bool noblend, bool ssd, int hint, PClip clip2, int sdlim, int opt)
+                  bool denoise, bool noblend, bool ssd, int hint, PClip clip2, int sdlim, int opt, String orgOut)
 
 
 
@@ -653,6 +653,18 @@ D.)  FILE INPUT/OUTPUT PARAMETERS:
         Default:  ""  (String)
 
 
+   orgOut -
+
+        This sets the name and path for the log with pre-TDecimate, original frame SIDs used
+        for construction of decimated timeline.  This information can used to do proper
+        deinterlacing, i.e. bob deinterlacing (2 interlaced "fields" produce
+        2 progressive frames).  The log gets generated only when mode = 5 and is generated
+        same way as mkvOut file -- at script initialization, i.e. you do not have to
+        process all video frames, but just load the script.
+
+        Default:  ""  (String)
+
+
 
 E.)  DEBUG/DISPLAY PARAMETERS:
 
@@ -758,6 +770,11 @@ F.)  OVERRIDES:
 
 
 G.)  CHANGE LIST:
+
+
+    26/12/2017  v1.0.3.1
+
+         - added argument orgOut to help with bob deinterlacing (8day)
 
 
     28/09/2007  v1.0.3

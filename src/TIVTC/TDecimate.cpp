@@ -6,7 +6,8 @@
 **   IVTC or for other uses. TIVTC currently supports YV12 and
 **   YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2008 Kevin Stone, additional work (C) 2017 pinterf
+**   Copyright (C) 2004-2008 Kevin Stone, additional work (C) 2017-2018 pinterf
+**   orgOut addition: (C)2018 8day
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
@@ -2943,7 +2944,7 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[24].AsBool(true), args[25].AsBool(false), args[26].AsBool(true), args[27].AsBool(false),
     args[28].AsInt(-200), args[29].AsBool(false), args[30].AsBool(false), args[31].AsBool(true),
     args[32].AsBool(false), args[33].IsBool() ? (args[33].AsBool() ? 1 : 0) : -1,
-    args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), env);
+    args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), env);
   return v;
 }
 
@@ -2954,20 +2955,21 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
   bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl, bool _m2PA,
   bool _predenoise, bool _noblend, bool _ssd, int _usehints, PClip _clip2,
-  int _sdlim, int _opt, IScriptEnvironment* env) : GenericVideoFilter(_child), mode(_mode),
+  int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env) : GenericVideoFilter(_child), mode(_mode),
   cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh), vidThresh(_vidThresh),
   sceneThresh(_sceneThresh), hybrid(_hybrid), vidDetect(_vidDetect), conCycle(_conCycle),
   conCycleTP(_conCycleTP), ovr(_ovr), output(_output), input(_input), tfmIn(_tfmIn),
   mkvOut(_mkvOut), nt(_nt), blockx(_blockx), blocky(_blocky), debug(_debug),
   display(_display), vfrDec(_vfrDec), batch(_batch), tcfv1(_tcfv1), se(_se),
   chroma(_chroma), exPP(_exPP), maxndl(_maxndl), m2PA(_m2PA), predenoise(_predenoise),
-  noblend(_noblend), ssd(_ssd), clip2(_clip2), sdlim(_sdlim), opt(_opt),
+  noblend(_noblend), ssd(_ssd), clip2(_clip2), sdlim(_sdlim), opt(_opt), orgOut(_orgOut),
   prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0)
 {
   diff = metricsArray = metricsOutArray = mode2_metrics = NULL;
   aLUT = mode2_decA = mode2_order = NULL;
   ovrArray = NULL;
   mkvOutF = NULL;
+  orgOutF = NULL;
   FILE *f = NULL;
   char linein[1024], *linep, *linet;
   
@@ -4287,6 +4289,27 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     vi.width = vi2.width;
     vi.height = vi2.height;
     vi.pixel_type = vi2.pixel_type;
+  }
+
+  //nfrms and nfrmsN may give some hints as well.
+  if ((mode == 5) && (orgOut != ""))
+  {
+    if ((orgOutF = fopen(orgOut, "w")) != NULL)
+    {
+      if (aLUT != NULL)
+      {
+        for (int n = 0; n<vi.num_frames; ++n)
+        {
+          fprintf(orgOutF, "%d\n", aLUT[n]);
+        }
+      }
+      else env->ThrowError("TDecimate:  aLUT is NULL!");
+    }
+    else
+    {
+      fclose(orgOutF);
+      env->ThrowError("TDecimate:  cannot create orgOut file!");
+    }
   }
 }
 

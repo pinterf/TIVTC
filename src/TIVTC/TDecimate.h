@@ -53,7 +53,7 @@
 #define VIDEO 0x00000008 // ovr array - bit 4
 #define ISMATCH 0x00000070 // ovr array - bits 5-7
 #define ISD2VFILM 0x00000080 // ovr array - bit 8
-#define VERSION "v1.0.3"
+#define VERSION "v1.0.3.1"
 #define cfps(n) n == 1 ? "119.880120" : n == 2 ? "59.940060" : n == 3 ? "39.960040" : \
 				n == 4 ? "29.970030" : n == 5 ? "23.976024" : "unknown"
 
@@ -72,10 +72,11 @@ private:
   int *aLUT, *mode2_decA, *mode2_order, sdlim;
   unsigned int outputCrc;
   unsigned char *ovrArray;
-  const char *ovr, *input, *output, *mkvOut, *tfmIn;
+  const char *ovr, *input, *output, *mkvOut, *tfmIn, *orgOut;
   int mode2_num, mode2_den, mode2_numCycles, mode2_cfs[10];
   Cycle prev, curr, next, nbuf;
   FILE *mkvOutF;
+  FILE *orgOutF;
   PClip clip2;
   char buf[8192], outputFull[270];
 
@@ -194,7 +195,7 @@ public:
     int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
-    PClip _clip2, int _sdlim, int _opt, IScriptEnvironment* env);
+    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env);
   TDecimate::~TDecimate();
   static void TDecimate::blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
     bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti);
