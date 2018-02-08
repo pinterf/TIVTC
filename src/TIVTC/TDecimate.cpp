@@ -3257,25 +3257,21 @@ finishTP:
   if (f != NULL) fclose(f);
 
   //nfrms and nfrmsN may give some hints as well.
-  if ((mode == 5) && (orgOut != ""))
+  //8day
+  if (*orgOut)
   {
-    if ((orgOutF = fopen(orgOut, "w")) != NULL)
+    if (aLUT == NULL)
+      env->ThrowError("TDecimate: aLUT is NULL!");
+    FILE *orgOutF = fopen(orgOut, "w");
+    if (orgOutF == NULL)
+      env->ThrowError("TDecimate: cannot create orgOut file!");
+    for (int n = 0; n<vi.num_frames; ++n)
     {
-      if (aLUT != NULL)
-      {
-        for (int n = 0; n<vi.num_frames; ++n)
-        {
-          fprintf(orgOutF, "%d\n", aLUT[n]);
-        }
-      }
-      else env->ThrowError("TDecimate:  aLUT is NULL!");
+      fprintf(orgOutF, "%d\n", aLUT[n]);
     }
-    else
-    {
-      fclose(orgOutF);
-      env->ThrowError("TDecimate:  cannot create orgOut file!");
-    }
+    fclose(orgOutF);
   }
+
 #ifndef OLD_USEHINTS_DETECT
   mode_5_initialized = true;
 #endif
