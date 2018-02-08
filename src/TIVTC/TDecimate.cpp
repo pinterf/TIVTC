@@ -47,6 +47,8 @@ PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
     else fullInfo = false;
     fullinfo_requested = true;
   }
+
+  init_mode_5(env);
 #endif
 
   if (n < 0) n = 0;
@@ -102,6 +104,7 @@ void TDecimate::restoreHint(PVideoFrame &dst, IScriptEnvironment *env)
   }
 }
 
+// PF 180131 uses usehints! but no problem, its runtime
 PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
 {
   int EvalGroup;
@@ -845,6 +848,7 @@ PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, int np)
   return clip2->GetFrame(frame, env);
 }
 
+// PF 180131 uses usehints! but its runtime alreadz, no problem
 void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env)
 {
   int EvalGroup = 0;
@@ -1272,6 +1276,7 @@ unsigned __int64 TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, i
   return highestDiff;
 }
 
+// PF 180131 uses usehints!
 void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
   bool scene, bool hnt)
 {
@@ -2557,6 +2562,7 @@ void TDecimate::checkVideoMetrics(Cycle &c, double thresh)
   else if (c.type == -1) c.type = 0;
 }
 
+// PF 180131 uses usehints!
 void TDecimate::getOvrCycle(Cycle &current, bool mode2)
 {
   if (mode2) current.dupCount = 0;
@@ -2948,6 +2954,333 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
   return v;
 }
 
+void TDecimate::init_mode_5(IScriptEnvironment* env) {
+  FILE *f = NULL;
+
+#ifndef OLD_USEHINTS_DETECT
+  if (mode_5_initialized) return;
+#endif
+
+  mkvfps = (fps*(cycle - cycleR)) / cycle;
+  mkvfps2 = (fps*(cycle - cycleR - 1)) / cycle;
+  int *input = NULL;
+  input = (int*)malloc(vi.num_frames * sizeof(int));
+  if (input == NULL) env->ThrowError("TDecimate:  malloc failure (mode 5, input)!");
+  memset(input, 0, vi.num_frames * sizeof(int));
+  Cycle prevM(5, sdlim), currM(5, sdlim), nextM(5, sdlim);
+  if (cycle > 5)
+  {
+    prevM.setSize(cycle);
+    currM.setSize(cycle);
+    nextM.setSize(cycle);
+  }
+  prevM.length = currM.length = nextM.length = cycle;
+  prevM.maxFrame = currM.maxFrame = nextM.maxFrame = nfrms;
+  bool vid, prevVid;
+  int i, h, w, firstkv, countprev, filmC, videoC, longestT, longestV, countVT;
+  int count, b, np = vi.IsYV12() ? 3 : 1, passThrough = 0;
+twopassrun:
+  ++passThrough;
+  if ((f = fopen("debug.txt", "a")) != NULL) {
+    fprintf(f, "passThrough=%d cycle=%d nfrms=%d vidThresh=%f np=%d\n", passThrough, cycle, nfrms, (float)vidThresh, np);
+    fclose(f);
+    f = NULL;
+  }
+
+  count = 0;
+  for (b = 0; b <= nfrms; b += cycle)
+  {
+    if (b == 0)
+    {
+      currM.setFrame(0);
+      getOvrCycle(currM, false); // PF 180131 uses usehints!
+      calcMetricCycle(currM, env, np, true, true);
+      checkVideoMatches(currM, currM);
+      checkVideoMetrics(currM, vidThresh);
+    }
+    else
+    {
+      prevM = currM;
+      currM = nextM;
+    }
+    nextM.setFrame(b + cycle);
+    getOvrCycle(nextM, false); // PF 180131 uses usehints!
+    calcMetricCycle(nextM, env, np, true, true); // PF 180131 uses usehints!
+    checkVideoMatches(currM, nextM);
+    checkVideoMetrics(nextM, vidThresh);
+    if (passThrough == 1)
+    {
+      if (currM.type == 5 || (!currM.isfilmd2v && ((currM.type == 2 && (vidDetect == 0 || vidDetect == 2)) ||
+        (currM.type == 3 && (vidDetect == 1 || vidDetect == 2)) || (currM.type == 4 && vidDetect == 3))))
+      {
+        if (currM.type == 5) input[b] = 8;
+        if (currM.sceneDetect(prevM, nextM, sceneThreshU) != -20) input[b] = 8;
+      }
+      else
+      {
+        if (vfrDec != 1)
+        {
+          mostSimilarDecDecision(prevM, currM, nextM, env);
+        }
+        else
+        {
+          prevM.setDups(dupThresh);
+          currM.setDups(dupThresh);
+          nextM.setDups(dupThresh);
+          findDupStrings(prevM, currM, nextM, env);
+        }
+        for (w = 0, i = b; i < b + cycle && i <= nfrms; ++i, ++w)
+        {
+          if (currM.decimate[w] == 1) input[i] = 2;
+        }
+      }
+    } // passthrough == 1
+    else
+    { // passthrough != 1
+      for (vid = true, i = b; i <= nfrms && i < b + cycle; ++i)
+      {
+        if (input[i] == 2) vid = false;
+      }
+      if (!vid)
+      {
+        if (vfrDec != 1)
+        {
+          mostSimilarDecDecision(prevM, currM, nextM, env);
+        }
+        else
+        {
+          prevM.setDups(dupThresh);
+          currM.setDups(dupThresh);
+          nextM.setDups(dupThresh);
+          findDupStrings(prevM, currM, nextM, env);
+        }
+        for (w = 0, i = b; i < b + cycle && i <= nfrms; ++i, ++w)
+        {
+          if (currM.decimate[w] == 1)
+          {
+            input[i] = 2;
+            ++count;
+            if ((f = fopen("debug.txt", "a")) != NULL) {
+              fprintf(f, "count=%03d b=%d w=%d i=%d \n", count, b, w, i);
+              fclose(f);
+              f = NULL;
+            }
+          }
+          else input[i] = 0;
+        }
+      }
+      else
+      {
+        for (i = b; i < b + cycle && i <= nfrms; ++i) input[i] = 0;
+      }
+    } // passthrough != 1
+  }
+  if (passThrough == 2) { goto finishTP; }
+  for (w = 0, h = 0; h <= nfrms; h += cycle)
+  {
+    for (vid = true, i = h; i < h + cycle && i <= nfrms; ++i)
+    {
+      if (input[i] == 2) vid = false;
+    }
+    if (vid) ++w;
+    else
+    {
+      if (w > 0 && w < conCycleTP)
+      {
+        for (i = max(0, h - w * cycle); i < h && i <= nfrms; i += cycle)
+        {
+          if (input[i] != 8) input[i] = 2;
+        }
+      }
+      w = 0;
+    }
+  }
+  if (w > 0 && w < conCycleTP)
+  {
+    for (i = h - w * cycle; i < h && i <= nfrms; i += cycle)
+    {
+      if (input[i] != 8) input[i] = 2;
+    }
+  }
+  goto twopassrun;
+finishTP:
+  if (metricsArray != NULL)
+  {
+    free(metricsArray);
+    metricsArray = NULL;
+  }
+  if (ovrArray != NULL)
+  {
+    free(ovrArray);
+    ovrArray = NULL;
+  }
+
+  if ((f = fopen("debug.txt", "a")) != NULL) {
+    fprintf(f, "new_num_frames=%d vi.num_frames=%d count=%d\n", vi.num_frames - count, vi.num_frames, count);
+    fclose(f);
+    f = NULL;
+  }
+
+  vi.MulDivFPS(vi.num_frames - count, vi.num_frames);
+  vi.num_frames = vi.num_frames - count;
+  if ((f = fopen(mkvOut, "w")) != NULL)
+  {
+    double timestamp = 0.0;
+    double sample1 = 1000.0 / fps;
+    double sample2 = 1000.0 / mkvfps;
+    double sample3 = 1000.0 / mkvfps2;
+    int ddup;
+    if (tcfv1)
+    {
+      fprintf(f, "# timecode format v1\n");
+      fprintf(f, "Assume %4.6f\n", fps);
+    }
+    else fprintf(f, "# timecode format v2\n");
+    fprintf(f, "# TDecimate %s by tritical\n", VERSION);
+    fprintf(f, "# Mode 5 - Auto-generated mkv timecodes file\n");
+    firstkv = countprev = 0;
+    vid = prevVid = true;
+    filmC = videoC = longestT = longestV = countVT = 0;
+    for (count = 0, b = 0; b <= nfrms; b += cycle)
+    {
+      prevVid = vid;
+      countprev = count;
+      vid = true;
+      for (i = b, ddup = 0; i < b + cycle && i <= nfrms; ++i)
+      {
+        if (input[i] == 2)
+        {
+          ++ddup;
+          if (ddup < 2) filmC += (b + cycle <= nfrms ? cycle : nfrms - b + 1);
+          vid = false;
+        }
+        else ++count;
+      }
+      if (vid)
+      {
+        if (!tcfv1)
+        {
+          int stop = (b + cycle <= nfrms ? cycle : nfrms - b + 1);
+          for (int x = 0; x < stop; ++x)
+          {
+            fprintf(f, "%3.6f\n", timestamp);
+            timestamp += sample1;
+          }
+        }
+        videoC += (b + cycle <= nfrms ? cycle : nfrms - b + 1);
+        longestT += (b + cycle <= nfrms ? cycle : nfrms - b + 1);
+      }
+      else if (!tcfv1)
+      {
+        if (ddup == 1)
+        {
+          int stop = (b + cycle <= nfrms ? cycle - cycleR : nfrms - b + 1 - cycleR);
+          for (int x = 0; x < stop; ++x)
+          {
+            fprintf(f, "%3.6f\n", timestamp);
+            timestamp += sample2;
+          }
+        }
+        else if (ddup == 2)
+        {
+          int stop = (b + cycle <= nfrms ? cycle - cycleR - 1 : nfrms - b + 1 - cycleR - 1);
+          for (int x = 0; x < stop; ++x)
+          {
+            fprintf(f, "%3.6f\n", timestamp);
+            timestamp += sample3;
+          }
+        }
+        else env->ThrowError("TDecimate:  unknown mode 5 error (tc file creation)!");
+      }
+      else if (ddup == 2)
+      {
+        if (!prevVid) fprintf(f, "%d,%d,%4.6f\n", firstkv, countprev - 1, mkvfps);
+        fprintf(f, "%d,%d,%4.6f\n", countprev, countprev + cycle - cycleR - 2, mkvfps2);
+        firstkv = countprev + cycle - cycleR - 1;
+      }
+      if (prevVid != vid && countprev != 0 && ddup != 2 && countprev > firstkv)
+      {
+        if (!prevVid && tcfv1) fprintf(f, "%d,%d,%4.6f\n", firstkv, countprev - 1, mkvfps);
+        firstkv = countprev;
+      }
+      else if (prevVid != vid && ddup != 2) firstkv = countprev;
+      if (prevVid != vid && prevVid && countprev != 0)
+      {
+        if (longestT > longestV) longestV = longestT;
+        ++countVT;
+        longestT = 0;
+      }
+    }
+    if (!vid && tcfv1) fprintf(f, "%d,%d,%4.6f\n", firstkv, count - 1, mkvfps);
+    double filmCf = ((double)(filmC) / (double)(nfrms + 1))*100.0;
+    double videoCf = ((double)(videoC) / (double)(nfrms + 1))*100.0;
+    fprintf(f, "# vfr stats:  %05.2f%c film  %05.2f%c video\n", filmCf, '%', videoCf, '%');
+    fprintf(f, "# vfr stats:  %d - film  %d - video  %d - total\n", filmC, videoC, nfrms + 1);
+    fprintf(f, "# vfr stats:  longest vid section - %d frames\n", longestV);
+    fprintf(f, "# vfr stats:  # of detected vid sections - %d", countVT);
+    fclose(f);
+    f = NULL;
+  }
+  else
+  {
+    free(input);
+    input = NULL;
+    env->ThrowError("TDecimate:  mkvOut file output error (cannot create file)!");
+  }
+  if (aLUT != NULL)
+  {
+    free(aLUT);
+    aLUT = NULL;
+  }
+  aLUT = (int *)malloc((vi.num_frames + 1) * sizeof(int));
+  if (aLUT == NULL)
+  {
+    free(input);
+    input = NULL;
+    env->ThrowError("TDecimate:  malloc failure (aLUT, mode 5)!");
+  }
+  memset(aLUT, 0, (vi.num_frames + 1) * sizeof(int));
+  i = w = 0;
+  while (i <= nfrms && w <= vi.num_frames - 1)
+  {
+    if (input[i] != 2)
+    {
+      aLUT[w] = i;
+      ++w;
+    }
+    ++i;
+  }
+  free(input);
+  input = NULL;
+  nfrmsN = vi.num_frames - 1;
+
+  if (f != NULL) fclose(f);
+
+  //nfrms and nfrmsN may give some hints as well.
+  if ((mode == 5) && (orgOut != ""))
+  {
+    if ((orgOutF = fopen(orgOut, "w")) != NULL)
+    {
+      if (aLUT != NULL)
+      {
+        for (int n = 0; n<vi.num_frames; ++n)
+        {
+          fprintf(orgOutF, "%d\n", aLUT[n]);
+        }
+      }
+      else env->ThrowError("TDecimate:  aLUT is NULL!");
+    }
+    else
+    {
+      fclose(orgOutF);
+      env->ThrowError("TDecimate:  cannot create orgOut file!");
+    }
+  }
+#ifndef OLD_USEHINTS_DETECT
+  mode_5_initialized = true;
+#endif
+} // init mode 5
+
 TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _rate,
   double _dupThresh, double _vidThresh, double _sceneThresh, int _hybrid,
   int _vidDetect, int _conCycle, int _conCycleTP, const char* _ovr,
@@ -2969,7 +3302,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   aLUT = mode2_decA = mode2_order = NULL;
   ovrArray = NULL;
   mkvOutF = NULL;
-  orgOutF = NULL;
   FILE *f = NULL;
   char linein[1024], *linep, *linet;
   
@@ -3829,281 +4161,12 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   else if (mode == 5)
   {
-    mkvfps = (fps*(cycle - cycleR)) / cycle;
-    mkvfps2 = (fps*(cycle - cycleR - 1)) / cycle;
-    int *input = NULL;
-    input = (int*)malloc(vi.num_frames * sizeof(int));
-    if (input == NULL) env->ThrowError("TDecimate:  malloc failure (mode 5, input)!");
-    memset(input, 0, vi.num_frames * sizeof(int));
-    Cycle prevM(5, sdlim), currM(5, sdlim), nextM(5, sdlim);
-    if (cycle > 5)
-    {
-      prevM.setSize(cycle);
-      currM.setSize(cycle);
-      nextM.setSize(cycle);
-    }
-    prevM.length = currM.length = nextM.length = cycle;
-    prevM.maxFrame = currM.maxFrame = nextM.maxFrame = nfrms;
-    bool vid, prevVid;
-    int i, h, w, firstkv, countprev, filmC, videoC, longestT, longestV, countVT;
-    int count, b, np = vi.IsYV12() ? 3 : 1, passThrough = 0;
-  twopassrun:
-    ++passThrough;
-    count = 0;
-    for (b = 0; b <= nfrms; b += cycle)
-    {
-      if (b == 0)
-      {
-        currM.setFrame(0);
-        getOvrCycle(currM, false);
-        calcMetricCycle(currM, env, np, true, true);
-        checkVideoMatches(currM, currM);
-        checkVideoMetrics(currM, vidThresh);
-      }
-      else
-      {
-        prevM = currM;
-        currM = nextM;
-      }
-      nextM.setFrame(b + cycle);
-      getOvrCycle(nextM, false);
-      calcMetricCycle(nextM, env, np, true, true);
-      checkVideoMatches(currM, nextM);
-      checkVideoMetrics(nextM, vidThresh);
-      if (passThrough == 1)
-      {
-        if (currM.type == 5 || (!currM.isfilmd2v && ((currM.type == 2 && (vidDetect == 0 || vidDetect == 2)) ||
-          (currM.type == 3 && (vidDetect == 1 || vidDetect == 2)) || (currM.type == 4 && vidDetect == 3))))
-        {
-          if (currM.type == 5) input[b] = 8;
-          if (currM.sceneDetect(prevM, nextM, sceneThreshU) != -20) input[b] = 8;
-        }
-        else
-        {
-          if (vfrDec != 1)
-          {
-            mostSimilarDecDecision(prevM, currM, nextM, env);
-          }
-          else
-          {
-            prevM.setDups(dupThresh);
-            currM.setDups(dupThresh);
-            nextM.setDups(dupThresh);
-            findDupStrings(prevM, currM, nextM, env);
-          }
-          for (w = 0, i = b; i < b + cycle && i <= nfrms; ++i, ++w)
-          {
-            if (currM.decimate[w] == 1) input[i] = 2;
-          }
-        }
-      }
-      else
-      {
-        for (vid = true, i = b; i <= nfrms && i < b + cycle; ++i)
-        {
-          if (input[i] == 2) vid = false;
-        }
-        if (!vid)
-        {
-          if (vfrDec != 1)
-          {
-            mostSimilarDecDecision(prevM, currM, nextM, env);
-          }
-          else
-          {
-            prevM.setDups(dupThresh);
-            currM.setDups(dupThresh);
-            nextM.setDups(dupThresh);
-            findDupStrings(prevM, currM, nextM, env);
-          }
-          for (w = 0, i = b; i < b + cycle && i <= nfrms; ++i, ++w)
-          {
-            if (currM.decimate[w] == 1)
-            {
-              input[i] = 2;
-              ++count;
-            }
-            else input[i] = 0;
-          }
-        }
-        else
-        {
-          for (i = b; i < b + cycle && i <= nfrms; ++i) input[i] = 0;
-        }
-      }
-    }
-    if (passThrough == 2) { goto finishTP; }
-    for (w = 0, h = 0; h <= nfrms; h += cycle)
-    {
-      for (vid = true, i = h; i < h + cycle && i <= nfrms; ++i)
-      {
-        if (input[i] == 2) vid = false;
-      }
-      if (vid) ++w;
-      else
-      {
-        if (w > 0 && w < conCycleTP)
-        {
-          for (i = max(0, h - w*cycle); i < h && i <= nfrms; i += cycle)
-          {
-            if (input[i] != 8) input[i] = 2;
-          }
-        }
-        w = 0;
-      }
-    }
-    if (w > 0 && w < conCycleTP)
-    {
-      for (i = h - w*cycle; i < h && i <= nfrms; i += cycle)
-      {
-        if (input[i] != 8) input[i] = 2;
-      }
-    }
-    goto twopassrun;
-  finishTP:
-    if (metricsArray != NULL)
-    {
-      free(metricsArray);
-      metricsArray = NULL;
-    }
-    if (ovrArray != NULL)
-    {
-      free(ovrArray);
-      ovrArray = NULL;
-    }
-    vi.MulDivFPS(vi.num_frames - count, vi.num_frames);
-    vi.num_frames = vi.num_frames - count;
-    if ((f = fopen(mkvOut, "w")) != NULL)
-    {
-      double timestamp = 0.0;
-      double sample1 = 1000.0 / fps;
-      double sample2 = 1000.0 / mkvfps;
-      double sample3 = 1000.0 / mkvfps2;
-      int ddup;
-      if (tcfv1)
-      {
-        fprintf(f, "# timecode format v1\n");
-        fprintf(f, "Assume %4.6f\n", fps);
-      }
-      else fprintf(f, "# timecode format v2\n");
-      fprintf(f, "# TDecimate %s by tritical\n", VERSION);
-      fprintf(f, "# Mode 5 - Auto-generated mkv timecodes file\n");
-      firstkv = countprev = 0;
-      vid = prevVid = true;
-      filmC = videoC = longestT = longestV = countVT = 0;
-      for (count = 0, b = 0; b <= nfrms; b += cycle)
-      {
-        prevVid = vid;
-        countprev = count;
-        vid = true;
-        for (i = b, ddup = 0; i < b + cycle && i <= nfrms; ++i)
-        {
-          if (input[i] == 2)
-          {
-            ++ddup;
-            if (ddup < 2) filmC += (b + cycle <= nfrms ? cycle : nfrms - b + 1);
-            vid = false;
-          }
-          else ++count;
-        }
-        if (vid)
-        {
-          if (!tcfv1)
-          {
-            int stop = (b + cycle <= nfrms ? cycle : nfrms - b + 1);
-            for (int x = 0; x < stop; ++x)
-            {
-              fprintf(f, "%3.6f\n", timestamp);
-              timestamp += sample1;
-            }
-          }
-          videoC += (b + cycle <= nfrms ? cycle : nfrms - b + 1);
-          longestT += (b + cycle <= nfrms ? cycle : nfrms - b + 1);
-        }
-        else if (!tcfv1)
-        {
-          if (ddup == 1)
-          {
-            int stop = (b + cycle <= nfrms ? cycle - cycleR : nfrms - b + 1 - cycleR);
-            for (int x = 0; x < stop; ++x)
-            {
-              fprintf(f, "%3.6f\n", timestamp);
-              timestamp += sample2;
-            }
-          }
-          else if (ddup == 2)
-          {
-            int stop = (b + cycle <= nfrms ? cycle - cycleR - 1 : nfrms - b + 1 - cycleR - 1);
-            for (int x = 0; x < stop; ++x)
-            {
-              fprintf(f, "%3.6f\n", timestamp);
-              timestamp += sample3;
-            }
-          }
-          else env->ThrowError("TDecimate:  unknown mode 5 error (tc file creation)!");
-        }
-        else if (ddup == 2)
-        {
-          if (!prevVid) fprintf(f, "%d,%d,%4.6f\n", firstkv, countprev - 1, mkvfps);
-          fprintf(f, "%d,%d,%4.6f\n", countprev, countprev + cycle - cycleR - 2, mkvfps2);
-          firstkv = countprev + cycle - cycleR - 1;
-        }
-        if (prevVid != vid && countprev != 0 && ddup != 2 && countprev > firstkv)
-        {
-          if (!prevVid && tcfv1) fprintf(f, "%d,%d,%4.6f\n", firstkv, countprev - 1, mkvfps);
-          firstkv = countprev;
-        }
-        else if (prevVid != vid && ddup != 2) firstkv = countprev;
-        if (prevVid != vid && prevVid && countprev != 0)
-        {
-          if (longestT > longestV) longestV = longestT;
-          ++countVT;
-          longestT = 0;
-        }
-      }
-      if (!vid && tcfv1) fprintf(f, "%d,%d,%4.6f\n", firstkv, count - 1, mkvfps);
-      double filmCf = ((double)(filmC) / (double)(nfrms + 1))*100.0;
-      double videoCf = ((double)(videoC) / (double)(nfrms + 1))*100.0;
-      fprintf(f, "# vfr stats:  %05.2f%c film  %05.2f%c video\n", filmCf, '%', videoCf, '%');
-      fprintf(f, "# vfr stats:  %d - film  %d - video  %d - total\n", filmC, videoC, nfrms + 1);
-      fprintf(f, "# vfr stats:  longest vid section - %d frames\n", longestV);
-      fprintf(f, "# vfr stats:  # of detected vid sections - %d", countVT);
-      fclose(f);
-      f = NULL;
-    }
-    else
-    {
-      free(input);
-      input = NULL;
-      env->ThrowError("TDecimate:  mkvOut file output error (cannot create file)!");
-    }
-    if (aLUT != NULL)
-    {
-      free(aLUT);
-      aLUT = NULL;
-    }
-    aLUT = (int *)malloc((vi.num_frames + 1) * sizeof(int));
-    if (aLUT == NULL)
-    {
-      free(input);
-      input = NULL;
-      env->ThrowError("TDecimate:  malloc failure (aLUT, mode 5)!");
-    }
-    memset(aLUT, 0, (vi.num_frames + 1) * sizeof(int));
-    i = w = 0;
-    while (i <= nfrms && w <= vi.num_frames - 1)
-    {
-      if (input[i] != 2)
-      {
-        aLUT[w] = i;
-        ++w;
-      }
-      ++i;
-    }
-    free(input);
-    input = NULL;
-    nfrmsN = vi.num_frames - 1;
-  }
+#ifdef OLD_USEHINTS_DETECT
+    init_mode_5(env); // not here!
+#else
+    mode_5_initialized = false;
+#endif
+  } // mode 5
   else if (mode == 6)
   {
     int *input = NULL;
@@ -4281,7 +4344,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     fclose(f);
     f = NULL;
     nfrmsN = vi.num_frames - 1;
-  }
+  } // mode 6
   if (f != NULL) fclose(f);
   if (clip2)
   {
@@ -4289,27 +4352,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     vi.width = vi2.width;
     vi.height = vi2.height;
     vi.pixel_type = vi2.pixel_type;
-  }
-
-  //nfrms and nfrmsN may give some hints as well.
-  if ((mode == 5) && (orgOut != ""))
-  {
-    if ((orgOutF = fopen(orgOut, "w")) != NULL)
-    {
-      if (aLUT != NULL)
-      {
-        for (int n = 0; n<vi.num_frames; ++n)
-        {
-          fprintf(orgOutF, "%d\n", aLUT[n]);
-        }
-      }
-      else env->ThrowError("TDecimate:  aLUT is NULL!");
-    }
-    else
-    {
-      fclose(orgOutF);
-      env->ThrowError("TDecimate:  cannot create orgOut file!");
-    }
   }
 }
 

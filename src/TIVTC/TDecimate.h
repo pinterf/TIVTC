@@ -76,7 +76,6 @@ private:
   int mode2_num, mode2_den, mode2_numCycles, mode2_cfs[10];
   Cycle prev, curr, next, nbuf;
   FILE *mkvOutF;
-  FILE *orgOutF;
   PClip clip2;
   char buf[8192], outputFull[270];
 
@@ -85,8 +84,10 @@ private:
   bool metricsFullInfo; // was: local in ctor 170607
   bool usehints_requested;
   bool fullinfo_requested;
+  bool mode_5_initialized;
 #endif
 
+  void TDecimate::init_mode_5(IScriptEnvironment* env);
   void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env);
   void TDecimate::setBlack(PVideoFrame &dst, int np);
   void TDecimate::checkVideoMetrics(Cycle &c, double thresh);
