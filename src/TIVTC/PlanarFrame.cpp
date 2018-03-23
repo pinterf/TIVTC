@@ -690,8 +690,8 @@ void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsig
       __m128i yy = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(py + x * 2)); // YYYYYYYY
       __m128i uu = _mm_castps_si128(_mm_load_ss(reinterpret_cast<float *>(pu + x))); // 000000000000UUUU
       __m128i vv = _mm_castps_si128(_mm_load_ss(reinterpret_cast<float *>(pv + x))); // 000000000000VVVV
-      __m128i uvuv = _mm_unpackhi_epi8(uu, vv); // 00000000VUVUVUVU
-      __m128i yuyv = _mm_unpackhi_epi8(yy,uvuv); // VYUYVYUYVYUYVYUY
+      __m128i uvuv = _mm_unpacklo_epi8(uu, vv); // 00000000VUVUVUVU
+      __m128i yuyv = _mm_unpacklo_epi8(yy,uvuv); // VYUYVYUYVYUYVYUY
       _mm_store_si128(reinterpret_cast<__m128i *>(dst + x * 4), yuyv);
     }
     dst += pitch2;
