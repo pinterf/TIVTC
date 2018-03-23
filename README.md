@@ -1,6 +1,11 @@
-# TIVTC v1.0.10 (20180119)
+# TIVTC v1.0.11 (20180323)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+
+**v1.0.11 (20180323)**
+- Revert to pre-1.0.9 usehint detection: conflicted with mode 5 (sometimes bad clip length was reported)
+  (reason of the workaround (crash at mysterious circumstances) was eliminated: mmx state was not cleared in mvtools2) 
+- Fix: bad check for emptiness of orgOut parameter
 
 **v1.0.10 (20180119)**
 - integrate new orgOut parameter for TDecimate (by 8day) (see TDecimate - READ ME.txt)
