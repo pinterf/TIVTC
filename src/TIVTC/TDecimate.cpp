@@ -29,28 +29,6 @@
 
 PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 {
-#ifndef OLD_USEHINTS_DETECT
-  // Before 1.0.9 this part was in TDecimate filter constuctor
-  if (!usehints_requested) {
-    int d2hg;
-    PVideoFrame sthg = child->GetFrame(0, env); 
-    int mhg = getHint(sthg, d2hg);
-    if (mhg != -200) usehints = true;
-    else usehints = false;
-
-    usehints_requested = true;
-  }
-
-  if (!fullinfo_requested) {
-    // moved here from constructor, because usehint is available only here
-    if (metricsFullInfo && (tfmFullInfo || !usehints)) fullInfo = true;
-    else fullInfo = false;
-    fullinfo_requested = true;
-  }
-
-  init_mode_5(env);
-#endif
-
   if (n < 0) n = 0;
   else if (n > nfrmsN) n = nfrmsN;
   int np = child->GetVideoInfo().IsYV12() ? 3 : 1;
@@ -2957,10 +2935,6 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
 void TDecimate::init_mode_5(IScriptEnvironment* env) {
   FILE *f = NULL;
 
-#ifndef OLD_USEHINTS_DETECT
-  if (mode_5_initialized) return;
-#endif
-
   mkvfps = (fps*(cycle - cycleR)) / cycle;
   mkvfps2 = (fps*(cycle - cycleR - 1)) / cycle;
   int *input = NULL;
@@ -3272,9 +3246,6 @@ finishTP:
     fclose(orgOutF);
   }
 
-#ifndef OLD_USEHINTS_DETECT
-  mode_5_initialized = true;
-#endif
 } // init mode 5
 
 TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _rate,
@@ -3301,15 +3272,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   FILE *f = NULL;
   char linein[1024], *linep, *linet;
   
-  // 170607 these are going to class variables
-#ifdef OLD_USEHINTS_DETECT
   bool tfmFullInfo = false, metricsFullInfo = false;
-#else
-  tfmFullInfo = false;
-  metricsFullInfo = false;
-  usehints_requested = false;
-  fullinfo_requested = false;
-#endif
   
   fps = (double)(vi.fps_numerator) / (double)(vi.fps_denominator);
   if (!vi.IsYV12() && !vi.IsYUY2())
@@ -3429,7 +3392,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       child->SetCacheHints(0, -20);
     }
   }
-#ifdef OLD_USEHINTS_DETECT
   if (_usehints == 0) usehints = false;
   else if (_usehints == 1) usehints = true;
   else
@@ -3441,18 +3403,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     if (mhg != -200) usehints = true;
     else usehints = false;
   }
-#else
-  if (_usehints == 0) {
-    usehints = false; usehints_requested = true;
-  }
-  else if (_usehints == 1) {
-    usehints = true; usehints_requested = true;
-  }
-  else {
-    usehints_requested = false; 
-    // fullinfo depends on it later, which is also set in GetFrame since 1.0.9
-  }
-#endif
 
   if (vidDetect == 4)
   {
@@ -4157,11 +4107,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   else if (mode == 5)
   {
-#ifdef OLD_USEHINTS_DETECT
-    init_mode_5(env); // not here!
-#else
-    mode_5_initialized = false;
-#endif
+    init_mode_5(env);
   } // mode 5
   else if (mode == 6)
   {

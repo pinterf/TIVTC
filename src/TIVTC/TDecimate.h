@@ -79,14 +79,6 @@ private:
   PClip clip2;
   char buf[8192], outputFull[270];
 
-#ifndef OLD_USEHINTS_DETECT
-  bool tfmFullInfo; // was: local in ctor 170607
-  bool metricsFullInfo; // was: local in ctor 170607
-  bool usehints_requested;
-  bool fullinfo_requested;
-  bool mode_5_initialized;
-#endif
-
   void TDecimate::init_mode_5(IScriptEnvironment* env);
   void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env);
   void TDecimate::setBlack(PVideoFrame &dst, int np);
