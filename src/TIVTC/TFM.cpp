@@ -1725,6 +1725,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
         nxtpf += nxtf_pitch;
         curnf += curf_pitch;
         nxtnf += nxtf_pitch;
+        nxtnnf += nxtf_pitch;
         mapn += map_pitch;
 
         // not used prvppf += prvf_pitch;
