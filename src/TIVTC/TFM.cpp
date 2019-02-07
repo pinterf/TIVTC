@@ -1,5 +1,5 @@
 /*
-**                    TIVTC v1.0.12 for Avisynth 2.6 interface
+**                    TIVTC v1.0.14 for Avisynth 2.6 interface
 **
 **   TIVTC includes a field matching filter (TFM) and a decimation
 **   filter (TDecimate) which can be used together to achieve an
