@@ -1,6 +1,10 @@
-# TIVTC v1.0.11 (20180323)
+# TIVTC v1.0.12 (20180207)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+
+**v1.0.12 (20190207)**
+- Fix: option slow=2 field<>0. Thanks to 299792458m. 
+  Regression since 1.0.6 caused by bad assembly code reverse engineering. Tritical's original 1.0.5 was O.K.
 
 **v1.0.11 (20180323)**
 - Revert to pre-1.0.9 usehint detection: conflicted with mode 5 (sometimes bad clip length was reported)

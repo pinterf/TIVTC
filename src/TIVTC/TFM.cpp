@@ -1659,7 +1659,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
                   accumPml += diff_p_c;
               }
             }
-            int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+            int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]); // L2008
             int diff_n_c = abs(a_next - a_curr);
             if (diff_n_c > 23) {
               if ((eax & 9) != 0) // diff from previous similar asm block: condition
@@ -1682,7 +1682,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
             // nxtppf -> nxtpf
             // nxtnf  -> nxtnnf
             // mask 8/16/32 -> 1/2/4
-            if ((eax & 56) != 0) {
+            if ((eax & 7) != 0) { // 1.0.12: diff: &7 instead of &56 L2036
 
               //int a_prev = *(prvppf + ebx) + (*(prvpf + ebx) << 2) + *(prvnf + ebx);
               //int a_curr = 3 * (*(curpf + ebx) + *(curf + ebx));
@@ -1700,13 +1700,13 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
                 }
               }
               //int a_next = *(nxtppf + ebx) + (*(nxtpf + ebx) << 2) + *(nxtnf + ebx); // really! not 3*
-              int a_next = nxtpf[ebx] + (nxtnf[ebx] << 2) + nxtnnf[ebx]; // really! not 3*
+              int a_next = nxtpf[ebx] + (nxtnf[ebx] << 2) + nxtnnf[ebx]; // really! not 3* L2075
               int diff_n_c = abs(a_next - a_curr);
-              if (diff_n_c > 23) {
+              if (diff_n_c > 23) { // L2088
                 if ((eax & 1) != 0) // diff: &1 instead of &8
                   accumNc += diff_n_c;
-                if (diff_n_c > 2) {
-                  if ((eax & 16) != 0) // diff: &2 instead of &16
+                if (diff_n_c > 42) { // L2094
+                  if ((eax & 2) != 0) // diff: &2 instead of &16 // 1.0.12 really 2
                     accumNm += diff_n_c;
                   if ((eax & 4) != 0) // diff: &4 instead of &32
                     accumNml += diff_n_c;
@@ -1721,13 +1721,15 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
         curpf += curf_pitch;
         prvnf += prvf_pitch;
         curf += curf_pitch;
+        prvnnf += prvf_pitch; // 1.0.12
         nxtpf += nxtf_pitch;
         curnf += curf_pitch;
         nxtnf += nxtf_pitch;
         mapn += map_pitch;
 
-        prvppf += prvf_pitch;
-        nxtppf += nxtf_pitch;
+        // not used prvppf += prvf_pitch;
+        // not used nxtppf += nxtf_pitch;
+
       }
 
     }
