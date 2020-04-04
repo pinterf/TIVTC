@@ -3132,9 +3132,9 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
           }
           else if (*linep == ',')
           {
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++;
+            linep++;
             if (*linep == 'p' || *linep == 'c' || *linep == 'n' || *linep == 'u' || *linep == 'b' || *linep == 'l' || *linep == 'h')
             {
               sscanf(linein, "%d,%d", &z, &w);
@@ -3146,10 +3146,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 if (*(linep + 1) == 'p' || *(linep + 1) == 'c' || *(linep + 1) == 'n' || *(linep + 1) == 'b' || *(linep + 1) == 'u' || *(linep + 1) == 'l' || *(linep + 1) == 'h')
                 {
                   count = 0;
@@ -3179,7 +3179,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                     ovrArray[z + count] |= 0x07;
                     ovrArray[z + count] &= (q | 0xF8);
                     ++count;
-                    *linep++;
+                    linep++;
                   }
                   while (z + count <= w)
                   {
@@ -3233,10 +3233,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 if (*(linep + 1) == '-' || *(linep + 1) == '+')
                 {
                   count = 0;
@@ -3261,7 +3261,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                       ovrArray[z + count] &= (1 | 0xF8);
                     }
                     ++count;
-                    *linep++;
+                    linep++;
                   }
                   while (z + count <= w)
                   {
@@ -3315,15 +3315,15 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 env->ThrowError("TFM: ovr input error (invalid frame range)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 if (*linep == 'f' || *linep == 'm' || *linep == 'o' || *linep == 'P' || *linep == 'i')
                 {
                   q = *linep;
-                  *linep++;
-                  *linep++;
+                  linep++;
+                  linep++;
                   if (*linep == 0) continue;
                   sscanf(linep, "%d", &b);
                   if (q == 102 && b != 0 && b != 1 && b != -1)

@@ -3519,16 +3519,16 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == '#' || linein[0] == ';')
           continue;
         linep = linein;
-        while (*linep != ' ' && *linep != 0 && *linep != 'c') *linep++;
+        while (*linep != ' ' && *linep != 0 && *linep != 'c') linep++;
         if (*linep == 'c')
         {
           if (_strnicmp(linein, "crc32 = ", 8) == 0)
           {
             linet = linein;
-            while (*linet != ' ') *linet++;
-            *linet++;
-            while (*linet != ' ') *linet++;
-            *linet++;
+            while (*linet != ' ') linet++;
+            linet++;
+            while (*linet != ' ') linet++;
+            linet++;
             unsigned int z, tempCrc;
             sscanf(linet, "%x", &z);
             calcCRC(child, 15, tempCrc, env);
@@ -3540,14 +3540,14 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
                 z, tempCrc);
             }
             linep = linein;
-            while (*linep != ',' && linep != 0) *linep++;
+            while (*linep != ',' && linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++; *linep++;
+            linep++; linep++;
             int j;
             if (_strnicmp(linep, "blockx = ", 9) == 0)
             {
-              while (*linep != '=') *linep++;
-              *linep++; *linep++;
+              while (*linep != '=') linep++;
+              linep++; linep++;
               sscanf(linep, "%d", &j);
               if (j != blockx)
               {
@@ -3558,16 +3558,16 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               }
             }
             linep = linein;
-            while (*linep != ',' && *linep != 0) *linep++;
+            while (*linep != ',' && *linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++;
-            while (*linep != ',' && *linep != 0) *linep++;
+            linep++;
+            while (*linep != ',' && *linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++; *linep++;
+            linep++; linep++;
             if (_strnicmp(linep, "blocky = ", 9) == 0)
             {
-              while (*linep != '=') *linep++;
-              *linep++; *linep++;
+              while (*linep != '=') linep++;
+              linep++; linep++;
               sscanf(linep, "%d", &j);
               if (j != blocky)
               {
@@ -3578,19 +3578,19 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               }
             }
             linep = linein;
-            while (*linep != ',' && *linep != 0) *linep++;
+            while (*linep != ',' && *linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++;
-            while (*linep != ',' && *linep != 0) *linep++;
+            linep++;
+            while (*linep != ',' && *linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++;
-            while (*linep != ',' && *linep != 0) *linep++;
+            linep++;
+            while (*linep != ',' && *linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++; *linep++;
+            linep++; linep++;
             if (_strnicmp(linep, "chroma = ", 9) == 0)
             {
-              while (*linep != '=') *linep++;
-              *linep++; *linep++;
+              while (*linep != '=') linep++;
+              linep++; linep++;
               sscanf(linep, "%c", &j);
               if (((j == 'T' || j == 't') && !chroma) || ((j == 'F' || j == 'f') && chroma))
               {
@@ -3721,10 +3721,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               env->ThrowError("TDecimate:  ovr file error (out of range frame #)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep != 0)
             {
-              *linep++;
+              linep++;
               q = *linep;
               if (q == 102) q = FILM;
               else if (q == 118) q = VIDEO;
@@ -3741,9 +3741,9 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         }
         else if (*linep == ',')
         {
-          while (*linep != ' ' && *linep != 0) *linep++;
+          while (*linep != ' ' && *linep != 0) linep++;
           if (*linep == 0) continue;
-          *linep++;
+          linep++;
           if (*linep == 'f' || *linep == 'v')
           {
             sscanf(linein, "%d,%d", &z, &w);
@@ -3755,10 +3755,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               env->ThrowError("TDecimate:  input file error (out of range frame #)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep != 0)
             {
-              *linep++;
+              linep++;
               q = *linep;
               if (q == 102) q = FILM;
               else if (q == 118) q = VIDEO;
@@ -3787,8 +3787,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               env->ThrowError("TDecimate:  input file error (out of range frame #)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
-            *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
+            linep++;
             if (*(linep + 1) == '-' || *(linep + 1) == '+')
             {
               count = 0;
@@ -3806,7 +3806,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
                 ovrArray[z + count] &= 0xFC;
                 ovrArray[z + count] |= q;
                 ++count;
-                *linep++;
+                linep++;
               }
               while (z + count <= w)
               {
@@ -3866,7 +3866,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           continue;
         ++firstLine;
         linep = linein;
-        while (*linep != 'f' && *linep != 'F' && *linep != 0 && *linep != ' ' && *linep != 'c') *linep++;
+        while (*linep != 'f' && *linep != 'F' && *linep != 0 && *linep != ' ' && *linep != 'c') linep++;
         if (*linep == 'f' || *linep == 'F')
         {
           if (firstLine == 1)
@@ -3881,13 +3881,13 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           while (*linet != 0)
           {
             if (*linet != ' ' && *linet != 10) break;
-            *linet++;
+            linet++;
           }
           if (*linet == 0) { --firstLine; continue; }
           sscanf(linein, "%d", &z);
           linep = linein;
           while (*linep != 'p' && *linep != 'c' && *linep != 'n' && *linep != 'u' &&
-            *linep != 'b' && *linep != 'l' && *linep != 'h' && *linep != 0) *linep++;
+            *linep != 'b' && *linep != 'l' && *linep != 'h' && *linep != 0) linep++;
           if (*linep != 0)
           {
             if (z<0 || z>nfrms)
@@ -3897,10 +3897,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               env->ThrowError("TDecimate:  tfmIn file error (out of range frame #)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep != 0)
             {
-              *linep++;
+              linep++;
               q = *linep;
               if (q == 112) q = 0;
               else if (q == 99) q = 1;
@@ -3923,8 +3923,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
                 else if (q == 4) q = 2;
               }
               d2vmarked = micmarked = false;
-              *linep++;
-              while (*linep == ' ' && *linep != 0 && *linep != 10) *linep++;
+              linep++;
+              while (*linep == ' ' && *linep != 0 && *linep != 10) linep++;
               if (*linep != 0 && *linep != 10)
               {
                 r = *linep;
@@ -3945,8 +3945,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               }
               if (!d2vmarked && !micmarked && *linep != 0 && *linep != 10)
               {
-                *linep++;
-                while (*linep == ' ' && *linep != 0 && *linep != 10) *linep++;
+                linep++;
+                while (*linep == ' ' && *linep != 0 && *linep != 10) linep++;
                 if (*linep != 0 && *linep != 10)
                 {
                   r = *linep;
