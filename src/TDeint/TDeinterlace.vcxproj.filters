@@ -86,6 +86,9 @@
     <ClInclude Include="..\include\avs\win.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TDeintASM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="TDeinterlace.rc">
