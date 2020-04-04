@@ -1,12 +1,12 @@
 /*
-**                TDeinterlace v1.1.1 for Avisynth 2.6 interface
+**                TDeinterlace v1.2 for Avisynth 2.6 interface
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
 **   It also uses a couple modified forms of ela interpolation which
 **   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2007 Kevin Stone
+**   Copyright (C) 2004-2007 Kevin Stone, additional work (C) 2020 pinterf
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
@@ -179,7 +179,7 @@ unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, ISc
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
-  if ((cpu&CPUF_SSE2) && !((int(srcp1) | int(srcp2) | src1_pitch | src2_pitch) & 15))
+  if ((cpu&CPUF_SSE2) && !((intptr_t(srcp1) | intptr_t(srcp2) | src1_pitch | src2_pitch) & 15))
     subtractFramesSSE2(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
 #ifdef ALLOW_MMX
   else if (cpu&CPUF_INTEGER_SSE)
@@ -222,7 +222,7 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
     const int src2_pitch = src2->GetPitch(plane[b]);
     unsigned char *dstp = dst->GetWritePtr(plane[b]);
     const int dst_pitch = dst->GetPitch(plane[b]);
-    if ((cpu&CPUF_SSE2) && !((int(srcp1) | int(srcp2) | int(dstp) | src1_pitch | src2_pitch | dst_pitch) & 15))
+    if ((cpu&CPUF_SSE2) && !((intptr_t(srcp1) | intptr_t(srcp2) | intptr_t(dstp) | src1_pitch | src2_pitch | dst_pitch) & 15))
       blendFramesSSE2(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
 #ifdef ALLOW_MMX
     else if (cpu&CPUF_INTEGER_SSE)

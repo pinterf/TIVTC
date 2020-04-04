@@ -1,12 +1,12 @@
 /*
-**                TDeinterlace v1.1.1 for Avisynth 2.6 interface
+**                TDeinterlace v1.2 for Avisynth 2.6 interface
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
 **   It also uses a couple modified forms of ela interpolation which
 **   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2007 Kevin Stone
+**   Copyright (C) 2004-2007 Kevin Stone, additional work (C) 2020 pinterf
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
@@ -437,7 +437,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   typeS = type;
   if (debug)
   {
-    sprintf(buf, "TDeint:  %s (%s) by tritical\n", VERSION, DATE);
+    sprintf(buf, "TDeint:  %s (%s) by tritical\n", TDEINT_VERSION, TDEINT_DATE);
     OutputDebugString(buf);
     sprintf(buf, "TDeint:  mode = %d (%s)\n", mode, mode == 0 ? "normal - same rate" :
       mode == 1 ? "bob - double rate" : mode == -2 ? "upsize - ELA" : "upsize - ELA-2");

@@ -1,12 +1,12 @@
 /*
-**                TDeinterlace v1.1.1 for Avisynth 2.6 interface
+**                TDeinterlace v1.2 for Avisynth 2.6 interface
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
 **   It also uses a couple modified forms of ela interpolation which
 **   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2007 Kevin Stone
+**   Copyright (C) 2004-2007 Kevin Stone, additional work (C) 2020 pinterf
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
@@ -35,8 +35,13 @@
 #endif
 #include "TDBuf.h"
 #include "memset_simd.h"
-#define VERSION "v1.1"
-#define DATE "01/22/2007"
+
+/*
+#define TDEINT_VERSION "v1.1"
+#define TDEINT_DATE "01/22/2007"
+*/
+#define TDEINT_VERSION "v1.2"
+#define TDEINT_DATE "04/04/2020"
 
 void absDiffSSE2(const unsigned char* srcp1, const unsigned char* srcp2,
   unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width, int height,

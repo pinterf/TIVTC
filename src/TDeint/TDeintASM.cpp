@@ -1,12 +1,12 @@
 /*
-**                TDeinterlace v1.1.1 for Avisynth 2.6 interface
+**                TDeinterlace v1.2 for Avisynth 2.6 interface
 **
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
 **   It also uses a couple modified forms of ela interpolation which
 **   help to reduce "jaggy" edges in places where interpolation must
 **   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2007 Kevin Stone
+**   Copyright (C) 2004-2007 Kevin Stone, additional work (C) 2020 pinterf
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
     const int dst_pitch = pos == -1 ? dst->GetPitch(plane[b]) : db->GetPitch(b);
     const int mthresh1 = b == 0 ? mthreshL : mthreshC;
     const int mthresh2 = stop == 3 ? (b == 0 ? mthreshL : mthreshC) : mthreshC;
-    if ((cpu&CPUF_SSE2) && !((int(srcp1) | int(srcp2) | int(dstp) | src1_pitch | src2_pitch | dst_pitch) & 15))
+    if ((cpu&CPUF_SSE2) && !((intptr_t(srcp1) | intptr_t(srcp2) | intptr_t(dstp) | src1_pitch | src2_pitch | dst_pitch) & 15))
       absDiffSSE2(srcp1, srcp2, dstp, src1_pitch, src2_pitch, dst_pitch, width, height, mthresh1, mthresh2);
 #if defined(ALLOW_MMX)
     else if (cpu&CPUF_MMX)
@@ -275,7 +275,7 @@ void TDeinterlace::buildDiffMapPlane(const unsigned char *prvp, const unsigned c
     else if (optt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (optt == 3) cpu |= 0x2C;
   }
-  if ((cpu&CPUF_SSE2) && !((int(prvp) | int(nxtp) | int(dstp) | prv_pitch | nxt_pitch | dst_pitch) & 15))
+  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | intptr_t(dstp) | prv_pitch | nxt_pitch | dst_pitch) & 15))
   {
     buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch,
       Width, Height);
@@ -2469,7 +2469,7 @@ void TDeinterlace::buildABSDiffMask(const unsigned char *prvp, const unsigned ch
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
-  if ((cpu&CPUF_SSE2) && !((int(prvp) | int(nxtp) | prv_pitch | nxt_pitch | tpitch) & 15))
+  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch | tpitch) & 15))
   {
     buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch,
       width, height);
