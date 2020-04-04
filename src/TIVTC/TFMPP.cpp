@@ -26,17 +26,17 @@
 #include "TFMPP.h"
 
 #if !defined(USE_INTR) || defined(ALLOW_MMX)
-__declspec(align(16)) const __int64 onesMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
-__declspec(align(16)) const __int64 onesByte[2] = { 0x0101010101010101, 0x0101010101010101 };
-__declspec(align(16)) const __int64 twosByte[2] = { 0x0202020202020202, 0x0202020202020202 };
-__declspec(align(16)) const __int64 twosWord[2] = { 0x0002000200020002, 0x0002000200020002 };
-__declspec(align(16)) const __int64 foursByte[2] = { 0x0404040404040404, 0x0404040404040404 };
-__declspec(align(16)) const __int64 eightsByte[2] = { 0x0808080808080808, 0x0808080808080808 };
-__declspec(align(16)) const __int64 sixteensByte[2] = { 0x1010101010101010, 0x1010101010101010 };
-__declspec(align(16)) const __int64 thirtytwosByte[2] = { 0x2020202020202020, 0x2020202020202020 };
-__declspec(align(16)) const __int64 threeWord[2] = { 0x0003000300030003, 0x0003000300030003 };
-__declspec(align(16)) const __int64 sixteenWord[2] = { 0x0010001000100010, 0x0010001000100010 };
-__declspec(align(16)) const __int64 nineteenWord[2] = { 0x0013001300130013, 0x0013001300130013 };
+__declspec(align(16)) const int64_t onesMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
+__declspec(align(16)) const int64_t onesByte[2] = { 0x0101010101010101, 0x0101010101010101 };
+__declspec(align(16)) const int64_t twosByte[2] = { 0x0202020202020202, 0x0202020202020202 };
+__declspec(align(16)) const int64_t twosWord[2] = { 0x0002000200020002, 0x0002000200020002 };
+__declspec(align(16)) const int64_t foursByte[2] = { 0x0404040404040404, 0x0404040404040404 };
+__declspec(align(16)) const int64_t eightsByte[2] = { 0x0808080808080808, 0x0808080808080808 };
+__declspec(align(16)) const int64_t sixteensByte[2] = { 0x1010101010101010, 0x1010101010101010 };
+__declspec(align(16)) const int64_t thirtytwosByte[2] = { 0x2020202020202020, 0x2020202020202020 };
+__declspec(align(16)) const int64_t threeWord[2] = { 0x0003000300030003, 0x0003000300030003 };
+__declspec(align(16)) const int64_t sixteenWord[2] = { 0x0010001000100010, 0x0010001000100010 };
+__declspec(align(16)) const int64_t nineteenWord[2] = { 0x0013001300130013, 0x0013001300130013 };
 #endif
 
 PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
@@ -363,7 +363,7 @@ void TFMPP::buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned cha
     dstp += dst_pitch;
   }
 #else
-  __int64 thresh[2];
+  int64_t thresh[2];
   thresh[0] = max(min(255 - mthresh - 1, 255), 0);
   thresh[0] += (thresh[0] << 8);
   thresh[0] += (thresh[0] << 48) + (thresh[0] << 32) + (thresh[0] << 16);
@@ -435,7 +435,7 @@ void TFMPP::buildMotionMask1_MMX(const unsigned char *srcp1, const unsigned char
   unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width,
   int height, long cpu)
 {
-  __int64 thresh;
+  int64_t thresh;
   thresh = max(min(255 - mthresh - 1, 255), 0);
   thresh += (thresh << 8);
   thresh += (thresh << 48) + (thresh << 32) + (thresh << 16);
@@ -564,7 +564,7 @@ void TFMPP::buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned cha
     dstp += dst_pitch;
   }
 #else
-  __int64 thresh[2];
+  int64_t thresh[2];
   thresh[0] = max(min(255 - mthresh - 1, 255), 0);
   thresh[0] += (thresh[0] << 8);
   thresh[0] += (thresh[0] << 48) + (thresh[0] << 32) + (thresh[0] << 16);
@@ -682,7 +682,7 @@ void TFMPP::buildMotionMask2_MMX(const unsigned char *srcp1, const unsigned char
   const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
   int s3_pitch, int dst_pitch, int width, int height, long cpu)
 {
-  __int64 thresh;
+  int64_t thresh;
   thresh = max(min(255 - mthresh - 1, 255), 0);
   thresh += (thresh << 8);
   thresh += (thresh << 48) + (thresh << 32) + (thresh << 16);

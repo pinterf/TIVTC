@@ -221,7 +221,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   {
     const int cthresh6 = cthresh * 6;
 #ifdef ALLOW_MMX
-    __int64 cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
+    int64_t cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
 #endif
     __m128i cthreshb_m128i;
     __m128i cthresh6w_m128i;
@@ -410,7 +410,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   {
     const int cthreshsq = cthresh*cthresh;
 #ifdef ALLOW_MMX
-    __int64 cthreshb[2] = { 0, 0 };
+    int64_t cthreshb[2] = { 0, 0 };
 #endif
     __m128i cthreshb_m128i;
     if (use_mmx || use_isse || use_sse2)
@@ -616,7 +616,7 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
   }
   const int cthresh6 = cthresh * 6;
 #ifdef ALLOW_MMX
-  __int64 cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
+  int64_t cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
 #endif
   __m128i cthreshb_m128i;
   __m128i cthresh6w_m128i;

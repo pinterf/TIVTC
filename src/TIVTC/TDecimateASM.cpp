@@ -27,8 +27,8 @@
 #include "TDecimateASM.h"
 
 #if defined(ALLOW_MMX) || !defined(USE_INTR)
-__declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
-//__declspec(align(16)) const __int64 hdd_mask[2] = { 0x00000000FFFFFFFF, 0x00000000FFFFFFFF }; // pf: not used
+__declspec(align(16)) const int64_t lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
+//__declspec(align(16)) const int64_t hdd_mask[2] = { 0x00000000FFFFFFFF, 0x00000000FFFFFFFF }; // pf: not used
 #endif
 
 
@@ -40,9 +40,9 @@ void blend_MMX_8(unsigned char* dstp, const unsigned char* srcp,
 {
   // width: mod8
   unsigned int iw1t = (int)(w1*65536.0); iw1t += (iw1t << 16); // pf fix: unsigned int
-  __int64 iw1 = (__int64)iw1t; iw1 += (iw1 << 32);
+  int64_t iw1 = (int64_t)iw1t; iw1 += (iw1 << 32);
   unsigned int iw2t = (int)(w2*65536.0); iw2t += (iw2t << 16); // pf fix: unsigned int
-  __int64 iw2 = (__int64)iw2t; iw2 += (iw2 << 32);
+  int64_t iw2 = (int64_t)iw2t; iw2 += (iw2 << 32);
   __asm
   {
     mov ebx, height
@@ -157,12 +157,12 @@ void blend_SSE2_16(unsigned char* dstp, const unsigned char* srcp,
   }
 #else
   unsigned int iw1t = (int)(w1*65536.0); iw1t += (iw1t << 16);
-  unsigned __int64 iw1t2 = (unsigned __int64)iw1t; iw1t2 += (iw1t2 << 32);
+  uint64_t iw1t2 = (uint64_t)iw1t; iw1t2 += (iw1t2 << 32);
   // P.F. 170418: fix bug! when iw1t = 0xe000, then 0xe000e000, then iw1t2 is sign extended, and the result is 0xe000 dfff e000 dfff instead of e000 e000 e000 e000!
   unsigned int iw2t = (unsigned int)(w2*65536.0); iw2t += (iw2t << 16);
-  unsigned __int64 iw2t2 = (unsigned __int64)iw2t; iw2t2 += (iw2t2 << 32);
-  __int64 iw1[] = { iw1t2, iw1t2 };
-  __int64 iw2[] = { iw2t2, iw2t2 };
+  uint64_t iw2t2 = (uint64_t)iw2t; iw2t2 += (iw2t2 << 32);
+  int64_t iw1[] = { iw1t2, iw1t2 };
+  int64_t iw2[] = { iw2t2, iw2t2 };
   __asm
   {
     mov ebx, height
@@ -255,7 +255,7 @@ void blend_SSE2_5050(unsigned char* dstp, const unsigned char* srcp,
 
 #ifdef ALLOW_MMX
 void calcLumaDiffYUY2SAD_MMX_16(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
 {
   __asm
   {
@@ -315,7 +315,7 @@ void calcLumaDiffYUY2SAD_MMX_16(const unsigned char *prvp, const unsigned char *
 
 #ifdef ALLOW_MMX
 void calcLumaDiffYUY2SAD_ISSE_16(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
 {
   __asm
   {
@@ -366,7 +366,7 @@ void calcLumaDiffYUY2SAD_ISSE_16(const unsigned char *prvp, const unsigned char 
 #endif
 
 void calcLumaDiffYUY2SAD_SSE2_16(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
 {
 #ifdef USE_INTR
   sad = 0; 
@@ -426,7 +426,7 @@ void calcLumaDiffYUY2SAD_SSE2_16(const unsigned char *prvp, const unsigned char 
 
 #ifdef ALLOW_MMX
 void calcLumaDiffYUY2SSD_MMX_16(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &ssd)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &ssd)
 {
   __asm
   {
@@ -481,7 +481,7 @@ void calcLumaDiffYUY2SSD_MMX_16(const unsigned char *prvp, const unsigned char *
 #endif
 
 void calcLumaDiffYUY2SSD_SSE2_16(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &ssd)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &ssd)
 {
 #ifdef USE_INTR
   ssd = 0; // sum of squared differences
@@ -565,7 +565,7 @@ void calcLumaDiffYUY2SSD_SSE2_16(const unsigned char *prvp, const unsigned char 
 
 #ifdef ALLOW_MMX
 void calcLumaDiffYUY2SAD_MMX_8(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
 {
   __asm
   {
@@ -617,7 +617,7 @@ void calcLumaDiffYUY2SAD_MMX_8(const unsigned char *prvp, const unsigned char *n
 
 #ifdef ALLOW_MMX
 void calcLumaDiffYUY2SAD_ISSE_8(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &sad)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
 {
   __asm
   {
@@ -661,7 +661,7 @@ void calcLumaDiffYUY2SAD_ISSE_8(const unsigned char *prvp, const unsigned char *
 
 #ifdef ALLOW_MMX
 void calcLumaDiffYUY2SSD_MMX_8(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, unsigned __int64 &ssd)
+  int width, int height, int prv_pitch, int nxt_pitch, uint64_t &ssd)
 {
   __asm
   {
@@ -2790,9 +2790,9 @@ void calcSSD_MMX_32x16_luma(const unsigned char *ptr1, const unsigned char *ptr2
 #endif
 
 #if defined(ALLOW_MMX) || !defined(USE_INTR)
-__declspec(align(16)) const __int64 twos_mmx[2] = { 0x0002000200020002, 0x0002000200020002 };
-__declspec(align(16)) const __int64 chroma_mask = 0xFF00FF00FF00FF00;
-__declspec(align(16)) const __int64 luma_mask = 0x00FF00FF00FF00FF;
+__declspec(align(16)) const int64_t twos_mmx[2] = { 0x0002000200020002, 0x0002000200020002 };
+__declspec(align(16)) const int64_t chroma_mask = 0xFF00FF00FF00FF00;
+__declspec(align(16)) const int64_t luma_mask = 0x00FF00FF00FF00FF;
 #endif
 
 // asm moved from TDecimateBlur
@@ -3260,7 +3260,7 @@ void VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dstp,
 //-------- helpers
 template<bool use_sse2>
 void calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
@@ -3662,15 +3662,15 @@ void calcDiffSAD_32x32_iSSEorSSE2(const unsigned char *ptr1, const unsigned char
 }
 
 template void calcDiffSAD_32x32_iSSEorSSE2<true>(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma);
 #ifdef ALLOW_MMX
 template void calcDiffSAD_32x32_iSSEorSSE2<false>(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma);
 #endif
 
 #ifdef ALLOW_MMX
 void calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
@@ -3916,7 +3916,7 @@ void calcDiffSAD_32x32_MMX(const unsigned char *ptr1, const unsigned char *ptr2,
 #endif
 
 void calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2, unsigned __int64 *diff, bool chroma)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, bool use_sse2, uint64_t *diff, bool chroma)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
@@ -4311,7 +4311,7 @@ void calcDiffSSD_32x32_MMXorSSE2(const unsigned char *ptr1, const unsigned char 
 
 template<bool use_sse2>
 void calcDiffSSD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
@@ -4651,15 +4651,15 @@ void calcDiffSSD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned cha
 
 // instantiate
 template void calcDiffSSD_Generic_MMXorSSE2<true>(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
 #ifdef ALLOW_MMX
 template void calcDiffSSD_Generic_MMXorSSE2<false>(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
 #endif
 
 template<bool use_sse2>
 void calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
@@ -4996,15 +4996,15 @@ void calcDiffSAD_Generic_MMXorSSE2(const unsigned char *ptr1, const unsigned cha
 
 // instantiate
 template void calcDiffSAD_Generic_MMXorSSE2<true>(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
 #ifdef ALLOW_MMX
 template void calcDiffSAD_Generic_MMXorSSE2<false>(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
 #endif
 
 #ifdef ALLOW_MMX
 void calcDiffSAD_Generic_iSSE(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, unsigned __int64 *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;

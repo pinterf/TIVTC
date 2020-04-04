@@ -69,7 +69,7 @@ void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val)
 }
 
 #ifdef ALLOW_MMX
-void fmemset_16_iSSE(unsigned char* p, int sizec, __int64 val)
+void fmemset_16_iSSE(unsigned char* p, int sizec, int64_t val)
 {
   _asm
   {
@@ -109,7 +109,7 @@ void fmemset_16_iSSE(unsigned char* p, int sizec, __int64 val)
   }
 }
 
-void fmemset_16_MMX(unsigned char* p, int sizec, __int64 val)
+void fmemset_16_MMX(unsigned char* p, int sizec, int64_t val)
 {
   _asm
   {
@@ -148,7 +148,7 @@ void fmemset_16_MMX(unsigned char* p, int sizec, __int64 val)
   }
 }
 
-void fmemset_8_iSSE(unsigned char* p, int sizec, __int64 val)
+void fmemset_8_iSSE(unsigned char* p, int sizec, int64_t val)
 {
   _asm
   {
@@ -200,7 +200,7 @@ void fmemset_8_iSSE(unsigned char* p, int sizec, __int64 val)
   }
 }
 
-void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val)
+void fmemset_8_MMX(unsigned char* p, int sizec, int64_t val)
 {
   _asm
   {
@@ -269,14 +269,14 @@ void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
 #ifdef ALLOW_MMX
   else if ((cpu&CPUF_INTEGER_SSE) && !(sizec & 7))
   {
-    __int64 v = (val << 8) + val;
+    int64_t v = (val << 8) + val;
     v += (v << 48) + (v << 32) + (v << 16);
     if (sizec & 15) fmemset_8_iSSE(p, sizec, v);
     else fmemset_16_iSSE(p, sizec, v);
   }
   else if ((cpu&CPUF_MMX) && !(sizec & 7))
   {
-    __int64 v = (val << 8) + val;
+    int64_t v = (val << 8) + val;
     v += (v << 48) + (v << 32) + (v << 16);
     if (sizec & 15) fmemset_8_MMX(p, sizec, v);
     else fmemset_16_MMX(p, sizec, v);

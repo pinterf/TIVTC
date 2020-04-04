@@ -35,7 +35,7 @@
 #define PLANAR_422 2
 #define PLANAR_444 3
 
-__declspec(align(16)) const __int64 Ymask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
+__declspec(align(16)) const int64_t Ymask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 
 class PlanarFrame
 {

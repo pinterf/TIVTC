@@ -46,7 +46,7 @@ private:
   int nt, nfrms, blockx, blocky, mode, display;
   int yshiftS, xshiftS, yhalfS, xhalfS, opt;
   bool chroma, debug, prevf, norm;
-  unsigned __int64 *diff, MAX_DIFF, threshU;
+  uint64_t *diff, MAX_DIFF, threshU;
   void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env);
   void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void FrameDiff::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks, bool dot);

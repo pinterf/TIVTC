@@ -245,8 +245,8 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
 }
 
 #ifdef ALLOW_MMX
-__declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
-__declspec(align(16)) const __int64 onesMask[2] = { 0x0001000100010001, 0x0001000100010001 };
+__declspec(align(16)) const int64_t lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
+__declspec(align(16)) const int64_t onesMask[2] = { 0x0001000100010001, 0x0001000100010001 };
 #endif
 
 void subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch,

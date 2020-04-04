@@ -52,6 +52,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include "profUtil.h"
+#include "stdint.h"
 
 class IScriptEnvironment;
 
@@ -75,9 +76,9 @@ public:
   int frameEO;	// frame + cycleE
   int type;		// video or film and how
   double *diffMetricsN;			// normalized metrics
-  unsigned __int64 *diffMetricsU;	// unnormalized metrics
-  unsigned __int64 *diffMetricsUF;	// frame metrics (scenechange detection)
-  unsigned __int64 *tArray;			// used as temp storage when sorting
+  uint64_t *diffMetricsU;	// unnormalized metrics
+  uint64_t *diffMetricsUF;	// frame metrics (scenechange detection)
+  uint64_t *tArray;			// used as temp storage when sorting
   int *dupArray;	// duplicate marking
   int *lowest;	// sorted list of metrics
   int *decimate;	// position of frames to drop
@@ -99,8 +100,8 @@ public:
   void Cycle::setDupsMatches(Cycle &p, unsigned char *marray);
   void Cycle::setDecimateLowP(int num, IScriptEnvironment *env);
   void Cycle::setIsFilmD2V();
-  int Cycle::sceneDetect(unsigned __int64 thresh);
-  int Cycle::sceneDetect(Cycle &prev, Cycle &next, unsigned __int64 thresh);
+  int Cycle::sceneDetect(uint64_t thresh);
+  int Cycle::sceneDetect(Cycle &prev, Cycle &next, uint64_t thresh);
   int Cycle::getNonDec(int n);
   void Cycle::clearAll();
   void Cycle::debugOutput();

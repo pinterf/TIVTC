@@ -55,9 +55,10 @@ AVSValue FieldDiff::ConditionalFieldDiff(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
-  __int64 diff = 0;
-  if (sse) diff = getDiff_SSE(child->GetFrame(n, env), vi.IsYV12() ? 3 : 1, chroma, nt, opt, env);
-  else diff = getDiff(child->GetFrame(n, env), vi.IsYV12() ? 3 : 1, chroma, nt, opt, env);
+  int64_t diff = 0;
+  PVideoFrame src = child->GetFrame(n, env);
+  if (sse) diff = getDiff_SSE(src, vi.IsYV12() ? 3 : 1, chroma, nt, opt, env);
+  else diff = getDiff(src, vi.IsYV12() ? 3 : 1, chroma, nt, opt, env);
   if (debug)
   {
     if (sse) sprintf(buf, "FieldDiff:  Frame = %d  Diff = %I64d (sse)\n", n, diff);
@@ -65,7 +66,7 @@ AVSValue FieldDiff::ConditionalFieldDiff(int n, IScriptEnvironment* env)
     OutputDebugString(buf);
   }
   return double(diff); // the value could be outside of int range and avsvalue doesn't
-             // support __int64... so convert it to float
+             // support int64_t... so convert it to float
 }
 
 PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
@@ -73,7 +74,7 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
   PVideoFrame src = child->GetFrame(n, env);
-  __int64 diff = 0;
+  int64_t diff = 0;
   if (sse) diff = getDiff_SSE(src, vi.IsYV12() ? 3 : 1, chroma, nt, opt, env);
   else diff = getDiff(src, vi.IsYV12() ? 3 : 1, chroma, nt, opt, env);
   if (debug)
@@ -97,7 +98,7 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
   return src;
 }
 
-__int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
+int64_t FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
   IScriptEnvironment *env)
 {
   int b, x, y, plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -105,9 +106,9 @@ __int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, in
   const int inc = (np == 1 && !chromaIn) ? 2 : 1;
   const unsigned char *srcp, *srcpp, *src2p, *srcpn, *src2n;
   int src_pitch, width, widtha, widtha1, widtha2, height, temp;
-  __int64 diff = 0;
+  int64_t diff = 0;
 #ifdef ALLOW_MMX
-  __int64 nt64[2];
+  int64_t nt64[2];
 #endif
   __m128i nt6_si128;
   if (ntIn > 255) ntIn = 255;
@@ -256,7 +257,7 @@ __int64 FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn, in
   return (diff / 6);
 }
 
-__int64 FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
+int64_t FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
   IScriptEnvironment *env)
 {
   int b, x, y, plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -264,9 +265,9 @@ __int64 FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
   const int inc = (np == 1 && !chromaIn) ? 2 : 1;
   const unsigned char *srcp, *srcpp, *src2p, *srcpn, *src2n;
   int src_pitch, width, widtha, widtha1, widtha2, height, temp;
-  __int64 diff = 0;
+  int64_t diff = 0;
 #ifdef ALLOW_MMX
-  __int64 nt64[2];
+  int64_t nt64[2];
 #endif
   __m128i nt6_si128;
   if (ntIn > 255) ntIn = 255;
@@ -437,14 +438,14 @@ AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnviron
 }
 
 #if !defined(USE_INTR) || defined(ALLOW_MMX)
-__declspec(align(16)) const __int64 threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
-//__declspec(align(16)) const __int64 hdd_Mask[2] = { 0x00000000FFFFFFFF, 0x00000000FFFFFFFF }; not used
-__declspec(align(16)) const __int64 lumaWordMask[2] = { 0x0000FFFF0000FFFF, 0x0000FFFF0000FFFF };
+__declspec(align(16)) const int64_t threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
+//__declspec(align(16)) const int64_t hdd_Mask[2] = { 0x00000000FFFFFFFF, 0x00000000FFFFFFFF }; not used
+__declspec(align(16)) const int64_t lumaWordMask[2] = { 0x0000FFFF0000FFFF, 0x0000FFFF0000FFFF };
 #endif
 
 template<bool with_luma, bool sse_mode>
 static void calcFieldDiff_SADorSSE_SSE2_simd_8(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
   __m128i zero = _mm_setzero_si128();
   __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF);
@@ -506,7 +507,7 @@ static void calcFieldDiff_SADorSSE_SSE2_simd_8(const unsigned char *src2p, int s
 
 template<bool with_luma, bool sse_mode>
 static void calcFieldDiff_SADorSSE_SSE2_simd(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
   __m128i zero = _mm_setzero_si128();
   __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF);
@@ -579,14 +580,14 @@ static void calcFieldDiff_SADorSSE_SSE2_simd(const unsigned char *src2p, int src
 }
 
 void FieldDiff::calcFieldDiff_SAD_SSE2_8(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
   // w/o luma, sad_mode
   calcFieldDiff_SADorSSE_SSE2_simd_8<false, false>(src2p, src_pitch, width, height, nt, diff);
 }
 
 void FieldDiff::calcFieldDiff_SAD_SSE2(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
 #ifdef USE_INTR
   // w/o luma, sad_mode
@@ -684,7 +685,7 @@ void FieldDiff::calcFieldDiff_SAD_SSE2(const unsigned char *src2p, int src_pitch
 
 #ifdef ALLOW_MMX
 void FieldDiff::calcFieldDiff_SAD_MMX(const unsigned char *src2p, int src_pitch,
-  int width, int height, __int64 nt, __int64 &diff)
+  int width, int height, int64_t nt, int64_t &diff)
 {
   __asm
   {
@@ -780,14 +781,14 @@ void FieldDiff::calcFieldDiff_SAD_MMX(const unsigned char *src2p, int src_pitch,
 #endif
 
 void FieldDiff::calcFieldDiff_SAD_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
   // with luma, sad mode
   calcFieldDiff_SADorSSE_SSE2_simd_8<true, false>(src2p, src_pitch, width, height, nt, diff);
 }
 
 void FieldDiff::calcFieldDiff_SAD_SSE2_Luma(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
 #ifdef USE_INTR
   // with luma, sad mode
@@ -887,7 +888,7 @@ void FieldDiff::calcFieldDiff_SAD_SSE2_Luma(const unsigned char *src2p, int src_
 
 #ifdef ALLOW_MMX
 void FieldDiff::calcFieldDiff_SAD_MMX_Luma(const unsigned char *src2p, int src_pitch,
-  int width, int height, __int64 nt, __int64 &diff)
+  int width, int height, int64_t nt, int64_t &diff)
 {
   __asm
   {
@@ -985,14 +986,14 @@ void FieldDiff::calcFieldDiff_SAD_MMX_Luma(const unsigned char *src2p, int src_p
 #endif
 
 void FieldDiff::calcFieldDiff_SSE_SSE2_8(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
   // w/o luma, sad mode
   calcFieldDiff_SADorSSE_SSE2_simd_8<false, true>(src2p, src_pitch, width, height, nt, diff);
 }
 
 void FieldDiff::calcFieldDiff_SSE_SSE2(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
 #ifdef USE_INTR
   // w/o luma, sad mode
@@ -1088,7 +1089,7 @@ void FieldDiff::calcFieldDiff_SSE_SSE2(const unsigned char *src2p, int src_pitch
 
 #ifdef ALLOW_MMX
 void FieldDiff::calcFieldDiff_SSE_MMX(const unsigned char *src2p, int src_pitch,
-  int width, int height, __int64 nt, __int64 &diff)
+  int width, int height, int64_t nt, int64_t &diff)
 {
   __asm
   {
@@ -1182,14 +1183,14 @@ void FieldDiff::calcFieldDiff_SSE_MMX(const unsigned char *src2p, int src_pitch,
 #endif
 
 void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
   // with luma, sad mode
   calcFieldDiff_SADorSSE_SSE2_simd_8<true, true>(src2p, src_pitch, width, height, nt, diff);
 }
 
 void FieldDiff::calcFieldDiff_SSE_SSE2_Luma(const unsigned char *src2p, int src_pitch,
-  int width, int height, __m128i nt, __int64 &diff)
+  int width, int height, __m128i nt, int64_t &diff)
 {
 #ifdef USE_INTR
   // with luma, sad mode
@@ -1287,7 +1288,7 @@ void FieldDiff::calcFieldDiff_SSE_SSE2_Luma(const unsigned char *src2p, int src_
 
 #ifdef ALLOW_MMX
 void FieldDiff::calcFieldDiff_SSE_MMX_Luma(const unsigned char *src2p, int src_pitch,
-  int width, int height, __int64 nt, __int64 &diff)
+  int width, int height, int64_t nt, int64_t &diff)
 {
   __asm
   {

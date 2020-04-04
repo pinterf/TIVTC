@@ -27,14 +27,14 @@
 #include "emmintrin.h"
 
 #if !defined(USE_INTR) || defined(ALLOW_MMX)
-__declspec(align(16)) const __int64 onesMask[2] = { 0x0101010101010101, 0x0101010101010101 };
-__declspec(align(16)) const __int64 onesMaskLuma[2] = { 0x0001000100010001, 0x0001000100010001 };
-__declspec(align(16)) const __int64 twosMask[2] = { 0x0202020202020202, 0x0202020202020202 };
-__declspec(align(16)) const __int64 mask251[2] = { 0xFBFBFBFBFBFBFBFB, 0xFBFBFBFBFBFBFBFB };
-__declspec(align(16)) const __int64 mask235[2] = { 0xEBEBEBEBEBEBEBEB, 0xEBEBEBEBEBEBEBEB };
-__declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
-__declspec(align(16)) const __int64 threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
-__declspec(align(16)) const __int64 ffMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
+__declspec(align(16)) const int64_t onesMask[2] = { 0x0101010101010101, 0x0101010101010101 };
+__declspec(align(16)) const int64_t onesMaskLuma[2] = { 0x0001000100010001, 0x0001000100010001 };
+__declspec(align(16)) const int64_t twosMask[2] = { 0x0202020202020202, 0x0202020202020202 };
+__declspec(align(16)) const int64_t mask251[2] = { 0xFBFBFBFBFBFBFBFB, 0xFBFBFBFBFBFBFBFB };
+__declspec(align(16)) const int64_t mask235[2] = { 0xEBEBEBEBEBEBEBEB, 0xEBEBEBEBEBEBEBEB };
+__declspec(align(16)) const int64_t lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
+__declspec(align(16)) const int64_t threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
+__declspec(align(16)) const int64_t ffMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
 #endif
 
 void checkSceneChangeYV12_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
@@ -1544,7 +1544,7 @@ void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int widt
 
 #ifdef ALLOW_MMX
 void check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
+  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
 {
   __asm
   {
@@ -1662,7 +1662,7 @@ void check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int widt
 
 #ifdef ALLOW_MMX
 void check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
+  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
 {
   __asm
   {
@@ -1951,7 +1951,7 @@ template void check_combing_SSE2_Luma<true>(const unsigned char *srcp, unsigned 
 
 #ifdef ALLOW_MMX
 void check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
+  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
 {
   __asm
   {
@@ -2070,7 +2070,7 @@ void check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int
 
 #ifdef ALLOW_MMX
 void check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w)
+  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
 {
   __asm
   {
@@ -2224,7 +2224,7 @@ void check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int 
 
 #ifdef ALLOW_MMX
 void check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
+  int width, int height, int src_pitch, int dst_pitch, int64_t thresh)
 {
   __asm
   {
@@ -2442,7 +2442,7 @@ template void check_combing_SSE2_M1<true>(const unsigned char *srcp, unsigned ch
 
 #ifdef ALLOW_MMX
 void check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __int64 thresh)
+  int width, int height, int src_pitch, int dst_pitch, int64_t thresh)
 {
   __asm
   {

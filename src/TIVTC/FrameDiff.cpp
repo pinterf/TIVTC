@@ -62,29 +62,29 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
   {
     if (chroma)
     {
-      if (ssd) MAX_DIFF = (unsigned __int64)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*2.0));
-      else MAX_DIFF = (unsigned __int64)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*2.0);
+      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*2.0));
+      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*2.0);
     }
     else
     {
-      if (ssd) MAX_DIFF = (unsigned __int64)(sqrt(219.0*219.0*blockx*blocky));
-      else MAX_DIFF = (unsigned __int64)(219.0*blockx*blocky);
+      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
+      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
     }
   }
   else
   {
     if (chroma)
     {
-      if (ssd) MAX_DIFF = (unsigned __int64)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*4.0*0.625));
-      else MAX_DIFF = (unsigned __int64)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*4.0*0.625);
+      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*4.0*0.625));
+      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*4.0*0.625);
     }
     else
     {
-      if (ssd) MAX_DIFF = (unsigned __int64)(sqrt(219.0*219.0*blockx*blocky));
-      else MAX_DIFF = (unsigned __int64)(219.0*blockx*blocky);
+      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
+      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
     }
   }
-  diff = (unsigned __int64 *)_aligned_malloc((((vi.width + xhalfS) >> xshiftS) + 1)*(((vi.height + yhalfS) >> yshiftS) + 1) * 4 * sizeof(unsigned __int64), 16);
+  diff = (uint64_t*)_aligned_malloc((((vi.width + xhalfS) >> xshiftS) + 1)*(((vi.height + yhalfS) >> yshiftS) + 1) * 4 * sizeof(uint64_t), 16);
   if (diff == NULL) env->ThrowError("FrameDiff:  malloc failure (diff)!");
   nfrms = vi.num_frames - 1;
 #ifdef AVISYNTH_2_5
@@ -92,7 +92,7 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
 #else
   child->SetCacheHints(CACHE_GENERIC, 3);
 #endif
-  threshU = unsigned __int64(double(MAX_DIFF)*thresh / 100.0 + 0.5);
+  threshU = uint64_t(double(MAX_DIFF)*thresh / 100.0 + 0.5);
   if (debug)
   {
     sprintf(buf, "FrameDiff:  %s by tritical\n", VERSION);
@@ -114,7 +114,7 @@ AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env)
   int yblocks = ((vi.height + yhalfS) >> yshiftS) + 1;
   int arraysize = (xblocks*yblocks) << 2;
   bool lset = false, hset = false;
-  unsigned __int64 lowestDiff = ULLONG_MAX, highestDiff = 0;
+  uint64_t lowestDiff = ULLONG_MAX, highestDiff = 0;
   int lpos, hpos;
   PVideoFrame src;
   if (prevf && n >= 1)
@@ -151,8 +151,8 @@ AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env)
   }
   if (ssd)
   {
-    highestDiff = (unsigned __int64)(sqrt((double)highestDiff));
-    lowestDiff = (unsigned __int64)(sqrt((double)lowestDiff));
+    highestDiff = (uint64_t)(sqrt((double)highestDiff));
+    lowestDiff = (uint64_t)(sqrt((double)lowestDiff));
   }
   if (debug)
   {
@@ -216,18 +216,18 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
   else
   {
     src = child->GetFrame(n, env);
-    memset(diff, 0, arraysize * sizeof(unsigned __int64));
+    memset(diff, 0, arraysize * sizeof(uint64_t));
   }
   env->MakeWritable(&src);
   int hpos, lpos;
   int blockH = -20, blockL = -20;
-  unsigned __int64 lowestDiff = ULLONG_MAX, highestDiff = 0, difft;
+  uint64_t lowestDiff = ULLONG_MAX, highestDiff = 0, difft;
   if (display > 2)
     setBlack(src);
   for (int x = 0; x < arraysize; ++x)
   {
     difft = diff[x];
-    if (ssd) difft = (unsigned __int64)(sqrt((double)difft));
+    if (ssd) difft = (uint64_t)(sqrt((double)difft));
     if ((difft > highestDiff || blockH == -20) && checkOnImage(x, xblocks4))
     {
       highestDiff = difft;
@@ -362,7 +362,7 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
     else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
     else if (opt == 3) cpu |= 0x2C;
   }
-  memset(diff, 0, arraysize * sizeof(unsigned __int64));
+  memset(diff, 0, arraysize * sizeof(uint64_t));
   stop = chroma ? np : 1;
   inc = np == 3 ? 1 : chroma ? 1 : 2;
   for (b = 0; b < stop; ++b)

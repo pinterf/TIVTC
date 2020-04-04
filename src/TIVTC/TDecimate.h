@@ -64,11 +64,11 @@ private:
   int yshiftS, xshiftS, xhalfS, yhalfS, mode, conCycleTP, opt;
   int cycleR, cycle, hybrid, vidDetect, conCycle, vfrDec, lastn;
   int lastFrame, lastCycle, lastGroup, lastType, retFrames;
-  unsigned __int64 MAX_DIFF, sceneThreshU, sceneDivU, diff_thresh, same_thresh;
+  uint64_t MAX_DIFF, sceneThreshU, sceneDivU, diff_thresh, same_thresh;
   double rate, fps, mkvfps, mkvfps2, dupThresh, vidThresh, sceneThresh;
   bool debug, display, useTFMPP, batch, tcfv1, se, cve, ecf, fullInfo;
   bool noblend, m2PA, predenoise, chroma, exPP, ssd, usehints, useclip2;
-  unsigned __int64 *diff, *metricsArray, *metricsOutArray, *mode2_metrics;
+  uint64_t *diff, *metricsArray, *metricsOutArray, *mode2_metrics;
   int *aLUT, *mode2_decA, *mode2_order, sdlim;
   unsigned int outputCrc;
   unsigned char *ovrArray;
@@ -106,7 +106,7 @@ private:
   PVideoFrame TDecimate::GetFrameMode5(int n, IScriptEnvironment *env, int np);
   PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, int np);
   PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np);
-  void TDecimate::getOvrFrame(int n, unsigned __int64 &metricU, unsigned __int64 &metricF);
+  void TDecimate::getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF);
   void TDecimate::getOvrCycle(Cycle &current, bool mode2);
   void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
     int ret, bool film, double amount1, double amount2, int f1, int f2, int np);
@@ -127,21 +127,21 @@ private:
   double TDecimate::buildDecStrategy(IScriptEnvironment *env);
   void TDecimate::mode2MarkDecFrames(int cycleF);
   void TDecimate::removeMinN(int m, int n, int start, int stop);
-  void TDecimate::removeMinN(int m, int n, unsigned __int64 *metricsT, int *orderT, int &ovrC);
+  void TDecimate::removeMinN(int m, int n, uint64_t *metricsT, int *orderT, int &ovrC);
   int TDecimate::findDivisor(double decRatio, int min_den);
   int TDecimate::findNumerator(double decRatio, int divisor);
   double TDecimate::findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env);
-  void TDecimate::sortMetrics(unsigned __int64 *metrics, int *order, int length);
-  //void TDecimate::SedgeSort(unsigned __int64 *metrics, int *order, int length);
-  //void TDecimate::pQuickerSort(unsigned __int64 *metrics, int *order, int lower, int upper);
+  void TDecimate::sortMetrics(uint64_t *metrics, int *order, int length);
+  //void TDecimate::SedgeSort(uint64_t *metrics, int *order, int length);
+  //void TDecimate::pQuickerSort(uint64_t *metrics, int *order, int lower, int upper);
   void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
     bool scene, bool hnt);
-  unsigned __int64 TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
-    int &xblocksI, unsigned __int64 &metricF, IScriptEnvironment *env, bool scene);
+  uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
+    int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene);
 
-  unsigned __int64 TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
+  uint64_t TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
-  unsigned __int64 TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,
+  uint64_t TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
 
 

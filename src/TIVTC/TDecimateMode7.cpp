@@ -50,7 +50,7 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
       else
       {
         int blockNI, blocksI;
-        unsigned __int64 metricF;
+        uint64_t metricF;
         metricsOutArray[i << 1] =
           calcMetric(child->GetFrame(i - 1, env), child->GetFrame(i, env),
             np, blockNI, blocksI, metricF, env, false);
@@ -200,7 +200,7 @@ int TDecimate::diff_f(int f1, int f2, IScriptEnvironment *env)
 
 int TDecimate::mode7_analysis(int n, IScriptEnvironment *env)
 {
-  unsigned __int64 vals[3] = { ULLONG_MAX, ULLONG_MAX, ULLONG_MAX };
+  uint64_t vals[3] = { ULLONG_MAX, ULLONG_MAX, ULLONG_MAX };
   if (n == 0) return 2;
   vals[0] = metricsOutArray[(n - 1) << 1];
   vals[1] = metricsOutArray[n << 1];
@@ -220,13 +220,13 @@ int TDecimate::mode7_analysis(int n, IScriptEnvironment *env)
   else if (vals[1] < same_thresh) return 0; // definitely the same
   else if (vals[1] < vals[0] && vals[1] < vals[2]) // local minimum difference
   {
-    unsigned __int64 minn = min(vals[0], vals[2]);
+    uint64_t minn = min(vals[0], vals[2]);
     if (vals[1] * 2 < minn && vals[0] > diff_thresh && vals[2] > diff_thresh) return 0;
     else if (vals[1] * 4 < minn) return 0;
   }
   else if (vals[1] > vals[0] && vals[1] > vals[2]) // local maximum difference
   {
-    unsigned __int64 maxn = max(vals[0], vals[2]);
+    uint64_t maxn = max(vals[0], vals[2]);
     if (vals[1] * 2 > maxn * 3) return 2;
   }
   return 1;

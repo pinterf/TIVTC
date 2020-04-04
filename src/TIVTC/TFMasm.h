@@ -92,21 +92,21 @@
     const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
     int nxt_pitch, unsigned long &diffp, unsigned long &diffn);
   void check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb,
-    __int64 thresh6w);
+    int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb,
+    int64_t thresh6w);
   void check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb,
-    __int64 thresh6w);
+    int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb,
+    int64_t thresh6w);
   void check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb,
-    __int64 thresh6w);
+    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb,
+    int64_t thresh6w);
   void check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb,
-    __int64 thresh6w);
+    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb,
+    int64_t thresh6w);
   void check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __int64 thresh);
+    int width, int height, int src_pitch, int dst_pitch, int64_t thresh);
   void check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __int64 thresh);
+    int width, int height, int src_pitch, int dst_pitch, int64_t thresh);
   void buildABSDiffMask_MMX(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
   void buildABSDiffMask2_MMX(const unsigned char *prvp, const unsigned char *nxtp,

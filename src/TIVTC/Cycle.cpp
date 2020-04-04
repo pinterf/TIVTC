@@ -25,6 +25,7 @@
 
 #include "Cycle.h"
 #include "avisynth.h"
+#include "stdint.h"
 
 void Cycle::setFrame(int frameIn)
 {
@@ -182,7 +183,7 @@ void Cycle::setLowest(bool excludeD)
     return;
   }
   int i, j, temp2, f = cycleS;
-  unsigned __int64 temp1;
+  uint64_t temp1;
   if (frame == 0) ++f;
   for (i = 0; i < length; ++i) lowest[i] = i;
   for (i = 0; i < length; ++i) tArray[i] = diffMetricsU[i];
@@ -356,7 +357,7 @@ void Cycle::clearAll()
   }
 }
 
-int Cycle::sceneDetect(unsigned __int64 thresh)
+int Cycle::sceneDetect(uint64_t thresh)
 {
   if (!mSet) return -20;
   int i, f, v;
@@ -376,7 +377,7 @@ int Cycle::sceneDetect(unsigned __int64 thresh)
   return -20;
 }
 
-int Cycle::sceneDetect(Cycle &prev, Cycle &next, unsigned __int64 thresh)
+int Cycle::sceneDetect(Cycle &prev, Cycle &next, uint64_t thresh)
 {
   if (!mSet || !prev.mSet || !next.mSet) return -20;
   int i, f, v;
@@ -497,9 +498,9 @@ bool Cycle::allocSpace()
   decimate2 = (int *)malloc(cycleSize * sizeof(int));
   dect = (int *)malloc(cycleSize * sizeof(int));
   dect2 = (int *)malloc(cycleSize * sizeof(int));
-  diffMetricsU = (unsigned __int64 *)malloc(cycleSize * sizeof(unsigned __int64));
-  diffMetricsUF = (unsigned __int64 *)malloc(cycleSize * sizeof(unsigned __int64));
-  tArray = (unsigned __int64 *)malloc(cycleSize * sizeof(unsigned __int64));
+  diffMetricsU = (uint64_t *)malloc(cycleSize * sizeof(uint64_t));
+  diffMetricsUF = (uint64_t *)malloc(cycleSize * sizeof(uint64_t));
+  tArray = (uint64_t *)malloc(cycleSize * sizeof(uint64_t));
   diffMetricsN = (double *)malloc(cycleSize * sizeof(double));
   if (dupArray == NULL || lowest == NULL || match == NULL || filmd2v == NULL ||
     decimate == NULL || decimate2 == NULL || diffMetricsU == NULL ||
@@ -547,8 +548,8 @@ Cycle& Cycle::operator=(Cycle& ob2)
   memcpy(filmd2v, ob2.filmd2v, cycleSize * sizeof(int));
   memcpy(decimate, ob2.decimate, cycleSize * sizeof(int));
   memcpy(decimate2, ob2.decimate2, cycleSize * sizeof(int));
-  memcpy(diffMetricsU, ob2.diffMetricsU, cycleSize * sizeof(unsigned __int64));
-  memcpy(diffMetricsUF, ob2.diffMetricsUF, cycleSize * sizeof(unsigned __int64));
+  memcpy(diffMetricsU, ob2.diffMetricsU, cycleSize * sizeof(uint64_t));
+  memcpy(diffMetricsUF, ob2.diffMetricsUF, cycleSize * sizeof(uint64_t));
   memcpy(diffMetricsN, ob2.diffMetricsN, cycleSize * sizeof(double));
   return *this;
 }
