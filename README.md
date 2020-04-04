@@ -1,6 +1,17 @@
-# TIVTC v1.0.14 (20190207)
+# TIVTC v1.0.14 (20190207) # TDeInt v1.2 (20200404)
 
-This is a modernization effort on tritical's TIVTC (v1.0.5) plugin for Avisynth
+This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
+
+**TDeInt v1.2 (20200404)**
+- Inline assembler code ported to intrinsics and C code. 
+- Add some more SSE2 (MMX and ISSE code kept but is not active)
+- x64 version is compilable!
+- Add ClangCL, and XP configurations to the solutions.
+  For some magic, TIVTC cannot be built with the v142 toolset and VS2019 16.5.2 :) :(
+    INTERNAL COMPILER ERROR in 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.25.28610\bin\HostX86\x64\CL.exe'
+    1>        Please choose the Technical Support command on the Visual C++
+    1>        Help menu, or open the Technical Support help file for more information
+    1>    The command exited with code -1073741819.
 
 **v1.0.14 (20190207)**
 - Fix: option slow=2 field<>0. Thanks to 299792458m. 
