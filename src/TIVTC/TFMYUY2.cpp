@@ -69,6 +69,10 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   const unsigned char *srcpn = srcp + src_pitch;
   const unsigned char *srcpnn = srcpn + src_pitch;
   unsigned char *cmkw = cmask->GetPtr();
+/* fixme PF 20200404> check it! TDecimate does this:
+  PVideoFrame cmask = env->NewVideoFrame(vi_saved);
+  unsigned char *cmkw = cmask->GetWritePtr();
+*/
   const int cmk_pitch = cmask->GetPitch();
   const int inc = chroma ? 1 : 2;
   const int xblocks = ((Width + xhalf) >> xshift) + 1;
@@ -396,6 +400,10 @@ cjump:
   if (chroma)
   {
     unsigned char *cmkp = cmask->GetPtr() + cmk_pitch;
+ /* fixme PF 20200404: TDeint does this:
+  unsigned char *cmkp = cmask->GetWritePtr() + cmk_pitch;
+*/
+ 
     unsigned char *cmkpp = cmkp - cmk_pitch;
     unsigned char *cmkpn = cmkp + cmk_pitch;
     for (int y = 1; y < Height - 1; ++y)
@@ -414,6 +422,10 @@ cjump:
     }
   }
   const unsigned char *cmkp = cmask->GetPtr() + cmk_pitch;
+/*
+fixme PF 20200404: TDeint does this
+const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
+*/
   const unsigned char *cmkpp = cmkp - cmk_pitch;
   const unsigned char *cmkpn = cmkp + cmk_pitch;
   memset(cArray, 0, arraysize * sizeof(int));

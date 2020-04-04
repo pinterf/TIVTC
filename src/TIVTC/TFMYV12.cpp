@@ -110,7 +110,7 @@ bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     const unsigned char *srcppp = srcpp - src_pitch;
     const unsigned char *srcpn = srcp + src_pitch;
     const unsigned char *srcpnn = srcpn + src_pitch;
-    unsigned char *cmkp = cmask->GetPtr(b - 1);
+    unsigned char *cmkp = cmask->GetPtr(b - 1); // fixme check: Tdeint: cmask->GetWritePtr(plane);
     const int cmk_pitch = cmask->GetPitch(b - 1);
     if (cthresh < 0) { memset(cmkp, 255, Height*cmk_pitch); continue; }
     fmemset(env->GetCPUFlags(), cmkp, Height*cmk_pitch, opt);
@@ -408,9 +408,6 @@ bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int 
           cArray[temp2 + box2 + 3] += sum;
         }
       }
-#ifdef ALLOW_MMX
-      _mm_empty(); // __asm emms;
-#endif
     }
 #else 
     if (use_isse_sum)
