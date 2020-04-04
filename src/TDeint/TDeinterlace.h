@@ -38,6 +38,10 @@
 #define VERSION "v1.1"
 #define DATE "01/22/2007"
 
+void absDiffSSE2(const unsigned char* srcp1, const unsigned char* srcp2,
+  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width, int height,
+  int mthresh1, int mthresh2);
+
 class TDeinterlace : public GenericVideoFilter
 {
   friend class TDHelper;
@@ -136,26 +140,16 @@ class TDeinterlace : public GenericVideoFilter
   void TDeinterlace::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env);
   void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos,
     IScriptEnvironment *env);
-  void TDeinterlace::absDiffSSE2(const unsigned char *srcp1, const unsigned char *srcp2,
-    unsigned char *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width, int height,
-    int mthresh1, int mthresh2);
+#ifdef ALLOW_MMX
   void TDeinterlace::absDiffMMX(const unsigned char *srcp1, const unsigned char *srcp2,
     unsigned char *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width, int height,
     int mthresh1, int mthresh2);
+#endif
   static void TDeinterlace::buildDiffMapPlane(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int optt, IScriptEnvironment *env);
-  static void TDeinterlace::buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
-  static void TDeinterlace::buildABSDiffMask2_MMX(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
-    int height);
   void TDeinterlace::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
     int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
-  void TDeinterlace::buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
-  void TDeinterlace::buildABSDiffMask_MMX(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
   void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
@@ -165,31 +159,6 @@ class TDeinterlace : public GenericVideoFilter
   void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env);
   void TDeinterlace::insertCompStats(int n, int norm1, int norm2, int mtn1, int mtn2);
   int TDeinterlace::getMatch(int norm1, int norm2, int mtn1, int mtn2);
-  void TDeinterlace::compute_sum_8x8_mmx(const unsigned char *srcp, int pitch, int &sum);
-  void TDeinterlace::compute_sum_8x8_isse(const unsigned char *srcp, int pitch, int &sum);
-  void TDeinterlace::compute_sum_8x16_mmx_luma(const unsigned char *srcp, int pitch, int &sum);
-  void TDeinterlace::compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &sum);
-  void TDeinterlace::compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &sum);
-  void TDeinterlace::check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128 thresh);
-  void TDeinterlace::check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __int64 thresh);
-  void TDeinterlace::check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128 thresh);
-  void TDeinterlace::check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __int64 thresh);
-  void TDeinterlace::check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
-  void TDeinterlace::check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
-  void TDeinterlace::check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w);
-  void TDeinterlace::check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
-  void TDeinterlace::check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __int64 threshb, __int64 thresh6w);
-  void TDeinterlace::check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
-    int height, int src_pitch, int src_pitch2, int dst_pitch, __m128 threshb, __m128 thresh6w);
   void TDeinterlace::expandMap_YUY2(PVideoFrame &mask);
   void TDeinterlace::expandMap_YV12(PVideoFrame &mask);
   void TDeinterlace::stackVertical(PVideoFrame &dst2, PVideoFrame &p1, PVideoFrame &p2,
@@ -211,4 +180,8 @@ public:
   TDeinterlace::~TDeinterlace();
   static int TDeinterlace::getHint(PVideoFrame &src, unsigned int &storeHint, int &hintField);
   static void TDeinterlace::putHint(PVideoFrame &dst, unsigned int hint, int fieldt);
+
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
 };

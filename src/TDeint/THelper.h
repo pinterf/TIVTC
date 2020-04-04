@@ -34,6 +34,13 @@
 
 class TDeinterlace;
 
+void subtractFramesSSE2(const unsigned char* srcp1, int src1_pitch,
+  const unsigned char* srcp2, int src2_pitch, int height, int width, int inc,
+  unsigned long& diff);
+void blendFramesSSE2(const unsigned char* srcp1, int src1_pitch,
+  const unsigned char* srcp2, int src2_pitch, unsigned char* dstp, int dst_pitch,
+  int height, int width);
+
 class TDHelper : public GenericVideoFilter
 {
 private:
@@ -44,29 +51,30 @@ private:
   int nfrms, field, order, opt, *sa, slow;
   int TDHelper::mapn(int n);
   unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptEnvironment *env);
-  void TDHelper::subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch,
-    const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
-    unsigned long &diff);
+#ifdef ALLOW_MMX
   void TDHelper::subtractFramesISSE(const unsigned char *srcp1, int src1_pitch,
     const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
     unsigned long &diff);
   void TDHelper::subtractFramesMMX(const unsigned char *srcp1, int src1_pitch,
     const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
     unsigned long &diff);
+#endif
   void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env);
-  void TDHelper::blendFramesSSE2(const unsigned char *srcp1, int src1_pitch,
-    const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-    int height, int width);
+#ifdef ALLOW_MMX
   void TDHelper::blendFramesISSE(const unsigned char *srcp1, int src1_pitch,
     const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
     int height, int width);
   void TDHelper::blendFramesMMX(const unsigned char *srcp1, int src1_pitch,
     const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
     int height, int width);
-
+#endif
 public:
   PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env);
   TDHelper::~TDHelper();
   TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debug,
     int _opt, int* _sa, int _slow, TDeinterlace *_tdptr, IScriptEnvironment *env);
+
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
+  }
 };

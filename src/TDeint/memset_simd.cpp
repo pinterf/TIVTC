@@ -1,12 +1,12 @@
 /*
-**                TDeinterlace v1.1.1 for Avisynth 2.6 interface
+**                    TIVTC v1.0.14 for Avisynth 2.6 interface
 **
-**   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
-**   It also uses a couple modified forms of ela interpolation which
-**   help to reduce "jaggy" edges in places where interpolation must
-**   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
+**   TIVTC includes a field matching filter (TFM) and a decimation
+**   filter (TDecimate) which can be used together to achieve an
+**   IVTC or for other uses. TIVTC currently supports YV12 and
+**   YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2007 Kevin Stone
+**   Copyright (C) 2004-2008 Kevin Stone, additional work (C) 2017 pinterf
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
@@ -24,9 +24,17 @@
 */
 
 #include "memset_simd.h"
+#include "avs\config.h"
 
-void fmemset_16_SSE2(unsigned char* p, __m128 val, int sizec)
+void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val)
 {
+#ifdef _M_X64
+  for (int i = 0; i < sizec; i+=16)
+  {
+    _mm_stream_si128(reinterpret_cast<__m128i *>(p), val);
+    p += 16;
+  }
+#else
   _asm
   {
     mov edi, p
@@ -57,9 +65,11 @@ void fmemset_16_SSE2(unsigned char* p, __m128 val, int sizec)
       lxend :
     sfence
   }
+#endif
 }
 
-void fmemset_16_iSSE(unsigned char* p, __int64 val, int sizec)
+#ifdef ALLOW_MMX
+void fmemset_16_iSSE(unsigned char* p, int sizec, __int64 val)
 {
   _asm
   {
@@ -99,7 +109,7 @@ void fmemset_16_iSSE(unsigned char* p, __int64 val, int sizec)
   }
 }
 
-void fmemset_16_MMX(unsigned char* p, __int64 val, int sizec)
+void fmemset_16_MMX(unsigned char* p, int sizec, __int64 val)
 {
   _asm
   {
@@ -138,7 +148,7 @@ void fmemset_16_MMX(unsigned char* p, __int64 val, int sizec)
   }
 }
 
-void fmemset_8_iSSE(unsigned char* p, __int64 val, int sizec)
+void fmemset_8_iSSE(unsigned char* p, int sizec, __int64 val)
 {
   _asm
   {
@@ -190,7 +200,7 @@ void fmemset_8_iSSE(unsigned char* p, __int64 val, int sizec)
   }
 }
 
-void fmemset_8_MMX(unsigned char* p, __int64 val, int sizec)
+void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val)
 {
   _asm
   {
@@ -240,8 +250,9 @@ void fmemset_8_MMX(unsigned char* p, __int64 val, int sizec)
     emms
   }
 }
+#endif
 
-void fmemset(long cpu, unsigned char *p, int sizec, int val, int opt)
+void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val)
 {
   if (opt != 4)
   {
@@ -252,31 +263,24 @@ void fmemset(long cpu, unsigned char *p, int sizec, int val, int opt)
   }
   if ((cpu&CPUF_SSE2) && !(sizec & 15))
   {
-    __int64 v[2];
-    v[0] = (val << 8) + val;
-    v[0] += (v[0] << 48) + (v[0] << 32) + (v[0] << 16);
-    v[1] = v[0];
-    __m128 v128;
-    __asm
-    {
-      movups xmm0, xmmword ptr[v]
-      movaps v128, xmm0
-    }
-    fmemset_16_SSE2(p, v128, sizec);
+    __m128i v128 = _mm_set1_epi8(val);
+    fmemset_16_SSE2(p, sizec, v128);
   }
+#ifdef ALLOW_MMX
   else if ((cpu&CPUF_INTEGER_SSE) && !(sizec & 7))
   {
     __int64 v = (val << 8) + val;
     v += (v << 48) + (v << 32) + (v << 16);
-    if (sizec & 15) fmemset_8_iSSE(p, v, sizec);
-    else fmemset_16_iSSE(p, v, sizec);
+    if (sizec & 15) fmemset_8_iSSE(p, sizec, v);
+    else fmemset_16_iSSE(p, sizec, v);
   }
   else if ((cpu&CPUF_MMX) && !(sizec & 7))
   {
     __int64 v = (val << 8) + val;
     v += (v << 48) + (v << 32) + (v << 16);
-    if (sizec & 15) fmemset_8_MMX(p, v, sizec);
-    else fmemset_16_MMX(p, v, sizec);
+    if (sizec & 15) fmemset_8_MMX(p, sizec, v);
+    else fmemset_16_MMX(p, sizec, v);
   }
+#endif
   else memset(p, val, sizec);
 }

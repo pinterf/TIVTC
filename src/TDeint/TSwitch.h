@@ -41,4 +41,7 @@ public:
   TSwitch::TSwitch(PClip _child, PClip _c1, PClip _c2, bool _debug,
     IScriptEnvironment *env);
   TSwitch::~TSwitch();
+  int __stdcall SetCacheHints(int cachehints, int frame_range) override {
+    return cachehints == CACHE_GET_MTMODE ? MT_MULTI_INSTANCE : 0;
+  }
 };

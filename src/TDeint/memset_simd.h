@@ -1,12 +1,12 @@
 /*
-**                TDeinterlace v1.1.1 for Avisynth 2.6 interface
+**                    TIVTC v1.0.14 for Avisynth 2.6 interface
 **
-**   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
-**   It also uses a couple modified forms of ela interpolation which
-**   help to reduce "jaggy" edges in places where interpolation must
-**   be used. TDeinterlace currently supports YV12 and YUY2 colorspaces.
+**   TIVTC includes a field matching filter (TFM) and a decimation
+**   filter (TDecimate) which can be used together to achieve an
+**   IVTC or for other uses. TIVTC currently supports YV12 and
+**   YUY2 colorspaces.
 **
-**   Copyright (C) 2004-2007 Kevin Stone
+**   Copyright (C) 2004-2008 Kevin Stone, additional work (C) 2017 pinterf
 **
 **   This program is free software; you can redistribute it and/or modify
 **   it under the terms of the GNU General Public License as published by
@@ -25,11 +25,15 @@
 
 #include <windows.h>
 #include <xmmintrin.h>
+#include <emmintrin.h>
 #include "avisynth.h"
+#include "internal.h"
 
-void fmemset(long cpu, unsigned char *p, int sizec, int val, int opt);
-void fmemset_8_MMX(unsigned char* p, __int64 val, int sizec);
-void fmemset_8_iSSE(unsigned char* p, __int64 val, int sizec);
-void fmemset_16_MMX(unsigned char* p, __int64 val, int sizec);
-void fmemset_16_iSSE(unsigned char* p, __int64 val, int sizec);
-void fmemset_16_SSE2(unsigned char* p, __m128 val, int sizec);
+void fmemset(long cpu, unsigned char *p, int sizec, int opt, int val = 0);
+#ifdef ALLOW_MMX
+void fmemset_8_MMX(unsigned char* p, int sizec, __int64 val);
+void fmemset_8_iSSE(unsigned char* p, int sizec, __int64 val);
+void fmemset_16_MMX(unsigned char* p, int sizec, __int64 val);
+void fmemset_16_iSSE(unsigned char* p, int sizec, __int64 val);
+#endif
+void fmemset_16_SSE2(unsigned char* p, int sizec, __m128i val);

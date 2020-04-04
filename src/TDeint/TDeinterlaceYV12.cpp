@@ -24,6 +24,7 @@
 */
 
 #include "TDeinterlace.h"
+#include "tdeintasm.h"
 
 PVideoFrame TDeinterlace::GetFrameYV12(int n, IScriptEnvironment* env, bool &wdtd)
 {
@@ -315,7 +316,7 @@ void TDeinterlace::createMotionMap4YV12(PVideoFrame &prv2, PVideoFrame &prv,
     else d3p = db->GetReadPtr(db->GetPos(field^order ? 2 : 3), b) + dpitchl*field;
     unsigned char *maskw = mask->GetWritePtr(plane[b]);
     const int mask_pitch = mask->GetPitch(plane[b]) << 1;
-    fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, 10, opt);
+    fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, opt, 10);
     maskw += (mask_pitch >> 1)*field;
     const int mthresh = b == 0 ? mthreshL : mthreshC;
     const unsigned char *d1pn = d1p + dpitchl;
@@ -501,7 +502,7 @@ void TDeinterlace::createMotionMap5YV12(PVideoFrame &prv2, PVideoFrame &prv,
     }
     unsigned char *maskw = mask->GetWritePtr(plane[b]);
     const int mask_pitch = mask->GetPitch(plane[b]) << 1;
-    fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, 10, opt);
+    fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, opt, 10);
     maskw += (mask_pitch >> 1)*field;
     const int mthresh = b == 0 ? mthreshL : mthreshC;
     if (field^order)
@@ -898,9 +899,14 @@ void TDeinterlace::denoiseYV12(PVideoFrame &mask)
 bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironment *env)
 {
   PVideoFrame cmask = env->NewVideoFrame(vi_saved);
-  bool use_mmx = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
-  bool use_isse = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
-  bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
+#ifdef ALLOW_MMX
+  bool use_mmx = (env->GetCPUFlags() & CPUF_MMX) ? true : false;
+  bool use_isse = (env->GetCPUFlags() & CPUF_INTEGER_SSE) ? true : false;
+#else
+  bool use_mmx = false;
+  bool use_isse = false;
+#endif
+  bool use_sse2 = (env->GetCPUFlags() & CPUF_SSE2) ? true : false;
   if (opt != 4)
   {
     if (opt == 0) use_mmx = use_isse = use_sse2 = false;
@@ -909,23 +915,36 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
     else if (opt == 3) use_mmx = use_isse = use_sse2 = true;
   }
   const int cthresh6 = cthresh * 6;
+#ifdef ALLOW_MMX  
   __int64 cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
+#endif
+  __m128i cthreshb_m128i;
+  __m128i cthresh6w_m128i;
   if (metric == 0 && (use_mmx || use_isse || use_sse2))
   {
     unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
+    cthreshb_m128i = _mm_set1_epi8(cthresht);
+#ifdef ALLOW_MMX  
     cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
     cthreshb[0] += (cthreshb[0] << 32);
     cthreshb[1] = cthreshb[0];
+#endif
     unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
+    cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
+#ifdef ALLOW_MMX  
     cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
     cthresh6w[0] += (cthresh6w[0] << 32);
     cthresh6w[1] = cthresh6w[0];
+#endif
   }
   else if (metric == 1 && (use_mmx || use_isse || use_sse2))
   {
+    cthreshb_m128i = _mm_set1_epi32(cthresh * cthresh);
+#ifdef ALLOW_MMX  
     cthreshb[0] = cthresh*cthresh;
     cthreshb[0] += (cthreshb[0] << 32);
     cthreshb[1] = cthreshb[0];
+#endif
   }
   for (int b = chroma ? 3 : 1; b > 0; --b)
   {
@@ -944,7 +963,7 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
     unsigned char *cmkp = cmask->GetWritePtr(plane);
     const int cmk_pitch = cmask->GetPitch(plane);
     if (cthresh < 0) { memset(cmkp, 255, Height*cmk_pitch); continue; }
-    fmemset(env->GetCPUFlags(), cmkp, Height*cmk_pitch, 0, opt);
+    fmemset(env->GetCPUFlags(), cmkp, Height*cmk_pitch, opt, 0);
     if (metric == 0)
     {
       for (int x = 0; x < Width; ++x)
@@ -980,9 +999,20 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
       cmkp += cmk_pitch;
       if (use_mmx || use_isse || use_sse2)
       {
-        if (use_sse2 && !((int(srcp) | int(cmkp) | cmk_pitch | src_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128, cthresh6w128;
+          if (!((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
+            check_combing_SSE2<true>(srcp, cmkp, Width, Height - 4, src_pitch,
+              src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+          else
+            check_combing_SSE2<false>(srcp, cmkp, Width, Height - 4, src_pitch,
+              src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
+        {
+          __m128i cthreshb128, cthresh6w128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
@@ -990,7 +1020,7 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
             movaps cthreshb128, xmm1
             movaps cthresh6w128, xmm2
           }
-          check_combing_SSE2(srcp, cmkp, Width, Height - 4, src_pitch,
+          check_combing_SSE2<true>(srcp, cmkp, Width, Height - 4, src_pitch,
             src_pitch * 2, cmk_pitch, cthreshb128, cthresh6w128);
         }
         else if (use_isse)
@@ -999,6 +1029,7 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
         else if (use_mmx)
           check_combing_MMX(srcp, cmkp, Width, Height - 4, src_pitch,
             src_pitch * 2, cmk_pitch, cthreshb[0], cthresh6w[0]);
+#endif
         else env->ThrowError("TFM:  simd error (3)!");
         srcppp += src_pitch*(Height - 4);
         srcpp += src_pitch*(Height - 4);
@@ -1069,20 +1100,32 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
       cmkp += cmk_pitch;
       if (use_mmx || use_isse || use_sse2)
       {
-        if (use_sse2 && !((int(srcp) | int(cmkp) | cmk_pitch | src_pitch) & 15))
+#ifndef ALLOW_MMX
+        if (use_sse2)
         {
-          __m128 cthreshb128;
+          if (!((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
+            check_combing_SSE2_M1<true>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
+              cthreshb_m128i);
+          else
+            check_combing_SSE2_M1<false>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
+              cthreshb_m128i);
+        }
+#else
+        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
+        {
+          __m128i cthreshb128;
           __asm
           {
             movups xmm1, xmmword ptr[cthreshb]
             movaps cthreshb128, xmm1
           }
-          check_combing_SSE2_M1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
+          check_combing_SSE2_M1<true>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
             cthreshb128);
         }
         else if (use_mmx)
           check_combing_MMX_M1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
             cthreshb[0]);
+#endif
         else env->ThrowError("ShowCombedTIVTC:  simd error (4)!");
         srcpp += src_pitch*(Height - 2);
         srcp += src_pitch*(Height - 2);
@@ -1170,6 +1213,7 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
   int Heighta = (Height >> (yshift - 1)) << (yshift - 1);
   if (Heighta == Height) Heighta = Height - yhalf;
   const int Widtha = (Width >> (xshift - 1)) << (xshift - 1);
+  const bool use_sse2_sum = (use_sse2 && xhalf == 8 && yhalf == 8) ? true : false; // 8x8: no alignment
   const bool use_isse_sum = (use_isse && xhalf == 8 && yhalf == 8) ? true : false;
   const bool use_mmx_sum = (use_mmx && xhalf == 8 && yhalf == 8) ? true : false;
   for (int y = 1; y < yhalf; ++y)
@@ -1196,6 +1240,25 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
   {
     const int temp1 = (y >> yshift)*xblocks4;
     const int temp2 = ((y + yhalf) >> yshift)*xblocks4;
+#ifndef ALLOW_MMX
+    if (use_sse2_sum)
+    {
+      for (int x = 0; x < Widtha; x += xhalf)
+      {
+        int sum = 0;
+        compute_sum_8x8_sse2(cmkpp + x, cmk_pitch, sum);
+        if (sum)
+        {
+          const int box1 = (x >> xshift) << 2;
+          const int box2 = ((x + xhalf) >> xshift) << 2;
+          cArray[temp1 + box1 + 0] += sum;
+          cArray[temp1 + box2 + 1] += sum;
+          cArray[temp2 + box1 + 2] += sum;
+          cArray[temp2 + box2 + 3] += sum;
+        }
+      }
+    }
+#else 
     if (use_isse_sum)
     {
       for (int x = 0; x < Widtha; x += xhalf)
@@ -1212,7 +1275,7 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
           cArray[temp2 + box2 + 3] += sum;
         }
       }
-      __asm emms;
+      _mm_empty(); // __asm emms;
     }
     else if (use_mmx_sum)
     {
@@ -1230,8 +1293,9 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
           cArray[temp2 + box2 + 3] += sum;
         }
       }
-      __asm emms;
+      _mm_empty(); // __asm emms;
     }
+#endif
     else
     {
       for (int x = 0; x < Widtha; x += xhalf)
@@ -1391,101 +1455,49 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
     else
       buildDiffMapPlane(prvnf - prvf_pitch, nxtnf - nxtf_pitch, mapn - map_pitch, prvf_pitch,
         nxtf_pitch, map_pitch, Height >> 1, Widtha, optt, env);
-    __asm
+    for (y = 2; y < Height - 2; y += 2)
     {
-      mov y, 2
-      xloop_pre:
-      mov ebx, startx
-        mov edi, mapp
-        mov edx, mapn
-        mov ecx, stopx
-        xloop :
-      movzx eax, BYTE PTR[edi + ebx]
-        shl eax, 2
-        add al, BYTE PTR[edx + ebx]
-        jnz b1
-        inc ebx
-        cmp ebx, ecx
-        jl xloop
-        jmp end_yloop
-        b1 :
-      mov edx, curf
-        mov edi, curpf
-        movzx ecx, BYTE PTR[edx + ebx]
-        movzx esi, BYTE PTR[edi + ebx]
-        shl ecx, 2
-        mov edx, curnf
-        add ecx, esi
-        mov edi, prvpf
-        movzx esi, BYTE PTR[edx + ebx]
-        movzx edx, BYTE PTR[edi + ebx]
-        add ecx, esi
-        mov edi, prvnf
-        movzx esi, BYTE PTR[edi + ebx]
-        add edx, esi
-        mov edi, edx
-        add edx, edx
-        sub edi, ecx
-        add edx, edi
-        jge b2
-        neg edx
-        b2 :
-      cmp edx, 23
-        jle p1
-        add accumPns, edx
-        cmp edx, 42
-        jle p1
-        test eax, 10
-        jz p1
-        add accumPms, edx
-        p1 :
-      mov edi, nxtpf
-        mov esi, nxtnf
-        movzx edx, BYTE PTR[edi + ebx]
-        movzx edi, BYTE PTR[esi + ebx]
-        add edx, edi
-        mov esi, edx
-        add edx, edx
-        sub esi, ecx
-        add edx, esi
-        jge b3
-        neg edx
-        b3 :
-      cmp edx, 23
-        jle p2
-        add accumNns, edx
-        cmp edx, 42
-        jle p2
-        test eax, 10
-        jz p2
-        add accumNms, edx
-        p2 :
-      mov ecx, stopx
-        mov edi, mapp
-        inc ebx
-        mov edx, mapn
-        cmp ebx, ecx
-        jl xloop
-        end_yloop :
-      mov esi, Height
-        mov eax, prvf_pitch
-        mov ebx, curf_pitch
-        mov ecx, nxtf_pitch
-        mov edi, map_pitch
-        sub esi, 2
-        add y, 2
-        add mapp, edi
-        add prvpf, eax
-        add curpf, ebx
-        add prvnf, eax
-        add curf, ebx
-        add nxtpf, ecx
-        add curnf, ebx
-        add nxtnf, ecx
-        add mapn, edi
-        cmp y, esi
-        jl xloop_pre
-    }
+      for (int x = startx; x < stopx; x++)
+      {
+        unsigned char eax = (mapp[x] << 2) + mapn[x];
+        if (eax == 0) {
+          x++;
+          if (x < stopx) continue;
+          break;
+        }
+        int ecx = (curf[x] << 2) + curpf[x] + curnf[x];
+
+        int edi = prvpf[x] + prvnf[x];
+        int edx = abs(edi * 3 - ecx);
+        if (edx > 23) {
+          accumPns += edx;
+          if (edx > 42)
+          {
+            if ((eax & 10) != 0)
+              accumPms += edx;
+          }
+        }
+
+        edi = nxtpf[x] + nxtnf[x];
+        edx = abs(edi * 3 - ecx);
+        if (edx > 23) {
+          accumNns += edx;
+          if (edx > 42) {
+            if ((eax & 10) != 0)
+              accumNms += edx;
+          }
+        }
+      }
+      mapp += map_pitch;
+      prvpf += prvf_pitch;
+      curpf += curf_pitch;
+      prvnf += prvf_pitch;
+      curf += curf_pitch;
+      nxtpf += nxtf_pitch;
+      curnf += curf_pitch;
+      nxtnf += nxtf_pitch;
+      mapn += map_pitch;
+    } // huhh
   }
   aPn = int(accumPns / 6.0 + 0.5);
   aNn = int(accumNns / 6.0 + 0.5);
@@ -1506,55 +1518,55 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
   aPm = aNm = 0;
   for (int b = 0; b < stop; ++b)
   {
-    unsigned char *mapp = map->GetWritePtr(plane[b]);
+    unsigned char* mapp = map->GetWritePtr(plane[b]);
     const int map_pitch = map->GetPitch(plane[b]) << 1;
-    const unsigned char *prvp = prv->GetReadPtr(plane[b]);
+    const unsigned char* prvp = prv->GetReadPtr(plane[b]);
     const int prv_pitch = prv->GetPitch(plane[b]);
-    const unsigned char *srcp = src->GetReadPtr(plane[b]);
+    const unsigned char* srcp = src->GetReadPtr(plane[b]);
     const int src_pitch = src->GetPitch(plane[b]);
     const int Width = src->GetRowSize(plane[b]);
     const int Widtha = src->GetRowSize(plane[b] + 8); // +8 = _ALIGNED
     const int Height = src->GetHeight(plane[b]);
-    const unsigned char *nxtp = nxt->GetReadPtr(plane[b]);
+    const unsigned char* nxtp = nxt->GetReadPtr(plane[b]);
     const int nxt_pitch = nxt->GetPitch(plane[b]);
     const int startx = stop > 1 ? (b == 0 ? 8 : 4) : 16;
     const int stopx = Width - startx;
-    fmemset(env->GetCPUFlags(), mapp, Height*(map_pitch >> 1), 0, optt);
-    const unsigned char *prvpf, *curf, *nxtpf;
+    fmemset(env->GetCPUFlags(), mapp, Height * (map_pitch >> 1), optt, 0);
+    const unsigned char* prvpf, * curf, * nxtpf;
     int prvf_pitch, curf_pitch, nxtf_pitch, tp;
     if (d2)
     {
       prvf_pitch = prv_pitch << 1;
       curf_pitch = src_pitch << 1;
       nxtf_pitch = nxt_pitch << 1;
-      prvpf = prvp + ((fieldt == 1 ? 1 : 2)*prv_pitch);
-      curf = srcp + ((3 - fieldt)*src_pitch);
-      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2)*nxt_pitch);
+      prvpf = prvp + ((fieldt == 1 ? 1 : 2) * prv_pitch);
+      curf = srcp + ((3 - fieldt) * src_pitch);
+      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2) * nxt_pitch);
     }
-    else if (fieldt^ordert)
+    else if (fieldt ^ ordert)
     {
       prvf_pitch = src_pitch << 1;
       curf_pitch = src_pitch << 1;
       nxtf_pitch = nxt_pitch << 1;
-      prvpf = srcp + ((fieldt == 1 ? 1 : 2)*src_pitch);
-      curf = srcp + ((3 - fieldt)*src_pitch);
-      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2)*nxt_pitch);
+      prvpf = srcp + ((fieldt == 1 ? 1 : 2) * src_pitch);
+      curf = srcp + ((3 - fieldt) * src_pitch);
+      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2) * nxt_pitch);
     }
     else
     {
       prvf_pitch = prv_pitch << 1;
       curf_pitch = src_pitch << 1;
       nxtf_pitch = src_pitch << 1;
-      prvpf = prvp + ((fieldt == 1 ? 1 : 2)*prv_pitch);
-      curf = srcp + ((3 - fieldt)*src_pitch);
-      nxtpf = srcp + ((fieldt == 1 ? 1 : 2)*src_pitch);
+      prvpf = prvp + ((fieldt == 1 ? 1 : 2) * prv_pitch);
+      curf = srcp + ((3 - fieldt) * src_pitch);
+      nxtpf = srcp + ((fieldt == 1 ? 1 : 2) * src_pitch);
     }
-    mapp = mapp + ((fieldt == 1 ? 1 : 2)*(map_pitch >> 1));
-    const unsigned char *prvnf = prvpf + prvf_pitch;
-    const unsigned char *curpf = curf - curf_pitch;
-    const unsigned char *curnf = curf + curf_pitch;
-    const unsigned char *nxtnf = nxtpf + nxtf_pitch;
-    unsigned char *mapn = mapp + map_pitch;
+    mapp = mapp + ((fieldt == 1 ? 1 : 2) * (map_pitch >> 1));
+    const unsigned char* prvnf = prvpf + prvf_pitch;
+    const unsigned char* curpf = curf - curf_pitch;
+    const unsigned char* curnf = curf + curf_pitch;
+    const unsigned char* nxtnf = nxtpf + nxtf_pitch;
+    unsigned char* mapn = mapp + map_pitch;
     if (b == 0) tp = tpitchy;
     else tp = tpitchuv;
     if (stop == 3)
@@ -1571,116 +1583,59 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
       else
         buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
     }
-    __asm
+
+    for (int y = 2; y < Height - 2; y += 2)
     {
-      mov y, 2
-      xloop_pre:
-      mov ebx, startx
-        mov edi, mapp
-        mov edx, mapn
-        mov ecx, stopx
-        xloop :
-      movzx eax, BYTE PTR[edi + ebx]
-        shl eax, 3
-        add al, BYTE PTR[edx + ebx]
-        jnz b1
-        inc ebx
-        cmp ebx, ecx
-        jl xloop
-        jmp end_yloop
-        b1 :
-      mov edx, curf
-        mov edi, curpf
-        movzx ecx, BYTE PTR[edx + ebx]
-        movzx esi, BYTE PTR[edi + ebx]
-        shl ecx, 2
-        mov edx, curnf
-        add ecx, esi
-        mov edi, prvpf
-        movzx esi, BYTE PTR[edx + ebx]
-        movzx edx, BYTE PTR[edi + ebx]
-        add ecx, esi
-        mov edi, prvnf
-        movzx esi, BYTE PTR[edi + ebx]
-        add edx, esi
-        mov edi, edx
-        add edx, edx
-        sub edi, ecx
-        add edx, edi
-        jge b3
-        neg edx
-        b3 :
-      cmp edx, 23
-        jle p3
-        test eax, 9
-        jz p1
-        add accumPns, edx
-        p1 :
-      cmp edx, 42
-        jle p3
-        test eax, 18
-        jz p2
-        add accumPms, edx
-        p2 :
-      test eax, 36
-        jz p3
-        add accumPmls, edx
-        p3 :
-      mov edi, nxtpf
-        mov esi, nxtnf
-        movzx edx, BYTE PTR[edi + ebx]
-        movzx edi, BYTE PTR[esi + ebx]
-        add edx, edi
-        mov esi, edx
-        add edx, edx
-        sub esi, ecx
-        add edx, esi
-        jge b2
-        neg edx
-        b2 :
-      cmp edx, 23
-        jle p6
-        test eax, 9
-        jz p4
-        add accumNns, edx
-        p4 :
-      cmp edx, 42
-        jle p6
-        test eax, 18
-        jz p5
-        add accumNms, edx
-        p5 :
-      test eax, 36
-        jz p6
-        add accumNmls, edx
-        p6 :
-      mov ecx, stopx
-        mov edi, mapp
-        inc ebx
-        mov edx, mapn
-        cmp ebx, ecx
-        jl xloop
-        end_yloop :
-      mov esi, Height
-        mov eax, prvf_pitch
-        mov ebx, curf_pitch
-        mov ecx, nxtf_pitch
-        mov edi, map_pitch
-        sub esi, 2
-        add y, 2
-        add mapp, edi
-        add prvpf, eax
-        add curpf, ebx
-        add prvnf, eax
-        add curf, ebx
-        add nxtpf, ecx
-        add curnf, ebx
-        add nxtnf, ecx
-        add mapn, edi
-        cmp y, esi
-        jl xloop_pre
-    }
-  }
+      for (int x = startx; x < stopx; x++) {
+        int eax = (mapp[x] << 3) + +mapn[x];
+        if (eax == 0) {
+          x++;
+          if (x < stopx)
+            continue;
+          break;
+        }
+
+        int ecx = (curf[x] << 2) + curpf[x] + curnf[x];
+
+        int edx = prvpf[x] + prvnf[x];
+        edx = abs(edx * 3 - ecx);
+        if (edx > 23) {
+          if ((eax & 9) != 0)
+            accumPns += edx;
+          if (edx > 42) {
+            if ((eax & 18) != 0)
+              accumPms += edx;
+            if ((eax & 36) != 0)
+              accumPmls += edx;
+          }
+        }
+
+        edx = nxtpf[x] + nxtnf[x];
+        edx = abs(edx * 3 - ecx);
+        if (edx > 23) {
+          if ((eax & 9) != 0)
+            accumNns += edx;
+          if (edx > 42) {
+            if ((eax & 18) != 0)
+              accumNms += edx;
+            if ((eax & 36) != 0)
+              accumNmls += edx;
+          }
+        }
+
+      } // x
+      mapp += map_pitch;
+      prvpf += prvf_pitch;
+      curpf += curf_pitch;
+      prvnf += prvf_pitch;
+      curf += curf_pitch;
+      nxtpf += nxtf_pitch;
+      curnf += curf_pitch;
+      nxtnf += nxtf_pitch;
+      mapn += map_pitch;
+    }// for y
+  } //for b 
+
   if (accumPms < 500 && accumNms < 500 && (accumPmls >= 500 || accumNmls >= 500) &&
     max(accumPmls, accumNmls) > 3 * min(accumPmls, accumNmls))
   {
@@ -1693,9 +1648,9 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
   aNm = int(accumNms / 6.0 + 0.5);
 }
 
-void TDeinterlace::subtractFields2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-  VideoInfo &vit, int &aPn, int &aNn, int &aPm, int &aNm, int fieldt, int ordert,
-  int optt, bool d2, IScriptEnvironment *env)
+void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+  VideoInfo& vit, int& aPn, int& aNn, int& aPm, int& aNm, int fieldt, int ordert,
+  int optt, bool d2, IScriptEnvironment* env)
 {
   PVideoFrame map = env->NewVideoFrame(vit);
   int stop = vit.IsYV12() ? 3 : 1, y;
@@ -1706,59 +1661,59 @@ void TDeinterlace::subtractFields2(PVideoFrame &prv, PVideoFrame &src, PVideoFra
   aPm = aNm = 0;
   for (int b = 0; b < stop; ++b)
   {
-    unsigned char *mapp = map->GetWritePtr(plane[b]);
+    unsigned char* mapp = map->GetWritePtr(plane[b]);
     const int map_pitch = map->GetPitch(plane[b]) << 1;
-    const unsigned char *prvp = prv->GetReadPtr(plane[b]);
+    const unsigned char* prvp = prv->GetReadPtr(plane[b]);
     const int prv_pitch = prv->GetPitch(plane[b]);
-    const unsigned char *srcp = src->GetReadPtr(plane[b]);
+    const unsigned char* srcp = src->GetReadPtr(plane[b]);
     const int src_pitch = src->GetPitch(plane[b]);
     const int Width = src->GetRowSize(plane[b]);
     const int Widtha = src->GetRowSize(plane[b] + 8); // +8 = _ALIGNED
     const int Height = src->GetHeight(plane[b]);
-    const unsigned char *nxtp = nxt->GetReadPtr(plane[b]);
+    const unsigned char* nxtp = nxt->GetReadPtr(plane[b]);
     const int nxt_pitch = nxt->GetPitch(plane[b]);
     const int startx = stop > 1 ? (b == 0 ? 8 : 4) : 16;
     const int stopx = Width - startx;
-    fmemset(env->GetCPUFlags(), mapp, Height*(map_pitch >> 1), 0, optt);
-    const unsigned char *prvpf, *curf, *nxtpf;
+    fmemset(env->GetCPUFlags(), mapp, Height * (map_pitch >> 1), optt, 0);
+    const unsigned char* prvpf, * curf, * nxtpf;
     int prvf_pitch, curf_pitch, nxtf_pitch, tp;
     if (d2)
     {
       prvf_pitch = prv_pitch << 1;
       curf_pitch = src_pitch << 1;
       nxtf_pitch = nxt_pitch << 1;
-      prvpf = prvp + ((fieldt == 1 ? 1 : 2)*prv_pitch);
-      curf = srcp + ((3 - fieldt)*src_pitch);
-      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2)*nxt_pitch);
+      prvpf = prvp + ((fieldt == 1 ? 1 : 2) * prv_pitch);
+      curf = srcp + ((3 - fieldt) * src_pitch);
+      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2) * nxt_pitch);
     }
-    else if (fieldt^ordert)
+    else if (fieldt ^ ordert)
     {
       prvf_pitch = src_pitch << 1;
       curf_pitch = src_pitch << 1;
       nxtf_pitch = nxt_pitch << 1;
-      prvpf = srcp + ((fieldt == 1 ? 1 : 2)*src_pitch);
-      curf = srcp + ((3 - fieldt)*src_pitch);
-      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2)*nxt_pitch);
+      prvpf = srcp + ((fieldt == 1 ? 1 : 2) * src_pitch);
+      curf = srcp + ((3 - fieldt) * src_pitch);
+      nxtpf = nxtp + ((fieldt == 1 ? 1 : 2) * nxt_pitch);
     }
     else
     {
       prvf_pitch = prv_pitch << 1;
       curf_pitch = src_pitch << 1;
       nxtf_pitch = src_pitch << 1;
-      prvpf = prvp + ((fieldt == 1 ? 1 : 2)*prv_pitch);
-      curf = srcp + ((3 - fieldt)*src_pitch);
-      nxtpf = srcp + ((fieldt == 1 ? 1 : 2)*src_pitch);
+      prvpf = prvp + ((fieldt == 1 ? 1 : 2) * prv_pitch);
+      curf = srcp + ((3 - fieldt) * src_pitch);
+      nxtpf = srcp + ((fieldt == 1 ? 1 : 2) * src_pitch);
     }
-    mapp = mapp + ((fieldt == 1 ? 1 : 2)*(map_pitch >> 1));
-    const unsigned char *prvppf = prvpf - prvf_pitch;
-    const unsigned char *prvnf = prvpf + prvf_pitch;
-    const unsigned char *prvnnf = prvnf + prvf_pitch;
-    const unsigned char *curpf = curf - curf_pitch;
-    const unsigned char *curnf = curf + curf_pitch;
-    const unsigned char *nxtppf = nxtpf - nxtf_pitch;
-    const unsigned char *nxtnf = nxtpf + nxtf_pitch;
-    const unsigned char *nxtnnf = nxtnf + nxtf_pitch;
-    unsigned char *mapn = mapp + map_pitch;
+    mapp = mapp + ((fieldt == 1 ? 1 : 2) * (map_pitch >> 1));
+    const unsigned char* prvppf = prvpf - prvf_pitch;
+    const unsigned char* prvnf = prvpf + prvf_pitch;
+    const unsigned char* prvnnf = prvnf + prvf_pitch;
+    const unsigned char* curpf = curf - curf_pitch;
+    const unsigned char* curnf = curf + curf_pitch;
+    const unsigned char* nxtppf = nxtpf - nxtf_pitch;
+    const unsigned char* nxtnf = nxtpf + nxtf_pitch;
+    const unsigned char* nxtnnf = nxtnf + nxtf_pitch;
+    unsigned char* mapn = mapp + map_pitch;
     if (b == 0) tp = tpitchy;
     else tp = tpitchuv;
     if (stop == 3)
@@ -1777,369 +1732,202 @@ void TDeinterlace::subtractFields2(PVideoFrame &prv, PVideoFrame &src, PVideoFra
     }
     if (fieldt == 0)
     {
-      __asm
+      for (int y = 2; y < Height - 2; y += 2)
       {
-        mov y, 2
-        xloop_pre0:
-        mov ebx, startx
-          mov edi, mapp
-          mov edx, mapn
-          mov ecx, stopx
-          xloop0 :
-        movzx eax, BYTE PTR[edi + ebx]
-          shl eax, 3
-          add al, BYTE PTR[edx + ebx]
-          jnz b10
-          inc ebx
-          cmp ebx, ecx
-          jl xloop0
-          jmp end_yloop0
-          b10 :
-        mov edx, curf
-          mov edi, curpf
-          movzx ecx, BYTE PTR[edx + ebx]
-          movzx esi, BYTE PTR[edi + ebx]
-          shl ecx, 2
-          mov edx, curnf
-          add ecx, esi
-          mov edi, prvpf
-          movzx esi, BYTE PTR[edx + ebx]
-          movzx edx, BYTE PTR[edi + ebx]
-          add ecx, esi
-          mov edi, prvnf
-          movzx esi, BYTE PTR[edi + ebx]
-          add edx, esi
-          mov edi, edx
-          add edx, edx
-          sub edi, ecx
-          add edx, edi
-          jge b30
-          neg edx
-          b30 :
-        cmp edx, 23
-          jle p30
-          test eax, 9
-          jz p10
-          add accumPns, edx
-          p10 :
-        cmp edx, 42
-          jle p30
-          test eax, 18
-          jz p20
-          add accumPms, edx
-          p20 :
-        test eax, 36
-          jz p30
-          add accumPmls, edx
-          p30 :
-        mov edi, nxtpf
-          mov esi, nxtnf
-          movzx edx, BYTE PTR[edi + ebx]
-          movzx edi, BYTE PTR[esi + ebx]
-          add edx, edi
-          mov esi, edx
-          add edx, edx
-          sub esi, ecx
-          add edx, esi
-          jge b20
-          neg edx
-          b20 :
-        cmp edx, 23
-          jle p60
-          test eax, 9
-          jz p40
-          add accumNns, edx
-          p40 :
-        cmp edx, 42
-          jle p60
-          test eax, 18
-          jz p50
-          add accumNms, edx
-          p50 :
-        test eax, 36
-          jz p60
-          add accumNmls, edx
-          p60 :
-        test eax, 56
-          jz p120
-          mov ecx, prvpf
-          mov edi, prvppf
-          movzx edx, BYTE PTR[ecx + ebx]
-          movzx esi, BYTE PTR[edi + ebx]
-          shl edx, 2
-          mov ecx, prvnf
-          add edx, esi
-          mov edi, curpf
-          movzx esi, BYTE PTR[ecx + ebx]
-          movzx ecx, BYTE PTR[edi + ebx]
-          add edx, esi
-          mov edi, curf
-          movzx esi, BYTE PTR[edi + ebx]
-          add ecx, esi
-          mov edi, ecx
-          add ecx, ecx
-          add ecx, edi
-          sub edx, ecx
-          jge b40
-          neg edx
-          b40 :
-        cmp edx, 23
-          jle p90
-          test eax, 8
-          jz p70
-          add accumPns, edx
-          p70 :
-        cmp edx, 42
-          jle p90
-          test eax, 16
-          jz p80
-          add accumPms, edx
-          p80 :
-        test eax, 32
-          jz p90
-          add accumPmls, edx
-          p90 :
-        mov edi, nxtpf
-          mov esi, nxtppf
-          movzx edx, BYTE PTR[edi + ebx]
-          movzx edi, BYTE PTR[esi + ebx]
-          shl edx, 2
-          mov esi, nxtnf
-          add edx, edi
-          movzx edi, BYTE PTR[esi + ebx]
-          add edx, edi
-          sub edx, ecx
-          jge b50
-          neg edx
-          b50 :
-        cmp edx, 23
-          jle p120
-          test eax, 8
-          jz p100
-          add accumNns, edx
-          p100 :
-        cmp edx, 42
-          jle p120
-          test eax, 16
-          jz p110
-          add accumNms, edx
-          p110 :
-        test eax, 32
-          jz p120
-          add accumNmls, edx
-          p120 :
-        mov ecx, stopx
-          mov edi, mapp
-          inc ebx
-          mov edx, mapn
-          cmp ebx, ecx
-          jl xloop0
-          end_yloop0 :
-        mov esi, Height
-          mov eax, prvf_pitch
-          mov ebx, curf_pitch
-          mov ecx, nxtf_pitch
-          mov edi, map_pitch
-          sub esi, 2
-          add y, 2
-          add mapp, edi
-          add prvpf, eax
-          add curpf, ebx
-          add prvnf, eax
-          add curf, ebx
-          add nxtpf, ecx
-          add prvppf, eax
-          add curnf, ebx
-          add nxtnf, ecx
-          add mapn, edi
-          add nxtppf, ecx
-          cmp y, esi
-          jl xloop_pre0
-      }
+        for (int x = startx; x < stopx; x++) {
+          int eax = (mapp[x] << 3) + +mapn[x];
+          if (eax == 0) {
+            x++;
+            if (x < stopx)
+              continue;
+            break;
+          }
+
+          int ecx = (curf[x] << 2) + curpf[x] + curnf[x];
+
+          int edx = prvpf[x] + prvnf[x];
+          edx = abs(edx * 3 - ecx);
+          if (edx > 23) {
+            if ((eax & 9) != 0)
+              accumPns += edx;
+            if (edx > 42) {
+              if ((eax & 18) != 0)
+                accumPms += edx;
+              if ((eax & 36) != 0)
+                accumPmls += edx;
+            }
+          }
+
+          edx = nxtpf[x] + nxtnf[x];
+          edx = abs(edx * 3 - ecx);
+          if (edx > 23) {
+            if ((eax & 9) != 0)
+              accumNns += edx;
+            if (edx > 42) {
+              if ((eax & 18) != 0)
+                accumNms += edx;
+              if ((eax & 36) != 0)
+                accumNmls += edx;
+            }
+          }
+
+          if ((eax & 56) != 0) {
+
+            int ecx = (prvpf[x] << 2) + prvppf[x] + curnf[x] + prvnf[x];
+
+            int edx = curpf[x] + curf[x];
+            edx = abs(edx * 3 - ecx);
+
+            if (edx > 23) {
+              if ((eax & 8) != 0)
+                accumPns += edx;
+              if (edx > 42) {
+                if ((eax & 16) != 0)
+                  accumPms += edx;
+                if ((eax & 32) != 0)
+                  accumPmls += edx;
+              }
+            }
+
+            edx = (nxtpf[x] << 2) + nxtppf[x] + nxtnf[x];
+
+            edx = abs(edx - ecx);
+
+            if (edx > 23) {
+              if ((eax & 8) != 0)
+                accumNns += edx;
+              if (edx > 42) {
+                if ((eax & 16) != 0)
+                  accumNms += edx;
+                if ((eax & 32) != 0)
+                  accumNmls += edx;
+              }
+            }
+
+          }
+        } // x
+        mapp += map_pitch;
+        prvpf += prvf_pitch;
+        curpf += curf_pitch;
+        prvnf += prvf_pitch;
+        curf += curf_pitch;
+        nxtpf += nxtf_pitch;
+        prvppf += nxtf_pitch;
+        curnf += curf_pitch;
+        nxtnf += nxtf_pitch;
+        mapn += map_pitch;
+        nxtppf += nxtf_pitch;
+      }// for y
     }
     else
     {
-      __asm
+      for (int y = 2; y < Height - 2; y += 2)
       {
-        mov y, 2
-        xloop_pre1:
-        mov ebx, startx
-          mov edi, mapp
-          mov edx, mapn
-          mov ecx, stopx
-          xloop1 :
-        movzx eax, BYTE PTR[edi + ebx]
-          shl eax, 3
-          add al, BYTE PTR[edx + ebx]
-          jnz b11
-          inc ebx
-          cmp ebx, ecx
-          jl xloop1
-          jmp end_yloop1
-          b11 :
-        mov edx, curf
-          mov edi, curpf
-          movzx ecx, BYTE PTR[edx + ebx]
-          movzx esi, BYTE PTR[edi + ebx]
-          shl ecx, 2
-          mov edx, curnf
-          add ecx, esi
-          mov edi, prvpf
-          movzx esi, BYTE PTR[edx + ebx]
-          movzx edx, BYTE PTR[edi + ebx]
-          add ecx, esi
-          mov edi, prvnf
-          movzx esi, BYTE PTR[edi + ebx]
-          add edx, esi
-          mov edi, edx
-          add edx, edx
-          sub edi, ecx
-          add edx, edi
-          jge b31
-          neg edx
-          b31 :
-        cmp edx, 23
-          jle p31
-          test eax, 9
-          jz p11
-          add accumPns, edx
-          p11 :
-        cmp edx, 42
-          jle p31
-          test eax, 18
-          jz p21
-          add accumPms, edx
-          p21 :
-        test eax, 36
-          jz p31
-          add accumPmls, edx
-          p31 :
-        mov edi, nxtpf
-          mov esi, nxtnf
-          movzx edx, BYTE PTR[edi + ebx]
-          movzx edi, BYTE PTR[esi + ebx]
-          add edx, edi
-          mov esi, edx
-          add edx, edx
-          sub esi, ecx
-          add edx, esi
-          jge b21
-          neg edx
-          b21 :
-        cmp edx, 23
-          jle p61
-          test eax, 9
-          jz p41
-          add accumNns, edx
-          p41 :
-        cmp edx, 42
-          jle p61
-          test eax, 18
-          jz p51
-          add accumNms, edx
-          p51 :
-        test eax, 36
-          jz p61
-          add accumNmls, edx
-          p61 :
-        test eax, 7
-          jz p121
-          mov ecx, prvnf
-          mov edi, prvpf
-          movzx edx, BYTE PTR[ecx + ebx]
-          movzx esi, BYTE PTR[edi + ebx]
-          shl edx, 2
-          mov ecx, prvnnf
-          add edx, esi
-          mov edi, curf
-          movzx esi, BYTE PTR[ecx + ebx]
-          movzx ecx, BYTE PTR[edi + ebx]
-          add edx, esi
-          mov edi, curnf
-          movzx esi, BYTE PTR[edi + ebx]
-          add ecx, esi
-          mov edi, ecx
-          add ecx, ecx
-          add ecx, edi
-          sub edx, ecx
-          jge b41
-          neg edx
-          b41 :
-        cmp edx, 23
-          jle p91
-          test eax, 1
-          jz p71
-          add accumPns, edx
-          p71 :
-        cmp edx, 42
-          jle p91
-          test eax, 2
-          jz p81
-          add accumPms, edx
-          p81 :
-        test eax, 4
-          jz p91
-          add accumPmls, edx
-          p91 :
-        mov edi, nxtnf
-          mov esi, nxtpf
-          movzx edx, BYTE PTR[edi + ebx]
-          movzx edi, BYTE PTR[esi + ebx]
-          shl edx, 2
-          mov esi, nxtnnf
-          add edx, edi
-          movzx edi, BYTE PTR[esi + ebx]
-          add edx, edi
-          sub edx, ecx
-          jge b51
-          neg edx
-          b51 :
-        cmp edx, 23
-          jle p121
-          test eax, 1
-          jz p101
-          add accumNns, edx
-          p101 :
-        cmp edx, 42
-          jle p121
-          test eax, 2
-          jz p111
-          add accumNms, edx
-          p111 :
-        test eax, 4
-          jz p121
-          add accumNmls, edx
-          p121 :
-        mov ecx, stopx
-          mov edi, mapp
-          inc ebx
-          mov edx, mapn
-          cmp ebx, ecx
-          jl xloop1
-          end_yloop1 :
-        mov esi, Height
-          mov eax, prvf_pitch
-          mov ebx, curf_pitch
-          mov ecx, nxtf_pitch
-          mov edi, map_pitch
-          sub esi, 2
-          add y, 2
-          add mapp, edi
-          add prvpf, eax
-          add curpf, ebx
-          add prvnf, eax
-          add curf, ebx
-          add prvnnf, eax
-          add nxtpf, ecx
-          add curnf, ebx
-          add nxtnf, ecx
-          add mapn, edi
-          add nxtnnf, ecx
-          cmp y, esi
-          jl xloop_pre1
-      }
-    }
-  }
+        for (int x = startx; x < stopx; x++) {
+          int eax = (mapp[x] << 3) + mapn[x];
+          if (eax == 0) {
+            x++;
+            if (x < stopx)
+              continue;
+            break;
+          }
+
+          int ecx = (curf[x] << 2) + curpf[x] + curnf[x];
+
+          int edx = prvpf[x] + prvnf[x];
+          edx = abs(edx * 3 - ecx);
+          if (edx > 23) {
+            if ((eax & 9) != 0)
+              accumPns += edx;
+            if (edx > 42) {
+              if ((eax & 18) != 0)
+                accumPms += edx;
+              if ((eax & 36) != 0)
+                accumPmls += edx;
+            }
+          }
+
+          edx = nxtpf[x] + nxtnf[x];
+          edx = abs(edx * 3 - ecx);
+          if (edx > 23) {
+            if ((eax & 9) != 0)
+              accumNns += edx;
+            if (edx > 42) {
+              if ((eax & 18) != 0)
+                accumNms += edx;
+              if ((eax & 36) != 0)
+                accumNmls += edx;
+            }
+          }
+
+          if ((eax & 56) != 0) {
+
+            int ecx = (prvnf[x] << 2) + prvpf[x] + curnf[x] + prvnf[x];
+
+            int edx = curpf[x] + curf[x];
+            edx = abs(edx * 3 - ecx);
+
+            if (edx > 23) {
+              if ((eax & 8) != 0)
+                accumPns += edx;
+              if (edx > 42) {
+                if ((eax & 16) != 0)
+                  accumPms += edx;
+                if ((eax & 32) != 0)
+                  accumPmls += edx;
+              }
+            }
+
+            edx = (prvnf[x] << 2) + prvpf[x] + prvnnf[x];
+            
+            ecx = curf[x] + curnf[x];
+            edx = abs(ecx * 3 - edx);
+
+            if (edx > 23) {
+              if ((eax & 1) != 0)
+                accumPns += edx;
+              if (edx > 42) {
+                if ((eax & 2) != 0)
+                  accumPms += edx;
+                if ((eax & 4) != 0)
+                  accumPmls += edx;
+              }
+            }
+
+            edx = (nxtnf[x] << 2) + nxtpf[x] + nxtnnf[x];
+
+            edx = abs(ecx - edx);
+
+
+            if (edx > 23) {
+              if ((eax & 1) != 0)
+                accumNns += edx;
+              if (edx > 42) {
+                if ((eax & 2) != 0)
+                  accumNms += edx;
+                if ((eax & 4) != 0)
+                  accumNmls += edx;
+              }
+            }
+
+          }
+
+        } // x
+        mapp += map_pitch;
+        prvpf += prvf_pitch;
+        curpf += curf_pitch;
+        prvnf += prvf_pitch;
+        curf += curf_pitch;
+        prvnnf += prvf_pitch; // instead of prvppf
+        nxtpf += nxtf_pitch;
+        curnf += curf_pitch;
+        nxtnf += nxtf_pitch;
+        mapn += map_pitch;
+        nxtnnf += nxtf_pitch; // instead of nxtppf
+      }// for y
+    } // if
+  } // for b
+
   if (accumPms < 500 && accumNms < 500 && (accumPmls >= 500 || accumNmls >= 500) &&
     max(accumPmls, accumNmls) > 3 * min(accumPmls, accumNmls))
   {

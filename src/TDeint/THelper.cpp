@@ -181,10 +181,12 @@ unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, ISc
   }
   if ((cpu&CPUF_SSE2) && !((int(srcp1) | int(srcp2) | src1_pitch | src2_pitch) & 15))
     subtractFramesSSE2(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
+#ifdef ALLOW_MMX
   else if (cpu&CPUF_INTEGER_SSE)
     subtractFramesISSE(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
   else if (cpu&CPUF_MMX)
     subtractFramesMMX(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
+#endif
   else
   {
     for (int y = 0; y < height; ++y)
@@ -222,10 +224,12 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
     const int dst_pitch = dst->GetPitch(plane[b]);
     if ((cpu&CPUF_SSE2) && !((int(srcp1) | int(srcp2) | int(dstp) | src1_pitch | src2_pitch | dst_pitch) & 15))
       blendFramesSSE2(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
+#ifdef ALLOW_MMX
     else if (cpu&CPUF_INTEGER_SSE)
       blendFramesISSE(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
     else if (cpu&CPUF_MMX)
       blendFramesMMX(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
+#endif
     else
     {
       for (int y = 0; y < height; ++y)
@@ -240,80 +244,69 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
   }
 }
 
+#ifdef ALLOW_MMX
 __declspec(align(16)) const __int64 lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 __declspec(align(16)) const __int64 onesMask[2] = { 0x0001000100010001, 0x0001000100010001 };
+#endif
 
-void TDHelper::subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch,
+void subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
   unsigned long &diff)
 {
+  // inc: 2 (YUY2) or 1 (YV12)
+/*
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; x += inc)
+      diff += abs(srcp1[x] - srcp2[x]);
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+  }
+*/
   if (inc == 1)
   {
-    __asm
+    auto sum = _mm_setzero_si128();
+    for (int y = 0; y < height; ++y)
     {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov ecx, width
-      mov esi, height
-      pxor xmm1, xmm1
-      yloopyv12 :
-      xor eax, eax
-        align 16
-        xloopyv12 :
-        movdqa xmm0, [ebx + eax]
-        psadbw xmm0, [edx + eax]
-        add eax, 16
-        paddq xmm1, xmm0
-        cmp eax, ecx
-        jl xloopyv12
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        dec esi
-        jnz yloopyv12
-        movdqa xmm0, xmm1
-        psrldq xmm1, 8
-        paddq xmm0, xmm1
-        mov eax, diff
-        movd[eax], xmm0
+      for (int x = 0; x < width; x += 16)
+      {
+        auto src1 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x));
+        auto src2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x));
+        auto diff = _mm_sad_epu8(src1, src2);
+        sum = _mm_add_epi64(sum, diff);
+      }
+      srcp1 += src1_pitch;
+      srcp2 += src2_pitch;
     }
+    sum = _mm_add_epi64(sum, _mm_srli_si128(sum, 8));
+    diff += _mm_cvtsi128_si32(sum);
   }
   else
   {
-    __asm
+    // inc = 2
+    static const __m128i lumaMask = _mm_set1_epi16(0x00FF);
+
+    auto sum = _mm_setzero_si128();
+    for (int y = 0; y < height; ++y)
     {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov ecx, width
-      mov esi, height
-      movdqa xmm2, lumaMask
-      movdqa xmm3, lumaMask
-      pxor xmm4, xmm4
-      yloopyuy2 :
-      xor eax, eax
-        align 16
-        xloopyuy2 :
-        movdqa xmm0, [ebx + eax]
-        movdqa xmm1, [edx + eax]
-        pand xmm0, xmm2
-        pand xmm1, xmm3
-        add eax, 16
-        psadbw xmm0, xmm1
-        cmp eax, ecx
-        paddq xmm4, xmm0
-        jl xloopyuy2
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        dec esi
-        jnz yloopyuy2
-        movdqa xmm0, xmm4
-        psrldq xmm4, 8
-        paddq xmm0, xmm4
-        mov eax, diff
-        movd[eax], xmm0
+      for (int x = 0; x < width; x += 16)
+      {
+        auto src1 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x));
+        src1 = _mm_and_si128(src1, lumaMask);
+        auto src2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x));
+        src1 = _mm_and_si128(src2, lumaMask);
+        auto diff = _mm_sad_epu8(src1, src2);
+        sum = _mm_add_epi64(sum, diff);
+      }
+      srcp1 += src1_pitch;
+      srcp2 += src2_pitch;
     }
+    sum = _mm_add_epi64(sum, _mm_srli_si128(sum, 8));
+    diff += _mm_cvtsi128_si32(sum);
   }
 }
 
+#ifdef ALLOW_MMX
 void TDHelper::subtractFramesISSE(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
   unsigned long &diff)
@@ -393,7 +386,9 @@ void TDHelper::subtractFramesISSE(const unsigned char *srcp1, int src1_pitch,
     }
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TDHelper::subtractFramesMMX(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
   unsigned long &diff)
@@ -509,36 +504,38 @@ void TDHelper::subtractFramesMMX(const unsigned char *srcp1, int src1_pitch,
     }
   }
 }
+#endif
 
-void TDHelper::blendFramesSSE2(const unsigned char *srcp1, int src1_pitch,
+void blendFramesSSE2(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
   int height, int width)
 {
-  __asm
+/*
+  for (int y = 0; y < height; ++y)
   {
-    mov ebx, srcp1
-    mov edx, srcp2
-    mov esi, dstp
-    mov edi, height
-    mov ecx, width
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [ebx + eax]
-      pavgb xmm0, [edx + eax]
-      movdqa[esi + eax], xmm0
-      add eax, 16
-      cmp eax, ecx
-      jl xloop
-      add ebx, src1_pitch
-      add edx, src2_pitch
-      add esi, dst_pitch
-      dec edi
-      jnz yloop
+    for (int x = 0; x < width; ++x)
+      dstp[x] = (srcp1[x] + srcp2[x] + 1) >> 1;
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+    dstp += dst_pitch;
+  }
+*/
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; x += 16)
+    {
+      auto result = _mm_avg_epu8(
+        _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x)),
+        _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x)));
+      _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), result);
+    }
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+    dstp += dst_pitch;
   }
 }
 
+#ifdef ALLOW_MMX
 void TDHelper::blendFramesISSE(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
   int height, int width)
@@ -601,7 +598,9 @@ void TDHelper::blendFramesISSE(const unsigned char *srcp1, int src1_pitch,
     }
   }
 }
+#endif
 
+#ifdef ALLOW_MMX
 void TDHelper::blendFramesMMX(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
   int height, int width)
@@ -646,3 +645,4 @@ void TDHelper::blendFramesMMX(const unsigned char *srcp1, int src1_pitch,
       emms
   }
 }
+#endif
