@@ -31,7 +31,6 @@
 #include "calcCRC.h"
 #include "internal.h"
 #include "profUtil.h"
-#include "memset_simd.h"
 #include "PlanarFrame.h"
 #define TFM_INCLUDED
 #ifndef TFMPP_INCLUDED

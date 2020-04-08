@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include "internal.h"
 #include "TFM.h"
+#include "emmintrin.h"
 
 #ifdef VERSION
 #undef VERSION

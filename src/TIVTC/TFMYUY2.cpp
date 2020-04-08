@@ -81,7 +81,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   const int yblocks = ((Height + yhalf) >> yshift) + 1;
   const int arraysize = (xblocks*yblocks) << 2;
   if (cthresh < 0) { memset(cmkw, 255, Height*cmk_pitch); goto cjump; }
-  fmemset(env->GetCPUFlags(), cmkw, Height*cmk_pitch, opt);
+  memset(cmkw, 0, Height*cmk_pitch);
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;

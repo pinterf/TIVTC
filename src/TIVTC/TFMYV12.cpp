@@ -113,7 +113,7 @@ bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     unsigned char *cmkp = cmask->GetPtr(b - 1); // fixme check: Tdeint: cmask->GetWritePtr(plane);
     const int cmk_pitch = cmask->GetPitch(b - 1);
     if (cthresh < 0) { memset(cmkp, 255, Height*cmk_pitch); continue; }
-    fmemset(env->GetCPUFlags(), cmkp, Height*cmk_pitch, opt);
+    memset(cmkp, 0, Height*cmk_pitch);
     if (metric == 0)
     {
       for (int x = 0; x < Width; ++x)

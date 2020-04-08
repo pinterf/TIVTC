@@ -316,7 +316,7 @@ void TDeinterlace::createMotionMap4YV12(PVideoFrame &prv2, PVideoFrame &prv,
     else d3p = db->GetReadPtr(db->GetPos(field^order ? 2 : 3), b) + dpitchl*field;
     unsigned char *maskw = mask->GetWritePtr(plane[b]);
     const int mask_pitch = mask->GetPitch(plane[b]) << 1;
-    fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, opt, 10);
+    memset(maskw, 10, (mask_pitch >> 1)*Height);
     maskw += (mask_pitch >> 1)*field;
     const int mthresh = b == 0 ? mthreshL : mthreshC;
     const unsigned char *d1pn = d1p + dpitchl;
@@ -502,7 +502,7 @@ void TDeinterlace::createMotionMap5YV12(PVideoFrame &prv2, PVideoFrame &prv,
     }
     unsigned char *maskw = mask->GetWritePtr(plane[b]);
     const int mask_pitch = mask->GetPitch(plane[b]) << 1;
-    fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, opt, 10);
+    memset(maskw, 10, (mask_pitch >> 1)*Height);
     maskw += (mask_pitch >> 1)*field;
     const int mthresh = b == 0 ? mthreshL : mthreshC;
     if (field^order)
@@ -963,7 +963,7 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
     unsigned char *cmkp = cmask->GetWritePtr(plane);
     const int cmk_pitch = cmask->GetPitch(plane);
     if (cthresh < 0) { memset(cmkp, 255, Height*cmk_pitch); continue; }
-    fmemset(env->GetCPUFlags(), cmkp, Height*cmk_pitch, opt, 0);
+    memset(cmkp, 0, Height*cmk_pitch);
     if (metric == 0)
     {
       for (int x = 0; x < Width; ++x)
@@ -1533,7 +1533,7 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
     const int nxt_pitch = nxt->GetPitch(plane[b]);
     const int startx = stop > 1 ? (b == 0 ? 8 : 4) : 16;
     const int stopx = Width - startx;
-    fmemset(env->GetCPUFlags(), mapp, Height * (map_pitch >> 1), optt, 0);
+    memset(mapp, 0, Height * (map_pitch >> 1));
     const unsigned char* prvpf, * curf, * nxtpf;
     int prvf_pitch, curf_pitch, nxtf_pitch, tp;
     if (d2)
@@ -1676,7 +1676,7 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
     const int nxt_pitch = nxt->GetPitch(plane[b]);
     const int startx = stop > 1 ? (b == 0 ? 8 : 4) : 16;
     const int stopx = Width - startx;
-    fmemset(env->GetCPUFlags(), mapp, Height * (map_pitch >> 1), optt, 0);
+    memset(mapp, 0, Height * (map_pitch >> 1));
     const unsigned char* prvpf, * curf, * nxtpf;
     int prvf_pitch, curf_pitch, nxtf_pitch, tp;
     if (d2)

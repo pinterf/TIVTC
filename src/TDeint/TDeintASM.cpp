@@ -98,7 +98,7 @@ void absDiffSSE2(const unsigned char *srcp1, const unsigned char *srcp2,
 #if defined(USE_INTR)
   static const auto onesMask = _mm_set1_epi8(1);
   static const auto sthresh = _mm_set1_epi16((mthresh2 << 8) + mthresh1);
-  static const auto all_ff = _mm_set1_epi8(0xFF);
+  static const auto all_ff = _mm_set1_epi8(-1);
   for (int y = 0; y < height; ++y)
   {
     for (int x = 0; x < width; x += 16)
@@ -525,9 +525,9 @@ void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp
 #ifdef USE_INTR
   __m128i onesMask = _mm_set1_epi8(0x01);
   __m128i twosMask = _mm_set1_epi8(0x02);
-  __m128i all_ff = _mm_set1_epi8(0xFF);
-  __m128i mask251 = _mm_set1_epi8(0xFB); // 1111 1011
-  __m128i mask235 = _mm_set1_epi8(0xEB); // 1110 1011
+  __m128i all_ff = _mm_set1_epi8(-1);
+  __m128i mask251 = _mm_set1_epi8((char)0xFB); // 1111 1011
+  __m128i mask235 = _mm_set1_epi8((char)0xEB); // 1110 1011
 
   if (!(width & 15))
   {
@@ -848,7 +848,7 @@ template<bool aligned, bool with_luma_mask>
 static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
-  __m128i all_ff = _mm_set1_epi8(0xFF);
+  __m128i all_ff = _mm_set1_epi8(-1);
   while (height--) {
     for (int x = 0; x < width; x += 16) {
       auto next = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + src_pitch + x));

@@ -27,7 +27,6 @@
 #include <windows.h>
 #include <malloc.h>
 #include "internal.h"
-#include "memcpy_amd.h"
 
 #define MIN_ALIGNMENT 16
 

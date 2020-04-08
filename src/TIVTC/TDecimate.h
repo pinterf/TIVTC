@@ -33,7 +33,6 @@
 #include "calcCRC.h"
 #include "profUtil.h"
 #include "Cache.h"
-#include "memset_simd.h"
 #define ISP 0x00000000 // p
 #define ISC 0x00000001 // c
 #define ISN 0x00000002 // n

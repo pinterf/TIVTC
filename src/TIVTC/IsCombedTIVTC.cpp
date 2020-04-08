@@ -217,7 +217,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   const int yblocks = ((Height + yhalf) >> yshift) + 1;
   const int arraysize = (xblocks*yblocks) << 2;
   if (cthresh < 0) { memset(cmkw, 255, Height*cmk_pitch); goto cjump; }
-  fmemset(env->GetCPUFlags(), cmkw, Height*cmk_pitch, opt);
+  memset(cmkw, 0, Height*cmk_pitch);
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;
@@ -664,7 +664,7 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
     unsigned char *cmkp = cmask->GetPtr(b - 1);
     const int cmk_pitch = cmask->GetPitch(b - 1);
     if (cthresh < 0) { memset(cmkp, 255, Height*cmk_pitch); continue; }
-    fmemset(env->GetCPUFlags(), cmkp, Height*cmk_pitch, opt);
+    memset(cmkp, 0, Height*cmk_pitch);
     if (metric == 0)
     {
       for (int x = 0; x < Width; ++x)

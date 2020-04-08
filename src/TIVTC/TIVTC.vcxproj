@@ -431,8 +431,6 @@
     <ClCompile Include="FieldDiff.cpp" />
     <ClCompile Include="FrameDiff.cpp" />
     <ClCompile Include="IsCombedTIVTC.cpp" />
-    <ClCompile Include="memcpy_amd.cpp" />
-    <ClCompile Include="memset_simd.cpp" />
     <ClCompile Include="MergeHints.cpp" />
     <ClCompile Include="PlanarFrame.cpp" />
     <ClCompile Include="PluginInit.cpp" />
@@ -469,8 +467,6 @@
     <ClInclude Include="Font.h" />
     <ClInclude Include="FrameDiff.h" />
     <ClInclude Include="internal.h" />
-    <ClInclude Include="memcpy_amd.h" />
-    <ClInclude Include="memset_simd.h" />
     <ClInclude Include="MergeHints.h" />
     <ClInclude Include="PlanarFrame.h" />
     <ClInclude Include="profUtil.h" />

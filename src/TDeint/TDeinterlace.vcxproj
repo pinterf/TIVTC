@@ -407,7 +407,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="memset_simd.cpp" />
     <ClCompile Include="TDBuf.cpp" />
     <ClCompile Include="TDeintASM.cpp" />
     <ClCompile Include="TDeinterlace.cpp" />
@@ -426,7 +425,6 @@
     <ClInclude Include="..\include\avs\types.h" />
     <ClInclude Include="..\include\avs\win.h" />
     <ClInclude Include="internal.h" />
-    <ClInclude Include="memset_simd.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="TDBuf.h" />
     <ClInclude Include="TDeintASM.h" />

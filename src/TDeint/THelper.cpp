@@ -24,6 +24,7 @@
 */
 
 #include "THelper.h"
+#include "emmintrin.h"
 
 TDHelper::~TDHelper()
 {

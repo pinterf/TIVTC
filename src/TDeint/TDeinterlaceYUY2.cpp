@@ -312,7 +312,7 @@ void TDeinterlace::createMotionMap4YUY2(PVideoFrame &prv2, PVideoFrame &prv,
   else d3p = db->GetReadPtr(db->GetPos(field^order ? 2 : 3), 0) + dpitchl*field;
   unsigned char *maskw = mask->GetWritePtr();
   const int mask_pitch = mask->GetPitch() << 1;
-  fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, opt, 10);
+  memset(maskw, 10, (mask_pitch >> 1)*Height);
   maskw += (mask_pitch >> 1)*field;
   const unsigned char *d1pn = d1p + dpitchl;
   const unsigned char *d2pn = d2p + dpitchl;
@@ -493,7 +493,7 @@ void TDeinterlace::createMotionMap5YUY2(PVideoFrame &prv2, PVideoFrame &prv,
   }
   unsigned char *maskw = mask->GetWritePtr();
   const int mask_pitch = mask->GetPitch() << 1;
-  fmemset(env->GetCPUFlags(), maskw, (mask_pitch >> 1)*Height, opt, 10);
+  memset(maskw, 10, (mask_pitch >> 1)*Height);
   maskw += (mask_pitch >> 1)*field;
   if (field^order)
   {
@@ -910,7 +910,7 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
   const int yblocks = ((Height + yhalf) >> yshift) + 1;
   const int arraysize = (xblocks*yblocks) << 2;
   if (cthresh < 0) { memset(cmkw, 255, Height*cmk_pitch); goto cjump; }
-  fmemset(env->GetCPUFlags(), cmkw, Height*cmk_pitch, opt, 0);
+  memset(cmkw, 0, Height*cmk_pitch);
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;

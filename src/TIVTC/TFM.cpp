@@ -1111,7 +1111,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
-    fmemset(env->GetCPUFlags(), mapp, Height*map_pitch, opt);
+    memset(mapp, 0, Height*map_pitch);
     startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YV12 specific
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
@@ -1458,7 +1458,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
-    fmemset(env->GetCPUFlags(), mapp, Height*map_pitch, opt);
+    memset(mapp, 0, Height*map_pitch);
     startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YV12/YUY specific
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;

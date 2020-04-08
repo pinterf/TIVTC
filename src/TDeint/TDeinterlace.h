@@ -34,7 +34,6 @@
 #include "THelper.h"
 #endif
 #include "TDBuf.h"
-#include "memset_simd.h"
 
 /*
 #define TDEINT_VERSION "v1.1"

@@ -23,7 +23,7 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #include "FieldDiff.h"
-#include <xmmintrin.h>
+#include <emmintrin.h>
 
 FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _debug,
   bool _sse, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child), nt(_nt),

@@ -30,12 +30,6 @@
     <ClCompile Include="IsCombedTIVTC.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="memcpy_amd.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="memset_simd.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="MergeHints.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -114,12 +108,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="internal.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="memcpy_amd.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="memset_simd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MergeHints.h">
