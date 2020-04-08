@@ -214,7 +214,8 @@ void TDeinterlace::putHint2(PVideoFrame &dst, bool wdtd)
 void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env)
 {
   if (db->fnum[pos] == n) return;
-  absDiff(p1, p2, (PVideoFrame)NULL, pos, env);
+  PVideoFrame dummyframe = NULL;
+  absDiff(p1, p2, dummyframe, pos, env);
   db->fnum[pos] = n;
 }
 
@@ -453,12 +454,12 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' ||
           linein[0] == '#') continue;
         linep = linein;
-        while (*linep != '-' && *linep != '+' && *linep != 0) *linep++;
+        while (*linep != '-' && *linep != '+' && *linep != 0) linep++;
         if (*linep == 0) ++countOvr;
         else if (*(linep + 1) == '-' || *(linep + 1) == '+')
         {
           linep = linein;
-          while (*linep != ',' && *linep != 0) *linep++;
+          while (*linep != ',' && *linep != 0) linep++;
           if (*linep == ',')
           {
             sscanf(linein, "%d,%d", &z, &w);
@@ -495,7 +496,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
           if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' ||
             linein[0] == ';' || linein[0] == '#') continue;
           linep = linein;
-          while (*linep != ',' && *linep != 0 && *linep != ' ') *linep++;
+          while (*linep != ',' && *linep != 0 && *linep != ' ') linep++;
           if (*linep == ',')
           {
             sscanf(linein, "%d,%d", &z, &w);
@@ -509,10 +510,10 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
               env->ThrowError("TDeint: ovr input error (invalid frame range)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep != 0)
             {
-              *linep++;
+              linep++;
               if (*linep == 'f' || *linep == 'o' || *linep == 'l' || *linep == 'c' || *linep == 't')
               {
                 q = *linep;
@@ -567,7 +568,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
                     input[i] = track; ++i;
                     input[i] = track; ++i; ++i;
                     ++count; ++track;
-                    *linep++;
+                    linep++;
                   }
                   while (track <= w)
                   {
@@ -615,10 +616,10 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
               env->ThrowError("TDeint: ovr input error (out of range frame #)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep != 0)
             {
-              *linep++;
+              linep++;
               q = *linep;
               input[i] = q; ++i;
               input[i] = z; ++i;
@@ -722,7 +723,7 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
   int mthreshL = 6;
   int mthreshC = 6;
   int map = 0;
-  char* ovr = "";
+  const char* ovr = "";
   int ovrDefault = 0;
   int type = 2;
   bool debug = false;
@@ -743,9 +744,12 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
   {
     unsigned int temp;
     int tfieldHint;
-    if (!args[13].IsBool() &&
-      TDeinterlace::getHint(args[0].AsClip()->GetFrame(0, env), temp, tfieldHint) != -1)
-      hints = true;
+    if (!args[13].IsBool())
+    {
+      PVideoFrame frame = args[0].AsClip()->GetFrame(0, env);
+      if (TDeinterlace::getHint(frame, temp, tfieldHint) != -1)
+        hints = true;
+    }
   }
   PClip v;
   if (args[14].IsClip())

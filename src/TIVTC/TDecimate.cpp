@@ -254,11 +254,18 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       {
         if (!useclip2) dst = env->NewVideoFrame(child->GetVideoInfo());
         else dst = env->NewVideoFrame(clip2->GetVideoInfo());
-        if (!useclip2)
-          blendFrames(child->GetFrame(f1, env), child->GetFrame(f2, env), dst, a1, a2, np, env);
-        else
-          blendFrames(clip2->GetFrame(f1, env), clip2->GetFrame(f2, env), dst, a1, a2,
+        
+        if (!useclip2) {
+          PVideoFrame frame1 = child->GetFrame(f1, env);
+          PVideoFrame frame2 = child->GetFrame(f2, env);
+          blendFrames(frame1, frame2, dst, a1, a2, np, env);
+        }
+        else {
+          PVideoFrame frame1 = clip2->GetFrame(f1, env);
+          PVideoFrame frame2 = clip2->GetFrame(f2, env);
+          blendFrames(frame1, frame2, dst, a1, a2,
             clip2->GetVideoInfo().IsYV12() ? 3 : 1, env);
+        }
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2,
@@ -315,13 +322,17 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       if (!useclip2)
       {
         dst = env->NewVideoFrame(child->GetVideoInfo());
-        blendFrames(child->GetFrame(f1, env), child->GetFrame(f2, env), dst, a1, a2, np, env);
+        PVideoFrame frame1 = child->GetFrame(f1, env);
+        PVideoFrame frame2 = child->GetFrame(f2, env);
+        blendFrames(frame1, frame2, dst, a1, a2, np, env);
       }
       else
       {
         dst = env->NewVideoFrame(clip2->GetVideoInfo());
         np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
-        blendFrames(clip2->GetFrame(f1, env), clip2->GetFrame(f2, env), dst, a1, a2, np, env);
+        PVideoFrame frame1 = clip2->GetFrame(f1, env);
+        PVideoFrame frame2 = clip2->GetFrame(f2, env);
+        blendFrames(frame1, frame2, dst, a1, a2, np, env);
       }
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, np);
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
@@ -402,11 +413,17 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       {
         if (!useclip2) dst = env->NewVideoFrame(child->GetVideoInfo());
         else dst = env->NewVideoFrame(clip2->GetVideoInfo());
-        if (!useclip2)
-          blendFrames(child->GetFrame(f1, env), child->GetFrame(f2, env), dst, a1, a2, np, env);
-        else
-          blendFrames(clip2->GetFrame(f1, env), clip2->GetFrame(f2, env), dst, a1, a2,
+        if (!useclip2) {
+          PVideoFrame frame1 = child->GetFrame(f1, env);
+          PVideoFrame frame2 = child->GetFrame(f2, env);
+          blendFrames(frame1, frame2, dst, a1, a2, np, env);
+        }
+        else {
+          PVideoFrame frame1 = clip2->GetFrame(f1, env);
+          PVideoFrame frame2 = clip2->GetFrame(f2, env);
+          blendFrames(frame1, frame2, dst, a1, a2,
             useclip2 ? (clip2->GetVideoInfo().IsYV12() ? 3 : 1) : np, env);
+        }
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2,
@@ -480,11 +497,17 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
     {
       if (!useclip2) dst = env->NewVideoFrame(child->GetVideoInfo());
       else dst = env->NewVideoFrame(clip2->GetVideoInfo());
-      if (!useclip2)
-        blendFrames(child->GetFrame(f1, env), child->GetFrame(f2, env), dst, a1, a2, np, env);
-      else
-        blendFrames(clip2->GetFrame(f1, env), clip2->GetFrame(f2, env), dst, a1, a2,
+      if (!useclip2) {
+        PVideoFrame frame1 = child->GetFrame(f1, env);
+        PVideoFrame frame2 = child->GetFrame(f2, env);
+        blendFrames(frame1, frame2, dst, a1, a2, np, env);
+      }
+      else {
+        PVideoFrame frame1 = clip2->GetFrame(f1, env);
+        PVideoFrame frame2 = clip2->GetFrame(f2, env);
+        blendFrames(frame1, frame2, dst, a1, a2,
           clip2->GetVideoInfo().IsYV12() ? 3 : 1, env);
+      }
     }
     if (debug) debugOutput2(n, 0, false, f1, f2, a1, a2);
     if (display) displayOutput(env, dst, n, 0, false, a1, a2, f1, f2,
@@ -932,7 +955,8 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene,
     (nbuf.diffMetricsUF[pos] == ULLONG_MAX && scene))
   {
     src = child->GetFrame(n2, env);
-    nbuf.diffMetricsU[pos] = calcMetric(child->GetFrame(n1, env), src,
+    PVideoFrame frame = child->GetFrame(n1, env);
+    nbuf.diffMetricsU[pos] = calcMetric(frame, src,
       np, blockNI, xblocksI, metricF, env, scene);
     nbuf.diffMetricsN[pos] = (nbuf.diffMetricsU[pos] * 100.0) / MAX_DIFF;
     if (scene) nbuf.diffMetricsUF[pos] = metricF;
@@ -942,8 +966,13 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene,
     if (!usehints) nbuf.match[pos] = -200;
     else
     {
-      if (!src) nbuf.match[pos] = getHint(child->GetFrame(n2, env), nbuf.filmd2v[pos]);
-      else nbuf.match[pos] = getHint(src, nbuf.filmd2v[pos]);
+      if (!src) {
+        PVideoFrame frame = child->GetFrame(n2, env);
+        nbuf.match[pos] = getHint(frame, nbuf.filmd2v[pos]);
+      }
+      else {
+        nbuf.match[pos] = getHint(src, nbuf.filmd2v[pos]);
+      }
     }
   }
 }
@@ -3587,12 +3616,14 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             while (*linep != ',' && *linep != 0) linep++;
             if (*linep == 0) continue;
             linep++; linep++;
+
+            char ch;
             if (_strnicmp(linep, "chroma = ", 9) == 0)
             {
               while (*linep != '=') linep++;
               linep++; linep++;
-              sscanf(linep, "%c", &j);
-              if (((j == 'T' || j == 't') && !chroma) || ((j == 'F' || j == 'f') && chroma))
+              sscanf(linep, "%c", &ch);
+              if (((ch == 'T' || ch == 't') && !chroma) || ((ch == 'F' || ch == 'f') && chroma))
               {
                 fclose(f);
                 f = NULL;
@@ -3673,17 +3704,17 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
           continue;
         linep = linein;
-        while (*linep != 0 && *linep != ' ' && *linep != ',') *linep++;
+        while (*linep != 0 && *linep != ' ' && *linep != ',') linep++;
         if (*linep == ' ')
         {
           linet = linein;
           while (*linet != 0)
           {
             if (*linet != ' ' && *linet != 10) break;
-            *linet++;
+            linet++;
           }
           if (*linet == 0) continue;
-          *linep++;
+          linep++;
           if (*linep == '-' || *linep == '+')
           {
             sscanf(linein, "%d", &z);
@@ -3694,10 +3725,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               env->ThrowError("TDecimate:  ovr file error (out of range frame #)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep != 0)
             {
-              *linep++;
+              linep++;
               q = *linep;
               if (q == 45) q = DROP_FRAME;
               else if (q == 43) q = KEEP_FRAME;

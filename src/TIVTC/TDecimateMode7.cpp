@@ -37,62 +37,65 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
   int next_f = int(double(n + 1)*ratio);
   if (next_f > nfrms) next_f = nfrms;
   int curr_real = mode2_decA[n];
-  if (curr_real != -20) { goto finish7; }
-  int prev_real = n == 0 ? -20 : mode2_decA[n - 1];
-  if (prev_real != -20) prev_f = prev_real;
-  bool rup = double(n)*ratio - double(curr1_f) >= 0.5 ? true : false;
-  for (int i = max(prev_f - 3, 1); i <= min(next_f + 2, nfrms); ++i)
-  {
-    if (metricsOutArray[i << 1] == ULLONG_MAX)
+  int chosen = 0;
+  if (curr_real == -20) {
+    int prev_real = n == 0 ? -20 : mode2_decA[n - 1];
+    if (prev_real != -20) prev_f = prev_real;
+    bool rup = double(n) * ratio - double(curr1_f) >= 0.5 ? true : false;
+    for (int i = max(prev_f - 3, 1); i <= min(next_f + 2, nfrms); ++i)
     {
-      if (metricsArray != NULL && metricsArray[i << 1] != ULLONG_MAX)
-        metricsOutArray[i << 1] = metricsArray[i << 1];
-      else
+      if (metricsOutArray[i << 1] == ULLONG_MAX)
       {
-        int blockNI, blocksI;
-        uint64_t metricF;
-        metricsOutArray[i << 1] =
-          calcMetric(child->GetFrame(i - 1, env), child->GetFrame(i, env),
-            np, blockNI, blocksI, metricF, env, false);
+        if (metricsArray != NULL && metricsArray[i << 1] != ULLONG_MAX)
+          metricsOutArray[i << 1] = metricsArray[i << 1];
+        else
+        {
+          int blockNI, blocksI;
+          uint64_t metricF;
+          PVideoFrame frame1 = child->GetFrame(i - 1, env);
+          PVideoFrame frame2 = child->GetFrame(i, env);
+          metricsOutArray[i << 1] =
+            calcMetric(frame1, frame2,
+              np, blockNI, blocksI, metricF, env, false);
+        }
       }
     }
+    if (same_group(curr1_f, curr2_f, env))
+    {
+      if (next_f - curr2_f > 1 && similar_group(prev_f, curr2_f, env) &&
+        diff_group(next_f, next_f + 1, env) && diff_group(curr2_f, curr2_f + 1, env))
+        chosen = 4;
+      else chosen = 2;
+    }
+    else if (same_group(prev_f, curr1_f, env)) chosen = 1;
+    else if (similar_group(prev_f, curr1_f, env))
+    {
+      if (similar_group(curr1_f, curr2_f, env) && !same_group(curr2_f, next_f, env))
+        chosen = 3;
+      else if (diff_group(curr1_f, curr2_f, env))
+        chosen = 1;
+    }
+    else if (diff_group(prev_f, curr1_f, env))
+    {
+      if (diff_group(curr2_f, next_f, env)) chosen = 3;
+      else if (diff_group(curr1_f, curr2_f, env) && same_group(curr1_f - 1, curr1_f, env) &&
+        same_group(curr2_f, next_f, env) && diff_group(next_f, next_f + 1, env) &&
+        curr1_f - prev_f == 2 && diff_group(prev_f - 1, prev_f, env))
+        chosen = 1;
+    }
+    if (chosen == 4) mode2_decA[n] = curr2_f + 1;
+    else if (chosen >= 2) // either
+    {
+      if ((chosen == 2 && rup) || (chosen == 3 &&
+        ((metricsOutArray[curr2_f << 1] * 2 > metricsOutArray[curr1_f << 1] * 3) ||
+          (rup && metricsOutArray[curr2_f << 1] * 3 >= metricsOutArray[curr1_f << 1] * 2))))
+        mode2_decA[n] = curr2_f;
+      else mode2_decA[n] = curr1_f;
+    }
+    else if (chosen == 0) mode2_decA[n] = curr1_f;
+    else mode2_decA[n] = curr2_f;
   }
-  int chosen = 0;
-  if (same_group(curr1_f, curr2_f, env))
-  {
-    if (next_f - curr2_f > 1 && similar_group(prev_f, curr2_f, env) &&
-      diff_group(next_f, next_f + 1, env) && diff_group(curr2_f, curr2_f + 1, env))
-      chosen = 4;
-    else chosen = 2;
-  }
-  else if (same_group(prev_f, curr1_f, env)) chosen = 1;
-  else if (similar_group(prev_f, curr1_f, env))
-  {
-    if (similar_group(curr1_f, curr2_f, env) && !same_group(curr2_f, next_f, env))
-      chosen = 3;
-    else if (diff_group(curr1_f, curr2_f, env))
-      chosen = 1;
-  }
-  else if (diff_group(prev_f, curr1_f, env))
-  {
-    if (diff_group(curr2_f, next_f, env)) chosen = 3;
-    else if (diff_group(curr1_f, curr2_f, env) && same_group(curr1_f - 1, curr1_f, env) &&
-      same_group(curr2_f, next_f, env) && diff_group(next_f, next_f + 1, env) &&
-      curr1_f - prev_f == 2 && diff_group(prev_f - 1, prev_f, env))
-      chosen = 1;
-  }
-  if (chosen == 4) mode2_decA[n] = curr2_f + 1;
-  else if (chosen >= 2) // either
-  {
-    if ((chosen == 2 && rup) || (chosen == 3 &&
-      ((metricsOutArray[curr2_f << 1] * 2 > metricsOutArray[curr1_f << 1] * 3) ||
-      (rup && metricsOutArray[curr2_f << 1] * 3 >= metricsOutArray[curr1_f << 1] * 2))))
-      mode2_decA[n] = curr2_f;
-    else mode2_decA[n] = curr1_f;
-  }
-  else if (chosen == 0) mode2_decA[n] = curr1_f;
-  else mode2_decA[n] = curr2_f;
-finish7:
+
   int ret = mode2_decA[n];
   if (ret < 0 || ret > nfrms)
     env->ThrowError("TDecimate:  mode 7 internal error!");

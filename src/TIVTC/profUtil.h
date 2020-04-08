@@ -24,6 +24,7 @@
 */
 
 #include "stdint.h"
-
+/*
 static void getTimeRDTSC(int64_t &time);
 static void warmUpTimeRDTSC();
+*/

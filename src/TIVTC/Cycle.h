@@ -60,8 +60,8 @@ class Cycle
 {
 private:
   int cycleSize;
-  bool Cycle::allocSpace();
-  bool Cycle::checkMatchDup(int mp, int mc);
+  bool allocSpace();
+  bool checkMatchDup(int mp, int mc);
 
 public:
   int sdlim;
@@ -93,21 +93,23 @@ public:
   int dupCount;	// tracks # of dups for longest string decimation
   int blend;		// 0, 1 (blending), 2 (mkv), others are hijacked for special handling
   int *dect, *dect2;
-  void Cycle::setFrame(int frameIn);
-  void Cycle::setDecimateLow(int num, IScriptEnvironment *env);
-  void Cycle::setLowest(bool exludeD);
-  void Cycle::setDups(double thresh);
-  void Cycle::setDupsMatches(Cycle &p, unsigned char *marray);
-  void Cycle::setDecimateLowP(int num, IScriptEnvironment *env);
-  void Cycle::setIsFilmD2V();
-  int Cycle::sceneDetect(uint64_t thresh);
-  int Cycle::sceneDetect(Cycle &prev, Cycle &next, uint64_t thresh);
-  int Cycle::getNonDec(int n);
-  void Cycle::clearAll();
-  void Cycle::debugOutput();
-  void Cycle::debugMetrics(int length);
-  Cycle::Cycle(int _size, int _sdlim);
-  void Cycle::setSize(int _size);
-  Cycle::~Cycle();
-  Cycle& Cycle::operator=(Cycle& ob2);
+
+  void setFrame(int frameIn);
+  void setDecimateLow(int num, IScriptEnvironment *env);
+  void setLowest(bool exludeD);
+  void setDups(double thresh);
+  void setDupsMatches(Cycle &p, unsigned char *marray);
+  void setDecimateLowP(int num, IScriptEnvironment *env);
+  void setIsFilmD2V();
+  int sceneDetect(uint64_t thresh);
+  int sceneDetect(Cycle &prev, Cycle &next, uint64_t thresh);
+  int getNonDec(int n);
+  void clearAll();
+  void debugOutput();
+  void debugMetrics(int length);
+
+  Cycle(int _size, int _sdlim);
+  void setSize(int _size);
+  ~Cycle();
+  Cycle& operator=(Cycle& ob2);
 };

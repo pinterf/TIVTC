@@ -108,4 +108,4 @@
   void compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &sum);
 #endif
 
-#endif __TDEINTASM_H__
+#endif // __TDEINTASM_H__

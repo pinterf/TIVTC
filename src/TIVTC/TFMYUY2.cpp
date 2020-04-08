@@ -652,7 +652,7 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
   const unsigned char *dp = tbuffer + tpitch;
   const unsigned char *dpn = tbuffer + tpitch * 2;
   const unsigned char *dpnn = tbuffer + tpitch * 3;
-  int y, count;
+  int count;
   bool upper, lower, upper2, lower2;
 #ifdef USE_C_NO_ASM
   // reconstructed from inline asm by pf

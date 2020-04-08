@@ -47,28 +47,28 @@ private:
   int yshiftS, xshiftS, yhalfS, xhalfS, opt;
   bool chroma, debug, prevf, norm;
   uint64_t *diff, MAX_DIFF, threshU;
-  void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env);
-  void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);
-  void FrameDiff::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks, bool dot);
-  void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot);
-  void FrameDiff::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np);
-  void FrameDiff::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
-  void FrameDiff::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-  void FrameDiff::drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
-  void FrameDiff::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
-  void FrameDiff::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  int FrameDiff::mapn(int n);
-  bool FrameDiff::checkOnImage(int x, int xblocks4);
-  void FrameDiff::setBlack(PVideoFrame &d);
-  int FrameDiff::getCoord(int blockN, int xblocks);
+  void calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env);
+  void fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);
+  void fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks, bool dot);
+  void fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot);
+  void Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np);
+  void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
+  void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
+  void drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
+  void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
+  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
+  int mapn(int n);
+  bool checkOnImage(int x, int xblocks4);
+  void setBlack(PVideoFrame &d);
+  int getCoord(int blockN, int xblocks);
 
 public:
-  FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
+  FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
     bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise,
     bool _ssd, bool _rpos, int _opt, IScriptEnvironment *env);
-  FrameDiff::~FrameDiff();
-  PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env);
-  AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env);
+  ~FrameDiff();
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
+  AVSValue ConditionalFrameDiff(int n, IScriptEnvironment* env);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;

@@ -24,7 +24,7 @@
 */
 
 #include "TDeinterlace.h"
-#include "tdeintasm.h"
+#include "TDeintASM.h"
 #include "emmintrin.h"
 
 void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos,
@@ -539,6 +539,12 @@ void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp
         __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
         __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
         __m128i diff = _mm_or_si128(diffpn, diffnp);
+        /*
+        const int diff = abs(prvp[x] - nxtp[x]);
+        if (diff > 19) dstp[x] = 3;
+        else if (diff > 3) dstp[x] = 1;
+        else dstp[x] = 0;
+        */
         __m128i added251 = _mm_adds_epu8(diff, mask251);
         __m128i added235 = _mm_adds_epu8(diff, mask235);
         __m128i cmp251 = _mm_cmpeq_epi8(added251, all_ff);
@@ -855,7 +861,7 @@ static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned 
       // max(min(p-s,n-s), min(s-n,s-p))
       auto xmm2_max = _mm_max_epu8(_mm_min_epu8(diff_prev_curr, diff_next_curr), _mm_min_epu8(diff_curr_next, diff_curr_prev));
       auto xmm2_cmp = _mm_cmpeq_epi8(_mm_adds_epu8(xmm2_max, threshb), all_ff);
-      if (with_luma_mask) {
+      if (with_luma_mask) { // YUY2 luma mask
         __m128i lumaMask = _mm_set1_epi16(0x00FF);
         xmm2_cmp = _mm_and_si128(xmm2_cmp, lumaMask);
       }
@@ -1830,7 +1836,6 @@ void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
 #ifdef USE_INTR
-  __m128i all_ff = _mm_set1_epi8(0xFF);
   __m128i zero = _mm_setzero_si128();
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
 
@@ -2029,7 +2034,6 @@ void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
 {
 #ifdef USE_INTR
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
-  __m128i all_ff = _mm_set1_epi8(0xFF);
   __m128i zero = _mm_setzero_si128();
   while (height--) {
     for (int x = 0; x < width; x += 16) {
@@ -2512,42 +2516,42 @@ void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsign
   const unsigned char* dp = tbuffer + tpitch;
   const unsigned char* dpn = tbuffer + tpitch * 2;
   const unsigned char* dpnn = tbuffer + tpitch * 3;
-  int y, count;
+  int count;
   bool upper, lower, upper2, lower2;
 #ifdef USE_C_NO_ASM
   for (int y = 2; y < Height - 2; y += 2) {
-    for (int ebx = 1; ebx < Width - 1; ebx++) {
-
+    for (int x = 1; x < Width - 1; x++) {
+      int eax, esi, edi, edx;
       //mov eax, dpp
       //  mov ecx, dp
       //  mov edx, dpn
       //  mov esi, dstp
 
-      if (dp[ebx] <= 3) continue;
-      if (dp[ebx - 1] <= 3 && dp[ebx + 1] <= 3 &&
-        dpp[ebx - 1] <= 3 && dpp[ebx] <= 3 && dpp[ebx + 1] <= 3 &&
-        dpn[ebx - 1] <= 3 && dpn[ebx] <= 3 && dpn[ebx + 1] <= 3) continue;
-      dstp[ebx]++; // inc BYTE PTR[esi + ebx]
-      if (dp[ebx] <= 19) continue; //  cmp BYTE PTR[ecx + ebx], 19, ja b2
+      if (dp[x] <= 3) continue;
+      if (dp[x - 1] <= 3 && dp[x + 1] <= 3 &&
+        dpp[x - 1] <= 3 && dpp[x] <= 3 && dpp[x + 1] <= 3 &&
+        dpn[x - 1] <= 3 && dpn[x] <= 3 && dpn[x + 1] <= 3) continue;
+      dstp[x]++; // inc BYTE PTR[esi + ebx]
+      if (dp[x] <= 19) continue; //  cmp BYTE PTR[ecx + ebx], 19, ja b2
 
-      int edi = 0; // xor edi, edi
+      edi = 0; // xor edi, edi
       lower = 0;
       upper = 0;
 
-      if (dpp[ebx - 1] > 19) edi++;
-      if (dpp[ebx] > 19) edi++;
-      if (dpp[ebx + 1] > 19) edi++;
+      if (dpp[x - 1] > 19) edi++;
+      if (dpp[x] > 19) edi++;
+      if (dpp[x + 1] > 19) edi++;
 
       if (edi != 0) upper = 1;
 
-      if (dp[ebx - 1] > 19) edi++;
-      if (dp[ebx + 1] > 19) edi++;
+      if (dp[x - 1] > 19) edi++;
+      if (dp[x + 1] > 19) edi++;
 
-      int esi = edi;
+      esi = edi;
 
-      if (dpn[ebx - 1] > 19) edi++;
-      if (dpn[ebx] > 19) edi++;
-      if (dpn[ebx + 1] > 19) edi++;
+      if (dpn[x - 1] > 19) edi++;
+      if (dpn[x] > 19) edi++;
+      if (dpn[x + 1] > 19) edi++;
 
       if (edi <= 2) continue;
 
@@ -2555,16 +2559,16 @@ void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsign
       if (count != esi) {  // cmp edi, esi, je b11
         lower = 1; // mov lower, 1
         if (upper != 0) { // cmp upper, 0, je b11
-          dstp[ebx] += 2; // mov esi, dstp, add BYTE PTR[esi + ebx], 2
+          dstp[x] += 2; // mov esi, dstp, add BYTE PTR[esi + ebx], 2
           continue; //  jmp c2
         }
       }
       // b11 :
-      int eax = ebx - 4; // mov eax, ebx, add eax, -4
+      eax = x - 4; // mov eax, ebx, add eax, -4
       if (eax < 0) eax = 0; // jge p3, xor eax, eax
       //  p3 :
 
-      int edx = ebx + 5;
+      edx = x + 5;
       lower2 = 0;
       upper2 = 0;
       //mov edx, ebx
@@ -2632,20 +2636,20 @@ void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsign
         if (lower == 0 || lower2 == 0) {
           // p17:
           if (count > 4)
-            dstp[ebx] += 4;
+            dstp[x] += 4;
         }
         else {
-          dstp[ebx] += 2;
+          dstp[x] += 2;
           // p18
         }
       }
       else {
         if (lower != 0 || upper2 != 0) {
-          dstp[ebx] += 2;
+          dstp[x] += 2;
         }
         else {
           if (count > 4)
-            dstp[ebx] += 4;
+            dstp[x] += 4;
         }
       }
     }
@@ -2893,7 +2897,7 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
   const unsigned char* dp = tbuffer + tpitch;
   const unsigned char* dpn = tbuffer + tpitch * 2;
   const unsigned char* dpnn = tbuffer + tpitch * 3;
-  int y, count;
+  int count;
   bool upper, lower, upper2, lower2;
 
   constexpr bool mChroma = true; // same as in TFM, but here we have on the first part
@@ -2903,37 +2907,41 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
   if (mChroma) // TFM YUY2's mChroma bool parameter
   {
     for (int y = 2; y < Height - 2; y += 2) {
-      for (int ebx = 4; ebx < Width - 4; ebx += 1) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
+      for (int x = 4; x < Width - 4; x += 1) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
       {
-        if (dp[ebx] < 3) {
+        int eax, esi, edi;
+
+        if (dp[x] < 3) {
           goto chroma_sec;
         } // continue in TFMYUY2 1051;
-        if (dp[ebx - 2] < 3 && dp[ebx + 2] < 3 &&
-          dpp[ebx - 2] < 3 && dpp[ebx] < 3 && dpp[ebx + 2] < 3 &&
-          dpn[ebx - 2] < 3 && dpn[ebx] < 3 && dpn[ebx + 2] < 3)
+        if (dp[x - 2] < 3 && dp[x + 2] < 3 &&
+          dpp[x - 2] < 3 && dpp[x] < 3 && dpp[x + 2] < 3 &&
+          dpn[x - 2] < 3 && dpn[x] < 3 && dpn[x + 2] < 3)
         {
           goto chroma_sec;
         }// continue in TFMYUY2 1051;
-        dstp[ebx]++;
-        if (dp[ebx] <= 19) {
+        dstp[x]++;
+        if (dp[x] <= 19) {
           goto chroma_sec;
         }// continue in TFMYUY2 1051;
         //mov eax, dpp
         //  mov ecx, dp
         //  mov edx, dpn
-        int edi = 0;
+        
+        edi = 0;
         lower = 0;
         upper = 0;
-        if (dpp[ebx - 2] > 19) edi++;
-        if (dpp[ebx] > 19) edi++;
-        if (dpp[ebx + 2] > 19) edi++;
+        if (dpp[x - 2] > 19) edi++;
+        if (dpp[x] > 19) edi++;
+        if (dpp[x + 2] > 19) edi++;
         if (edi != 0) upper = 1;
-        if (dp[ebx - 2] > 19) edi++;
-        if (dp[ebx + 2] > 19) edi++;
-        int esi = edi;
-        if (dpn[ebx - 2] > 19) edi++;
-        if (dpn[ebx] > 19) edi++;
-        if (dpn[ebx + 2] > 19) edi++;
+        if (dp[x - 2] > 19) edi++;
+        if (dp[x + 2] > 19) edi++;
+        
+        esi = edi;
+        if (dpn[x - 2] > 19) edi++;
+        if (dpn[x] > 19) edi++;
+        if (dpn[x + 2] > 19) edi++;
         if (edi <= 2) {
           goto chroma_sec; // continue in TFMYUY2 1051;
         }// continue in TFMYUY2 1051;
@@ -2941,32 +2949,32 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
         if (esi != edi) {
           lower = 1;
           if (upper != 0) {
-            dstp[ebx] += 2;
+            dstp[x] += 2;
             goto chroma_sec; // continue in TFMYUY2 1051;
           }
         }
         // b111:
-        int eax = ebx - 8;
+        eax = x - 8;
         if (eax < 0) eax = 0;
         // p31:
         lower2 = 0;
         upper2 = 0;
-        int edx = ebx + 10;
-        if (edx > Width) edx = Width;
-        // p41:
-  //-----------
-        if (y != 2) { // cmp y, 2,  je p51
-          int esi = eax;
-          do {
-            if (dppp[esi] > 19) {
-              upper2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
-        }
-        // p51 :
         { // blocked for local vars
+          int edx = x + 10;
+          if (edx > Width) edx = Width;
+          // p41:
+    //-----------
+          if (y != 2) { // cmp y, 2,  je p51
+            int esi = eax;
+            do {
+              if (dppp[esi] > 19) {
+                upper2 = 1;
+                break;
+              }
+              esi += 2;
+            } while (esi < edx);
+          }
+          // p51 :
           int esi = eax;
           do {
             if (dpp[esi] > 19)
@@ -2977,20 +2985,19 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
               break;
             esi += 2;
           } while (esi < edx);
-        }
-        //---------
-        // p121
-        //    p12:
-        if (y != Height - 4) {
-
-          int esi = eax;
-          do {
-            if (dpnn[esi] > 19) {
-              lower2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
+          //---------
+          // p121
+          //    p12:
+          if (y != Height - 4) {
+            int esi = eax;
+            do {
+              if (dpnn[esi] > 19) {
+                lower2 = 1;
+                break;
+              }
+              esi += 2;
+            } while (esi < edx);
+          }
         }
         //p13 :
         if (upper == 0) { // cmp upper, 0, jne p16
@@ -3002,38 +3009,38 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
           if (lower == 0 || lower2 == 0) {
             // p17:
             if (count > 4)
-              dstp[ebx] += 4;
+              dstp[x] += 4;
           }
           else {
-            dstp[ebx] += 2;
+            dstp[x] += 2;
             // p18
           }
         }
         else {
           if (lower != 0 || upper2 != 0) {
-            dstp[ebx] += 2;
+            dstp[x] += 2;
           }
           else {
             if (count > 4)
-              dstp[ebx] += 4;
+              dstp[x] += 4;
           }
         }
         //-------------- itt vége van egy ebx+=2-vel a másiknak   
 
       chroma_sec:
-        ebx++;
+        x++;
 
-        if (dp[ebx] < 3) {
+        if (dp[x] < 3) {
           continue;
         } // continue in TFMYUY2 1051;
-        if (dp[ebx - 4] < 3 && dp[ebx + 4] < 3 &&
-          dpp[ebx - 4] < 3 && dpp[ebx] < 3 && dpp[ebx + 4] < 3 &&
-          dpn[ebx - 4] < 3 && dpn[ebx] < 3 && dpn[ebx + 4] < 3)
+        if (dp[x - 4] < 3 && dp[x + 4] < 3 &&
+          dpp[x - 4] < 3 && dpp[x] < 3 && dpp[x + 4] < 3 &&
+          dpn[x - 4] < 3 && dpn[x] < 3 && dpn[x + 4] < 3)
         {
           continue;
         }// continue in TFMYUY2 1051;
-        dstp[ebx]++;
-        if (dp[ebx] <= 19) {
+        dstp[x]++;
+        if (dp[x] <= 19) {
           continue;
         }// continue in TFMYUY2 1051;
          //mov eax, dpp
@@ -3042,16 +3049,16 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
         edi = 0;
         lower = 0;
         upper = 0;
-        if (dpp[ebx - 4] > 19) edi++;
-        if (dpp[ebx] > 19) edi++;
-        if (dpp[ebx + 4] > 19) edi++;
+        if (dpp[x - 4] > 19) edi++;
+        if (dpp[x] > 19) edi++;
+        if (dpp[x + 4] > 19) edi++;
         if (edi != 0) upper = 1;
-        if (dp[ebx - 4] > 19) edi++;
-        if (dp[ebx + 4] > 19) edi++;
+        if (dp[x - 4] > 19) edi++;
+        if (dp[x + 4] > 19) edi++;
         esi = edi;
-        if (dpn[ebx - 4] > 19) edi++;
-        if (dpn[ebx] > 19) edi++;
-        if (dpn[ebx + 4] > 19) edi++;
+        if (dpn[x - 4] > 19) edi++;
+        if (dpn[x] > 19) edi++;
+        if (dpn[x + 4] > 19) edi++;
         if (edi <= 2) {
           continue; // continue in TFMYUY2 1051;
         }// continue in TFMYUY2 1051;
@@ -3059,18 +3066,18 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
         if (esi != edi) {
           lower = 1;
           if (upper != 0) {
-            dstp[ebx] += 2;
+            dstp[x] += 2;
             continue;
           }
         }
         // b111:
-        eax = ebx - 8 - 8; // was: -8 in the first chroma part
-        int edx_tmp = (ebx & 2) + 1; // diff from 1st part, comparison is with 0 there
+        eax = x - 8 - 8; // was: -8 in the first chroma part
+        int edx_tmp = (x & 2) + 1; // diff from 1st part, comparison is with 0 there
         if (eax < edx_tmp) eax = edx_tmp; // diff from 1st part
         // p31:/p3c
         lower2 = 0;
         upper2 = 0;
-        edx = ebx + 10 + 8; // was: +10 in the first chroma part
+        int edx = x + 10 + 8; // was: +10 in the first chroma part
         if (edx > Width) edx = Width;
         // p41:
         //-----------
@@ -3121,20 +3128,20 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
           if (lower == 0 || lower2 == 0) {
             // p17:
             if (count > 4)
-              dstp[ebx] += 4;
+              dstp[x] += 4;
           }
           else {
-            dstp[ebx] += 2;
+            dstp[x] += 2;
             // p18
           }
         }
         else {
           if (lower != 0 || upper2 != 0) {
-            dstp[ebx] += 2;
+            dstp[x] += 2;
           }
           else {
             if (count > 4)
-              dstp[ebx] += 4;
+              dstp[x] += 4;
           }
         }
 
@@ -3152,19 +3159,19 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
     // TFMYUV2 1051
     //env->ThrowError("not implemented yet"); // to be checked. What options do we need
     for (int y = 2; y < Height - 2; y += 2) {
-      for (int ebx = 4; ebx < Width - 4; ebx += 2) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
+      for (int y = 4; y < Width - 4; y += 2) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
       {
-        if (dp[ebx] < 3) {
+        if (dp[y] < 3) {
           continue; // goto chroma_sec;
         } // continue in TFMYUY2 1051;
-        if (dp[ebx - 2] < 3 && dp[ebx + 2] < 3 &&
-          dpp[ebx - 2] < 3 && dpp[ebx] < 3 && dpp[ebx + 2] < 3 &&
-          dpn[ebx - 2] < 3 && dpn[ebx] < 3 && dpn[ebx + 2] < 3)
+        if (dp[y - 2] < 3 && dp[y + 2] < 3 &&
+          dpp[y - 2] < 3 && dpp[y] < 3 && dpp[y + 2] < 3 &&
+          dpn[y - 2] < 3 && dpn[y] < 3 && dpn[y + 2] < 3)
         {
           continue; // goto chroma_sec;
         }// continue in TFMYUY2 1051;
-        dstp[ebx]++;
-        if (dp[ebx] <= 19) {
+        dstp[y]++;
+        if (dp[y] <= 19) {
           continue; //  goto chroma_sec;
         }// continue in TFMYUY2 1051;
          //mov eax, dpp
@@ -3173,16 +3180,16 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
         int edi = 0;
         lower = 0;
         upper = 0;
-        if (dpp[ebx - 2] > 19) edi++;
-        if (dpp[ebx] > 19) edi++;
-        if (dpp[ebx + 2] > 19) edi++;
+        if (dpp[y - 2] > 19) edi++;
+        if (dpp[y] > 19) edi++;
+        if (dpp[y + 2] > 19) edi++;
         if (edi != 0) upper = 1;
-        if (dp[ebx - 2] > 19) edi++;
-        if (dp[ebx + 2] > 19) edi++;
+        if (dp[y - 2] > 19) edi++;
+        if (dp[y + 2] > 19) edi++;
         int esi = edi;
-        if (dpn[ebx - 2] > 19) edi++;
-        if (dpn[ebx] > 19) edi++;
-        if (dpn[ebx + 2] > 19) edi++;
+        if (dpn[y - 2] > 19) edi++;
+        if (dpn[y] > 19) edi++;
+        if (dpn[y + 2] > 19) edi++;
         if (edi <= 2) {
           continue; //  goto chroma_sec; // continue in TFMYUY2 1051;
         }// continue in TFMYUY2 1051;
@@ -3190,17 +3197,17 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
         if (esi != edi) {
           lower = 1;
           if (upper != 0) {
-            dstp[ebx] += 2;
+            dstp[y] += 2;
             continue; // goto chroma_sec; // continue in TFMYUY2 1051;
           }
         }
         // b111:
-        int eax = ebx - 8;
+        int eax = y - 8;
         if (eax < 0) eax = 0;
         // p31:
         lower2 = 0;
         upper2 = 0;
-        int edx = ebx + 10;
+        int edx = y + 10;
         if (edx > Width) edx = Width;
         // p41:
         //-----------
@@ -3251,20 +3258,20 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
           if (lower == 0 || lower2 == 0) {
             // p17:
             if (count > 4)
-              dstp[ebx] += 4;
+              dstp[y] += 4;
           }
           else {
-            dstp[ebx] += 2;
+            dstp[y] += 2;
             // p18
           }
         }
         else {
           if (lower != 0 || upper2 != 0) {
-            dstp[ebx] += 2;
+            dstp[y] += 2;
           }
           else {
             if (count > 4)
-              dstp[ebx] += 4;
+              dstp[y] += 4;
           }
         }
       }

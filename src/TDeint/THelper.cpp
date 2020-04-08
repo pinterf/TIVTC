@@ -114,7 +114,7 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
     unsigned long d2 = subtractFrames(src, nxt, env);
     if (debug)
     {
-      sprintf(buf, "TDeint:  frame %d:  d1 = %u  d2 = %u  lim = %u\n", n >> 1, d1, d2, lim);
+      sprintf(buf, "TDeint:  frame %d:  d1 = %u  d2 = %u  lim = %u\n", n >> 1, (int)d1, (int)d2, (int)lim);
       OutputDebugString(buf);
     }
     if (d1 > lim && d2 > lim)

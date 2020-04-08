@@ -512,14 +512,14 @@ int TFM::D2V_get_output_filename(char wfile[])
       }
       else if (inT < 10)
       {
-        *p--;
+        p--;
         *p++ = inT + '0'; *p++ = '.'; *p++ = 'd';
         *p++ = '2'; *p++ = 'v'; *p = NULL;
       }
       else if (inT < 100)
       {
-        *p--;
-        if (inT > 10) *p--;
+        p--;
+        if (inT > 10) p--;
         *p++ = ((inT / 10) % 10) + '0';
         *p++ = (inT % 10) + '0';
         *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = NULL;

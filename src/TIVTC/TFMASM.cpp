@@ -2302,7 +2302,6 @@ void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
 #ifdef USE_INTR
-  __m128i all_ff = _mm_set1_epi8(0xFF);
   __m128i zero = _mm_setzero_si128();
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
 
@@ -2502,7 +2501,6 @@ void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
 {
 #ifdef USE_INTR
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
-  __m128i all_ff = _mm_set1_epi8(0xFF);
   __m128i zero = _mm_setzero_si128();
   while (height--) {
     for (int x = 0; x < width; x += 16) {

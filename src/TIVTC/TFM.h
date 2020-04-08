@@ -95,52 +95,52 @@ private:
   double scthresh;
   char buf[4096], outputFull[270], outputCFull[270];
   PlanarFrame *map, *cmask;
-  void TFM::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
-  void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
-  void TFM::buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, IScriptEnvironment *env);
-  void TFM::fileOut(int match, int combed, bool d2vfilm, int n, int MICount, int mics[5]);
-  void TFM::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
-  int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
+  void fileOut(int match, int combed, bool d2vfilm, int n, int MICount, int mics[5]);
+  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
+  int compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
     int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env);
-  int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
+  int compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
     int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env);
-  int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
+  int compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
     int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env);
-  void TFM::createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
+  void createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
     PVideoFrame &nxt, IScriptEnvironment *env, int match, int &cfrm, int np);
-  bool TFM::getMatchOvr(int n, int &match, int &combed, bool &d2vmatch, bool isSC);
-  void TFM::getSettingOvr(int n);
-  bool TFM::checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, int match,
+  bool getMatchOvr(int n, int &match, int &combed, bool &d2vmatch, bool isSC);
+  void getSettingOvr(int n);
+  bool checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug);
-  bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
+  bool checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug);
-  bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
+  bool checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug);
-  void TFM::writeDisplay(PVideoFrame &dst, int np, int n, int fmatch, int combed, bool over,
+  void writeDisplay(PVideoFrame &dst, int np, int n, int fmatch, int combed, bool over,
     int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
-  void TFM::putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm);
-  void TFM::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void TFM::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
-  void TFM::parseD2V(IScriptEnvironment *env);
-  int TFM::D2V_find_and_correct(int *array, bool &found, int &tff);
-  void TFM::D2V_find_fix(int a1, int a2, int sync, int &f1, int &f2, int &change);
-  bool TFM::D2V_check_illegal(int a1, int a2);
-  int TFM::D2V_check_final(int *array);
-  int TFM::D2V_initialize_array(int *&array, int &d2vtype, int &frames);
-  int TFM::D2V_write_array(int *array, char wfile[]);
-  int TFM::D2V_get_output_filename(char wfile[]);
-  int TFM::D2V_fill_d2vfilmarray(int *array, int frames);
-  bool TFM::d2vduplicate(int match, int combed, int n);
-  bool TFM::checkD2VCase(int check);
-  bool TFM::checkInPatternD2V(int *array, int i);
-  int TFM::fillTrimArray(IScriptEnvironment *env, int frames);
+  void putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm);
+  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
+  void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
+  void parseD2V(IScriptEnvironment *env);
+  int D2V_find_and_correct(int *array, bool &found, int &tff);
+  void D2V_find_fix(int a1, int a2, int sync, int &f1, int &f2, int &change);
+  bool D2V_check_illegal(int a1, int a2);
+  int D2V_check_final(int *array);
+  int D2V_initialize_array(int *&array, int &d2vtype, int &frames);
+  int D2V_write_array(int *array, char wfile[]);
+  int D2V_get_output_filename(char wfile[]);
+  int D2V_fill_d2vfilmarray(int *array, int frames);
+  bool d2vduplicate(int match, int combed, int n);
+  bool checkD2VCase(int check);
+  bool checkInPatternD2V(int *array, int i);
+  int fillTrimArray(IScriptEnvironment *env, int frames);
   bool checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     IScriptEnvironment *env, int n);
   void micChange(int n, int m1, int m2, PVideoFrame &dst, PVideoFrame &prv,
@@ -155,17 +155,17 @@ private:
   void generateOvrHelpOutput(FILE *f);
 
 public:
-  PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env);
-  AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env);
-  static void TFM::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
-  static void TFM::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-  TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _ovr, const char* _input,
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
+  AVSValue ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env);
+  static void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
+  static void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
+  TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _ovr, const char* _input,
     const char* _output, const char * _outputC, bool _debug, bool _display, int _slow,
     bool _mChroma, int _cNum, int _cthresh, int _MI, bool _chroma, int _blockx, int _blocky,
     int _y0, int _y1, const char* _d2v, int _ovrDefault, int _flags, double _scthresh, int _micout,
     int _micmatching, const char* _trimIn, bool _usehints, int _metric, bool _batch, bool _ubsco,
     bool _mmsco, int _opt, IScriptEnvironment* env);
-  TFM::~TFM();
+  ~TFM();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;

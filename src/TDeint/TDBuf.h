@@ -38,14 +38,14 @@ private:
 
 public:
   int *fnum;
-  TDBuf::TDBuf(int _size, int _width, int _height, int _cp);
-  TDBuf::~TDBuf();
-  const unsigned char* TDBuf::GetReadPtr(int pos, int plane);
-  unsigned char* TDBuf::GetWritePtr(int pos, int plane);
-  int TDBuf::GetPitch(int plane);
-  int TDBuf::GetLPitch(int plane);
-  int TDBuf::GetHeight(int plane);
-  int TDBuf::GetWidth(int plane);
-  int TDBuf::GetPos(int n);
-  void TDBuf::resetCacheStart(int n);
+  TDBuf(int _size, int _width, int _height, int _cp);
+  ~TDBuf();
+  const unsigned char* GetReadPtr(int pos, int plane);
+  unsigned char* GetWritePtr(int pos, int plane);
+  int GetPitch(int plane);
+  int GetLPitch(int plane);
+  int GetHeight(int plane);
+  int GetWidth(int plane);
+  int GetPos(int n);
+  void resetCacheStart(int n);
 };

@@ -36,9 +36,9 @@ private:
   PClip hintClip;
 
 public:
-  MergeHints::MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnvironment *env);
-  MergeHints::~MergeHints();
-  PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env);
+  MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnvironment *env);
+  ~MergeHints();
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_MULTI_INSTANCE : 0;

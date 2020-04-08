@@ -768,7 +768,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n,
   IScriptEnvironment *env)
 {
-  int b, plane, plane_aligned, ret, y, startx, y0a, y1a;
+  int b, plane, plane_aligned, ret, startx, y0a, y1a;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -882,21 +882,21 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     for (int y = 2; y < Height - 2; y += 2) {
       if ((y < y0a) || (y0a == y1a) || (y > y1a))
       {
-        for (int ebx = startx; ebx < stopx; ebx += incl)
+        for (int x = startx; x < stopx; x += incl)
         {
-          int eax = (mapp[ebx] << 2) + mapn[ebx];
+          int eax = (mapp[x] << 2) + mapn[x];
           if ((eax & 0xFF) == 0)
             continue;
 
-          int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
-          int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+          int a_curr = curpf[x] + (curf[x] << 2) + curnf[x];
+          int a_prev = 3 * (prvpf[x] + prvnf[x]);
           int diff_p_c = abs(a_prev - a_curr);
           if (diff_p_c > 23) {
             accumPc += diff_p_c;
             if (diff_p_c > 42 && ((eax & 10) != 0))
               accumPm += diff_p_c;
           }
-          int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+          int a_next = 3 * (nxtpf[x] + nxtnf[x]);
           int diff_n_c = abs(a_next - a_curr);
           if (diff_n_c > 23) {
             accumNc += diff_n_c;
@@ -1077,7 +1077,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 {
   if (slow == 2)
     return compareFieldsSlow2(prv, src, nxt, match1, match2, norm1, norm2, mtn1, mtn2, np, n, env);
-  int b, plane, plane_aligned, ret, y, startx, y0a, y1a, tp;
+  int b, plane, plane_aligned, ret, startx, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1202,14 +1202,14 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     for (int y = 2; y < Height - 2; y += 2) {
       if ((y < y0a) || (y0a == y1a) || (y > y1a))
       {
-        for (int ebx = startx; ebx < stopx; ebx += incl)
+        for (int x = startx; x < stopx; x += incl)
         {
-          int eax = (mapp[ebx] << 3) + mapn[ebx]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+          int eax = (mapp[x] << 3) + mapn[x]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
           if ((eax & 0xFF) == 0)
             continue;
 
-          int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
-          int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+          int a_curr = curpf[x] + (curf[x] << 2) + curnf[x];
+          int a_prev = 3 * (prvpf[x] + prvnf[x]);
           int diff_p_c = abs(a_prev - a_curr);
           if (diff_p_c > 23) {
             if((eax & 9) != 0) // diff from previous similar asm block: condition
@@ -1221,7 +1221,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
                 accumPml += diff_p_c;
             }
           }
-          int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+          int a_next = 3 * (nxtpf[x] + nxtnf[x]);
           int diff_n_c = abs(a_next - a_curr);
           if (diff_n_c > 23) {
             if ((eax & 9) != 0) // diff from previous similar asm block: condition
@@ -1423,7 +1423,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env)
 {
-  int b, plane, plane_aligned, ret, y, startx, y0a, y1a, tp;
+  int b, plane, plane_aligned, ret, startx, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1554,14 +1554,14 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       for (int y = 2; y < Height - 2; y += 2) {
         if ((y < y0a) || (y0a == y1a) || (y > y1a))
         {
-          for (int ebx = startx; ebx < stopx; ebx += incl)
+          for (int x = startx; x < stopx; x += incl)
           {
-            int eax = (mapp[ebx] << 3) + mapn[ebx]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+            int eax = (mapp[x] << 3) + mapn[x]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
             if ((eax & 0xFF) == 0)
               continue;
 
-            int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
-            int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+            int a_curr = curpf[x] + (curf[x] << 2) + curnf[x];
+            int a_prev = 3 * (prvpf[x] + prvnf[x]);
             int diff_p_c = abs(a_prev - a_curr);
             if (diff_p_c > 23) {
               if ((eax & 9) != 0) // diff from previous similar asm block: condition
@@ -1573,7 +1573,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
                   accumPml += diff_p_c;
               }
             }
-            int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]);
+            int a_next = 3 * (nxtpf[x] + nxtnf[x]);
             int diff_n_c = abs(a_next - a_curr);
             if (diff_n_c > 23) {
               if ((eax & 9) != 0) // diff from previous similar asm block: condition
@@ -1589,8 +1589,8 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
             // additional difference from TFM 1144
             if ((eax & 56) != 0) {
 
-              int a_prev = prvppf[ebx] + (prvpf[ebx] << 2) + prvnf[ebx];
-              int a_curr = 3 * (curpf[ebx] + curf[ebx]);
+              int a_prev = prvppf[x] + (prvpf[x] << 2) + prvnf[x];
+              int a_curr = 3 * (curpf[x] + curf[x]);
               int diff_p_c = abs(a_prev - a_curr);
               if (diff_p_c > 23) {
                 if ((eax & 8) != 0) // diff from previous similar asm block: condition
@@ -1602,7 +1602,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
                     accumPml += diff_p_c;
                 }
               }
-              int a_next = nxtppf[ebx] + (nxtpf[ebx] << 2) + nxtnf[ebx]; // really! not 3*
+              int a_next = nxtppf[x] + (nxtpf[x] << 2) + nxtnf[x]; // really! not 3*
               int diff_n_c = abs(a_next - a_curr);
               if (diff_n_c > 23) {
                 if ((eax & 8) != 0) // diff: &8 instead of &9
@@ -1640,14 +1640,14 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       for (int y = 2; y < Height - 2; y += 2) {
         if ((y < y0a) || (y0a == y1a) || (y > y1a))
         {
-          for (int ebx = startx; ebx < stopx; ebx += incl)
+          for (int x = startx; x < stopx; x += incl)
           {
-            int eax = (mapp[ebx] << 3) + mapn[ebx]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+            int eax = (mapp[x] << 3) + mapn[x]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
             if ((eax & 0xFF) == 0)
               continue;
 
-            int a_curr = curpf[ebx] + (curf[ebx] << 2) + curnf[ebx];
-            int a_prev = 3 * (prvpf[ebx] + prvnf[ebx]);
+            int a_curr = curpf[x] + (curf[x] << 2) + curnf[x];
+            int a_prev = 3 * (prvpf[x] + prvnf[x]);
             int diff_p_c = abs(a_prev - a_curr);
             if (diff_p_c > 23) {
               if ((eax & 9) != 0) // diff from previous similar asm block: condition
@@ -1659,7 +1659,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
                   accumPml += diff_p_c;
               }
             }
-            int a_next = 3 * (nxtpf[ebx] + nxtnf[ebx]); // L2008
+            int a_next = 3 * (nxtpf[x] + nxtnf[x]); // L2008
             int diff_n_c = abs(a_next - a_curr);
             if (diff_n_c > 23) {
               if ((eax & 9) != 0) // diff from previous similar asm block: condition
@@ -1686,8 +1686,8 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
 
               //int a_prev = *(prvppf + ebx) + (*(prvpf + ebx) << 2) + *(prvnf + ebx);
               //int a_curr = 3 * (*(curpf + ebx) + *(curf + ebx));
-              int a_prev = prvpf[ebx] + (prvnf[ebx] << 2) + prvnnf[ebx];
-              int a_curr = 3 * (curf[ebx] + curnf[ebx]);
+              int a_prev = prvpf[x] + (prvnf[x] << 2) + prvnnf[x];
+              int a_curr = 3 * (curf[x] + curnf[x]);
               int diff_p_c = abs(a_prev - a_curr);
               if (diff_p_c > 23) {
                 if ((eax & 1) != 0) // diff: &1 instead of &8
@@ -1700,7 +1700,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
                 }
               }
               //int a_next = *(nxtppf + ebx) + (*(nxtpf + ebx) << 2) + *(nxtnf + ebx); // really! not 3*
-              int a_next = nxtpf[ebx] + (nxtnf[ebx] << 2) + nxtnnf[ebx]; // really! not 3* L2075
+              int a_next = nxtpf[x] + (nxtnf[x] << 2) + nxtnnf[x]; // really! not 3* L2075
               int diff_n_c = abs(a_next - a_curr);
               if (diff_n_c > 23) { // L2088
                 if ((eax & 1) != 0) // diff: &1 instead of &8
@@ -2342,7 +2342,7 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   }
   if (debug)
   {
-    sprintf(buf, "TFM:  frame %d  - diffp = %u   diffn = %u  diffmaxsc = %u  %c\n", n, diffp, diffn, diffmaxsc,
+    sprintf(buf, "TFM:  frame %d  - diffp = %u   diffn = %u  diffmaxsc = %u  %c\n", n, (unsigned int)diffp, (unsigned int)diffn, (unsigned int)diffmaxsc,
       (diffp > diffmaxsc || diffn > diffmaxsc) ? 'T' : 'F');
     OutputDebugString(buf);
   }
@@ -2757,7 +2757,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
           continue;
         ++firstLine;
         linep = linein;
-        while (*linep != 'f' && *linep != 'F' && *linep != 0 && *linep != ' ' && *linep != 'c') *linep++;
+        while (*linep != 'f' && *linep != 'F' && *linep != 0 && *linep != ' ' && *linep != 'c') linep++;
         if (*linep == 'f' || *linep == 'F')
         {
           if (firstLine == 1)
@@ -2778,10 +2778,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
           if (_strnicmp(linein, "crc32 = ", 8) == 0)
           {
             linet = linein;
-            while (*linet != ' ') *linet++;
-            *linet++;
-            while (*linet != ' ') *linet++;
-            *linet++;
+            while (*linet != ' ') linet++;
+            linet++;
+            while (*linet != ' ') linet++;
+            linet++;
             unsigned int m, tempCrc;
             sscanf(linet, "%x", &m);
             calcCRC(child, 15, tempCrc, env);
@@ -2800,13 +2800,13 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
           while (*linet != 0)
           {
             if (*linet != ' ' && *linet != 10) break;
-            *linet++;
+            linet++;
           }
           if (*linet == 0) { --firstLine; continue; }
           sscanf(linein, "%d", &z);
           linep = linein;
           while (*linep != 'p' && *linep != 'c' && *linep != 'n' && *linep != 'u' &&
-            *linep != 'b' && *linep != 'l' && *linep != 'h' && *linep != 0) *linep++;
+            *linep != 'b' && *linep != 'l' && *linep != 'h' && *linep != 0) linep++;
           if (*linep != 0)
           {
             if (z<0 || z>nfrms)
@@ -2816,12 +2816,12 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
               env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!");
             }
             linep = linein;
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep != 0)
             {
               qt = -1;
               d2vmarked = micmarked = false;
-              *linep++;
+              linep++;
               q = *linep;
               if (q == 112) q = 0;
               else if (q == 99) q = 1;
@@ -2836,8 +2836,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 f = NULL;
                 env->ThrowError("TFM:  input file error (invalid match specifier)!");
               }
-              *linep++;
-              *linep++;
+              linep++;
+              linep++;
               if (*linep != 0)
               {
                 qt = *linep;
@@ -2861,8 +2861,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
               }
               if (!d2vmarked && !micmarked && qt != -1)
               {
-                *linep++;
-                *linep++;
+                linep++;
+                linep++;
                 if (*linep == '1') d2vmarked = true;
                 else if (*linep == '[') micmarked = true;
               }
@@ -2872,8 +2872,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 d2vfilmarray[z] |= fieldt == 1 ? 0x3 : 0x1;
                 if (!micmarked)
                 {
-                  *linep++;
-                  *linep++;
+                  linep++;
+                  linep++;
                   if (*linep == '[') micmarked = true;
                 }
               }
@@ -2909,7 +2909,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
           continue;
         linep = linein;
         while (*linep != 'c' && *linep != 'p' && *linep != 'n' && *linep != 'b' &&
-          *linep != 'u' && *linep != 'l' && *linep != 'h' && *linep != '+' && *linep != '-' && *linep != 0) *linep++;
+          *linep != 'u' && *linep != 'l' && *linep != 'h' && *linep != '+' && *linep != '-' && *linep != 0) linep++;
         if (*linep == 0) ++countOvrS;
         else ++countOvrM;
       }
@@ -2977,7 +2977,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             continue;
           ++firstLine;
           linep = linein;
-          while (*linep != 'f' && *linep != 'F' && *linep != 0 && *linep != ' ' && *linep != ',') *linep++;
+          while (*linep != 'f' && *linep != 'F' && *linep != 0 && *linep != ' ' && *linep != ',') linep++;
           if (*linep == 'f' || *linep == 'F')
           {
             if (firstLine == 1)
@@ -2999,10 +2999,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             while (*linet != 0)
             {
               if (*linet != ' ' && *linet != 10) break;
-              *linet++;
+              linet++;
             }
             if (*linet == 0) { --firstLine; continue; }
-            *linep++;
+            linep++;
             if (*linep == 'p' || *linep == 'c' || *linep == 'n' || *linep == 'b' || *linep == 'u' || *linep == 'l' || *linep == 'h')
             {
               sscanf(linein, "%d", &z);
@@ -3013,10 +3013,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 env->ThrowError("TFM:  ovr file error (out of range or non-ascending frame #)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 q = *linep;
                 if (q == 112) q = 0;
                 else if (q == 99) q = 1;
@@ -3053,10 +3053,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 env->ThrowError("TFM:  ovr file error (out of range or non-ascending frame #)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 q = *linep;
                 if (q == 45) q = 0;
                 else if (q == 43) q = COMBED;
@@ -3087,15 +3087,15 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 env->ThrowError("TFM:  ovr input error (out of range frame #)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 if (*linep == 'f' || *linep == 'm' || *linep == 'o' || *linep == 'P' || *linep == 'i')
                 {
                   q = *linep;
-                  *linep++;
-                  *linep++;
+                  linep++;
+                  linep++;
                   if (*linep == 0) continue;
                   sscanf(linep, "%d", &b);
                   if (q == 102 && b != 0 && b != 1 && b != -1)

@@ -40,43 +40,43 @@ private:
   int nt, nfrms, opt;
   bool chroma, debug, display, sse;
   char buf[512];
-  static int64_t FieldDiff::getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn,
+  static int64_t getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn,
     int opti, IScriptEnvironment *env);
-  static int64_t FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn,
+  static int64_t getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn,
     int opti, IScriptEnvironment *env);
-  static void FieldDiff::calcFieldDiff_SSE_SSE2(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SSE_SSE2_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SSE_SSE2_Luma(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_Luma(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SAD_SSE2(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SAD_SSE2_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SAD_SSE2_Luma(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_Luma(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SAD_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
 #ifdef ALLOW_MMX
-  static void FieldDiff::calcFieldDiff_SSE_MMX(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_MMX(const unsigned char *src2p, int src_pitch,
     int width, int height, int64_t nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SSE_MMX_Luma(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_MMX_Luma(const unsigned char *src2p, int src_pitch,
     int width, int height, int64_t nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SAD_MMX(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_MMX(const unsigned char *src2p, int src_pitch,
     int width, int height, int64_t nt, int64_t &diff);
-  static void FieldDiff::calcFieldDiff_SAD_MMX_Luma(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_MMX_Luma(const unsigned char *src2p, int src_pitch,
     int width, int height, int64_t nt, int64_t &diff);
 #endif
 
 public:
-  FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display,
+  FieldDiff(PClip _child, int _nt, bool _chroma, bool _display,
     bool _debug, bool _sse, int _opt, IScriptEnvironment *env);
-  FieldDiff::~FieldDiff();
-  PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env);
-  AVSValue FieldDiff::ConditionalFieldDiff(int n, IScriptEnvironment* env);
+  ~FieldDiff();
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
+  AVSValue ConditionalFieldDiff(int n, IScriptEnvironment* env);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;

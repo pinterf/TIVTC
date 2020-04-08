@@ -28,7 +28,7 @@
 #include <malloc.h>
 #include <math.h>
 #include "internal.h"
-#include "font.h"
+#include "Font.h"
 #include "Cycle.h"
 #include "calcCRC.h"
 #include "profUtil.h"
@@ -79,79 +79,79 @@ private:
   PClip clip2;
   char buf[8192], outputFull[270];
 
-  void TDecimate::init_mode_5(IScriptEnvironment* env);
-  void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env);
-  void TDecimate::setBlack(PVideoFrame &dst, int np);
-  void TDecimate::checkVideoMetrics(Cycle &c, double thresh);
-  void TDecimate::checkVideoMatches(Cycle &p, Cycle &c);
-  bool TDecimate::checkMatchDup(int mp, int mc);
-  void TDecimate::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
-  void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
-  int TDecimate::getHint(PVideoFrame &src, int &d2vfilm);
-  void TDecimate::restoreHint(PVideoFrame &dst, IScriptEnvironment *env);
-  void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst,
+  void init_mode_5(IScriptEnvironment* env);
+  void rerunFromStart(int s, int np, IScriptEnvironment *env);
+  void setBlack(PVideoFrame &dst, int np);
+  void checkVideoMetrics(Cycle &c, double thresh);
+  void checkVideoMatches(Cycle &p, Cycle &c);
+  bool checkMatchDup(int mp, int mc);
+  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
+  void findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
+  int getHint(PVideoFrame &src, int &d2vfilm);
+  void restoreHint(PVideoFrame &dst, IScriptEnvironment *env);
+  void blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst,
     double amount1, double amount2, int np, IScriptEnvironment *env);
-  void TDecimate::calcBlendRatios(double &amount1, double &amount2, int &frame1, int &frame2, int n,
+  void calcBlendRatios(double &amount1, double &amount2, int &frame1, int &frame2, int n,
     int bframe, int cycleI);
-  void TDecimate::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void TDecimate::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
-  void TDecimate::drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
-  int TDecimate::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s, int start);
-  int TDecimate::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s, int start);
-  int TDecimate::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np, int start = 0);
-  PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment *env, int np);
-  PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, int np);
-  PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np);
-  PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, int np);
-  PVideoFrame TDecimate::GetFrameMode5(int n, IScriptEnvironment *env, int np);
-  PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, int np);
-  PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np);
-  void TDecimate::getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF);
-  void TDecimate::getOvrCycle(Cycle &current, bool mode2);
-  void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
+  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
+  void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
+  void drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
+  int DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s, int start);
+  int DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s, int start);
+  int Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np, int start = 0);
+  PVideoFrame GetFrameMode01(int n, IScriptEnvironment *env, int np);
+  PVideoFrame GetFrameMode2(int n, IScriptEnvironment *env, int np);
+  PVideoFrame GetFrameMode3(int n, IScriptEnvironment *env, int np);
+  PVideoFrame GetFrameMode4(int n, IScriptEnvironment *env, int np);
+  PVideoFrame GetFrameMode5(int n, IScriptEnvironment *env, int np);
+  PVideoFrame GetFrameMode6(int n, IScriptEnvironment *env, int np);
+  PVideoFrame GetFrameMode7(int n, IScriptEnvironment *env, int np);
+  void getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF);
+  void getOvrCycle(Cycle &current, bool mode2);
+  void displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
     int ret, bool film, double amount1, double amount2, int f1, int f2, int np);
-  void TDecimate::formatMetrics(Cycle &current);
-  void TDecimate::formatDups(Cycle &current);
-  void TDecimate::formatDecs(Cycle &current);
-  void TDecimate::formatMatches(Cycle &current);
-  void TDecimate::formatMatches(Cycle &current, Cycle &previous);
-  void TDecimate::debugOutput1(int n, bool film, int blend);
-  void TDecimate::debugOutput2(int n, int ret, bool film, int f1, int f2, double amount1,
+  void formatMetrics(Cycle &current);
+  void formatDups(Cycle &current);
+  void formatDecs(Cycle &current);
+  void formatMatches(Cycle &current);
+  void formatMatches(Cycle &current, Cycle &previous);
+  void debugOutput1(int n, bool film, int blend);
+  void debugOutput2(int n, int ret, bool film, int f1, int f2, double amount1,
     double amount2);
-  void TDecimate::addMetricCycle(Cycle &j);
-  bool TDecimate::checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n);
-  void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
-  int TDecimate::checkForD2VDecFrame(Cycle &p, Cycle &c, Cycle &n);
-  bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n);
-  int TDecimate::getNonDecMode2(int n, int start, int stop);
-  double TDecimate::buildDecStrategy(IScriptEnvironment *env);
-  void TDecimate::mode2MarkDecFrames(int cycleF);
-  void TDecimate::removeMinN(int m, int n, int start, int stop);
-  void TDecimate::removeMinN(int m, int n, uint64_t *metricsT, int *orderT, int &ovrC);
-  int TDecimate::findDivisor(double decRatio, int min_den);
-  int TDecimate::findNumerator(double decRatio, int divisor);
-  double TDecimate::findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env);
-  void TDecimate::sortMetrics(uint64_t *metrics, int *order, int length);
-  //void TDecimate::SedgeSort(uint64_t *metrics, int *order, int length);
-  //void TDecimate::pQuickerSort(uint64_t *metrics, int *order, int lower, int upper);
-  void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
+  void addMetricCycle(Cycle &j);
+  bool checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n);
+  void mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
+  int checkForD2VDecFrame(Cycle &p, Cycle &c, Cycle &n);
+  bool checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n);
+  int getNonDecMode2(int n, int start, int stop);
+  double buildDecStrategy(IScriptEnvironment *env);
+  void mode2MarkDecFrames(int cycleF);
+  void removeMinN(int m, int n, int start, int stop);
+  void removeMinN(int m, int n, uint64_t *metricsT, int *orderT, int &ovrC);
+  int findDivisor(double decRatio, int min_den);
+  int findNumerator(double decRatio, int divisor);
+  double findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env);
+  void sortMetrics(uint64_t *metrics, int *order, int length);
+  //void SedgeSort(uint64_t *metrics, int *order, int length);
+  //void pQuickerSort(uint64_t *metrics, int *order, int lower, int upper);
+  void calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
     bool scene, bool hnt);
-  uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
+  uint64_t calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
     int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene);
 
-  uint64_t TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
+  uint64_t calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
-  uint64_t TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,
+  uint64_t calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,
     int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
 
 
-  void TDecimate::calcBlendRatios2(double &amount1, double &amount2, int &frame1,
+  void calcBlendRatios2(double &amount1, double &amount2, int &frame1,
     int &frame2, int tf, Cycle &p, Cycle &c, Cycle &n, int remove);
-  bool TDecimate::similar_group(int f1, int f2, IScriptEnvironment *env);
-  bool TDecimate::same_group(int f1, int f2, IScriptEnvironment *env);
-  bool TDecimate::diff_group(int f1, int f2, IScriptEnvironment *env);
-  int TDecimate::diff_f(int f1, int f2, IScriptEnvironment *env);
-  int TDecimate::mode7_analysis(int n, IScriptEnvironment *env);
+  bool similar_group(int f1, int f2, IScriptEnvironment *env);
+  bool same_group(int f1, int f2, IScriptEnvironment *env);
+  bool diff_group(int f1, int f2, IScriptEnvironment *env);
+  int diff_f(int f1, int f2, IScriptEnvironment *env);
+  int mode7_analysis(int n, IScriptEnvironment *env);
 
 #ifdef ALLOW_MMX
   static void VerticalBlurMMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
@@ -176,12 +176,12 @@ private:
   template<bool use_sse2>
   static void HorizontalBlurMMXorSSE2_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  bool TDecimate::wasChosen(int i, int n);
-  void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene, bool gethint,
+  bool wasChosen(int i, int n);
+  void calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene, bool gethint,
     IScriptEnvironment *env);
 public:
-  PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env);
-  TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _rate,
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
+  TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _rate,
     double _dupThresh, double _vidThresh, double _sceneThresh, int _hybrid,
     int _vidDetect, int _conCycle, int _conCycleTP, const char* _ovr,
     const char* _output, const char* _input, const char* _tfmIn, const char* _mkvOut,
@@ -189,8 +189,8 @@ public:
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
     PClip _clip2, int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env);
-  TDecimate::~TDecimate();
-  static void TDecimate::blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
+  ~TDecimate();
+  static void blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
     bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {

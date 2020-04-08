@@ -31,7 +31,7 @@ class CacheFrame
 public:
   int num, valid;
   PVideoFrame data;
-  CacheFrame::CacheFrame();
+  CacheFrame();
 };
 
 class CacheFilter : public GenericVideoFilter
@@ -40,16 +40,16 @@ private:
   int size, mode, start_pos, ctframe, cycle;
   CacheFrame **frames;
   int mapn(int n);
-  void CacheFilter::clearCache();
+  void clearCache();
 
 public:
-  PVideoFrame __stdcall CacheFilter::GetFrame(int n, IScriptEnvironment *env);
-  CacheFilter::~CacheFilter();
-  CacheFilter::CacheFilter(PClip _child, int _size, int _mode, int _cycle,
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env);
+  ~CacheFilter();
+  CacheFilter(PClip _child, int _size, int _mode, int _cycle,
     IScriptEnvironment *env);
-  void CacheFilter::resetCacheStart(int first, int last);
-  int CacheFilter::getCachePos(int n);
-  bool CacheFilter::copyToFrame(PVideoFrame &dst, int pframe, IScriptEnvironment *env);
-  void CacheFilter::processCache(int cframe, int pframe, IScriptEnvironment *env);
-  int __stdcall CacheFilter::SetCacheHints(int cachehints, int frame_range);
+  void resetCacheStart(int first, int last);
+  int getCachePos(int n);
+  bool copyToFrame(PVideoFrame &dst, int pframe, IScriptEnvironment *env);
+  void processCache(int cframe, int pframe, IScriptEnvironment *env);
+  int __stdcall SetCacheHints(int cachehints, int frame_range);
 };

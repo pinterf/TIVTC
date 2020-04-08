@@ -72,7 +72,8 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     {
       dst = env->NewVideoFrame(vi);
       buildMotionMask(prv, src, nxt, mmask, use, np, env);
-      if (uC2) maskClip2(src, clip2->GetFrame(n, env), mmask, dst, np, env);
+      PVideoFrame frame = clip2->GetFrame(n, env);
+      if (uC2) maskClip2(src, frame, mmask, dst, np, env);
       else
       {
         if (PP == 5) BlendDeint(src, mmask, dst, false, np, env);
@@ -2804,7 +2805,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
           continue;
         linep = linein;
-        while (*linep != 'M' && *linep != 'P' && *linep != 0) *linep++;
+        while (*linep != 'M' && *linep != 'P' && *linep != 0) linep++;
         if (*linep != 0) ++countOvrS;
       }
       fclose(f);
@@ -2823,17 +2824,17 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
           if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
             continue;
           linep = linein;
-          while (*linep != 0 && *linep != ' ' && *linep != ',') *linep++;
+          while (*linep != 0 && *linep != ' ' && *linep != ',') linep++;
           if (*linep == ' ')
           {
             linet = linein;
             while (*linet != 0)
             {
               if (*linet != ' ' && *linet != 10) break;
-              *linet++;
+              linet++;
             }
             if (*linet == 0) { continue; }
-            *linep++;
+            linep++;
             if (*linep == 'M' || *linep == 'P')
             {
               sscanf(linein, "%d", &z);
@@ -2844,15 +2845,15 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
                 env->ThrowError("TFMPP:  ovr input error (out of range frame #)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 if (*linep == 'P' || *linep == 'M')
                 {
                   q = *linep;
-                  *linep++;
-                  *linep++;
+                  linep++;
+                  linep++;
                   if (*linep == 0) continue;
                   sscanf(linep, "%d", &b);
                   if (q == 80 && (b < 0 || b > 7))
@@ -2872,9 +2873,9 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
           }
           else if (*linep == ',')
           {
-            while (*linep != ' ' && *linep != 0) *linep++;
+            while (*linep != ' ' && *linep != 0) linep++;
             if (*linep == 0) continue;
-            *linep++;
+            linep++;
             if (*linep == 'P' || *linep == 'M')
             {
               sscanf(linein, "%d,%d", &z, &w);
@@ -2886,15 +2887,15 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
                 env->ThrowError("TFMPP: ovr input error (invalid frame range)!");
               }
               linep = linein;
-              while (*linep != ' ' && *linep != 0) *linep++;
+              while (*linep != ' ' && *linep != 0) linep++;
               if (*linep != 0)
               {
-                *linep++;
+                linep++;
                 if (*linep == 'M' || *linep == 'P')
                 {
                   q = *linep;
-                  *linep++;
-                  *linep++;
+                  linep++;
+                  linep++;
                   if (*linep == 0) continue;
                   sscanf(linep, "%d", &b);
                   if (q == 80 && (b < 0 || b > 7))

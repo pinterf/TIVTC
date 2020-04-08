@@ -24,7 +24,7 @@
 */
 
 #include "TDeinterlace.h"
-#include "tdeintasm.h"
+#include "TDeintASM.h"
 
 PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdtd)
 {
@@ -1176,7 +1176,7 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
           if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
             check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
               cmk_pitch, cthreshb_m128i);
-          else
+          else // FIXME: unaligned is not implemented, anyway, current align=true is always true.
             check_combing_SSE2_Luma_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
               cmk_pitch, cthreshb_m128i);
         }
@@ -2530,15 +2530,6 @@ void TDeinterlace::setMaskForUpsize(PVideoFrame &msk, int np)
       }
     }
   }
-}
-
-inline unsigned char TDeinterlace::cubicInt(unsigned char p1, unsigned char p2, unsigned char p3,
-  unsigned char p4)
-{
-  const int temp = (19 * (p2 + p3) - 3 * (p1 + p4) + 16) >> 5;
-  if (temp > 255) return 255;
-  if (temp < 0) return 0;
-  return (unsigned char)temp;
 }
 
 void TDeinterlace::createWeaveFrameYUY2(PVideoFrame &dst, PVideoFrame &prv,

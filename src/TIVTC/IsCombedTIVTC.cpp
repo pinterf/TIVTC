@@ -34,7 +34,8 @@ AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
   int xblocks;
   int mics[5] = { -20, -20, -20, -20, -20 };
   int blockN[5] = { -20, -20, -20, -20, -20 };
-  return checkCombed(child->GetFrame(n, env), n, env, np, 1, blockN, xblocks, mics, false);
+  PVideoFrame frame = child->GetFrame(n, env);
+  return checkCombed(frame, n, env, np, 1, blockN, xblocks, mics, false);
 }
 
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env)
@@ -66,26 +67,26 @@ private:
   int cthresh, MI, blockx, blocky, display, opt;
   int yhalf, xhalf, yshift, xshift, nfrms, *cArray, metric;
   PlanarFrame *cmask;
-  void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
+  void fillCombedYUY2(PVideoFrame &src, int &MICount,
     int &b_over, int &c_over, IScriptEnvironment *env);
-  void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
+  void fillCombedYV12(PVideoFrame &src, int &MICount,
     int &b_over, int &c_over, IScriptEnvironment *env);
-  void ShowCombedTIVTC::fillBox(PVideoFrame &dst, int blockN, int xblocks);
-  void ShowCombedTIVTC::drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
-  void ShowCombedTIVTC::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np);
-  void ShowCombedTIVTC::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void ShowCombedTIVTC::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void ShowCombedTIVTC::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-  void ShowCombedTIVTC::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
-  void ShowCombedTIVTC::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
-  void ShowCombedTIVTC::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
+  void fillBox(PVideoFrame &dst, int blockN, int xblocks);
+  void drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
+  void Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np);
+  void fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
+  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
+  void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
+  void fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
+  void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
+  void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
 
 public:
-  PVideoFrame __stdcall ShowCombedTIVTC::GetFrame(int n, IScriptEnvironment *env);
-  ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _MI,
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
+  ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _MI,
     int _blockx, int _blocky, int _metric, bool _debug, int _display, bool _fill,
     int _opt, IScriptEnvironment *env);
-  ShowCombedTIVTC::~ShowCombedTIVTC();
+  ~ShowCombedTIVTC();
 };
 
 ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _MI,

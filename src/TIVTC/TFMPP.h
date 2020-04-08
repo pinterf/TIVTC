@@ -43,75 +43,75 @@ private:
   char buf[512];
   PClip clip2;
   PlanarFrame *mmask;
-  void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
+  void buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     PlanarFrame *mask, int use, int np, IScriptEnvironment *env);
-  void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst,
+  void BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst,
     bool nomask, int np, IScriptEnvironment *env);
-  void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
+  void maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
     PVideoFrame &dst, int np, IScriptEnvironment *env);
-  void TFMPP::maskClip2_SSE2(const unsigned char *srcp, const unsigned char *dntp,
+  void maskClip2_SSE2(const unsigned char *srcp, const unsigned char *dntp,
     const unsigned char *maskp, unsigned char *dstp, int src_pitch, int dnt_pitch,
     int msk_pitch, int dst_pitch, int width, int height);
-  void TFMPP::putHint(PVideoFrame &dst, int field, unsigned int hint);
-  bool TFMPP::getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hint);
-  void TFMPP::getSetOvr(int n);
-  void TFMPP::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
-  void TFMPP::denoiseYUY2(PlanarFrame *mask);
-  void TFMPP::denoiseYV12(PlanarFrame *mask);
-  void TFMPP::linkYUY2(PlanarFrame *mask);
-  void TFMPP::linkYV12(PlanarFrame *mask);
-  void TFMPP::destroyHint(PVideoFrame &dst, unsigned int hint);
-  void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
+  void putHint(PVideoFrame &dst, int field, unsigned int hint);
+  bool getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hint);
+  void getSetOvr(int n);
+  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
+  void denoiseYUY2(PlanarFrame *mask);
+  void denoiseYV12(PlanarFrame *mask);
+  void linkYUY2(PlanarFrame *mask);
+  void linkYV12(PlanarFrame *mask);
+  void destroyHint(PVideoFrame &dst, unsigned int hint);
+  void CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
     int field, int np, IScriptEnvironment *env);
-  unsigned char TFMPP::cubicInt(unsigned char p1, unsigned char p2, unsigned char p3, unsigned char p4);
-  void TFMPP::writeDisplay(PVideoFrame &dst, int np, int n, int field);
-  void TFMPP::elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, int np);
-  void TFMPP::elaDeintYV12(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field);
-  void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field);
-  void TFMPP::blendDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+  unsigned char cubicInt(unsigned char p1, unsigned char p2, unsigned char p3, unsigned char p4);
+  void writeDisplay(PVideoFrame &dst, int np, int n, int field);
+  void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, int np);
+  void elaDeintYV12(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field);
+  void elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field);
+  void blendDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  void TFMPP::blendDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
+  void blendDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
     const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
     int width, int height);
-  void TFMPP::cubicDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+  void cubicDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  void TFMPP::cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
+  void cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
     const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
     int width, int height);
-  void TFMPP::copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np,
+  void copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np,
     int field);
-  void TFMPP::buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
+  void buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
     unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width, int height, long cpu);
-  void TFMPP::buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
+  void buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
     const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
     int s3_pitch, int dst_pitch, int width, int height, long cpu);
 
 #ifdef ALLOW_MMX
-  void TFMPP::maskClip2_MMX(const unsigned char *srcp, const unsigned char *dntp,
+  void maskClip2_MMX(const unsigned char *srcp, const unsigned char *dntp,
     const unsigned char *maskp, unsigned char *dstp, int src_pitch, int dnt_pitch,
     int msk_pitch, int dst_pitch, int width, int height);
-  void TFMPP::blendDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+  void blendDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  void TFMPP::blendDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
+  void blendDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
     const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
     int width, int height);
-  void TFMPP::cubicDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+  void cubicDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
     int dst_pitch, int width, int height);
-  void TFMPP::cubicDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
+  void cubicDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
     const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
     int width, int height);
-  void TFMPP::buildMotionMask1_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
+  void buildMotionMask1_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
     unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width, int height, long cpu);
-  void TFMPP::buildMotionMask2_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
+  void buildMotionMask2_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
     const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
     int s3_pitch, int dst_pitch, int width, int height, long cpu);
 #endif
 
 public:
-  PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment* env);
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
   TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _display, PClip _clip2,
     bool _usehints, int _opt, IScriptEnvironment* env);
-  TFMPP::~TFMPP();
+  ~TFMPP();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;

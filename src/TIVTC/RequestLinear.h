@@ -33,7 +33,7 @@ class RFrame
 public:
   int num, valid;
   PVideoFrame data;
-  RFrame::RFrame();
+  RFrame();
 };
 
 class RequestLinear : public GenericVideoFilter
@@ -43,18 +43,18 @@ private:
   bool debug, rall;
   int last_request, rlim, clim, elim, start_pos;
   RFrame **frames;
-  int RequestLinear::mapn(int n);
-  int RequestLinear::getCachePos(int n);
-  void RequestLinear::insertCacheFrame(int pframe, IScriptEnvironment *env);
-  PVideoFrame RequestLinear::findCachedFrame(int pframe, IScriptEnvironment *env);
-  void RequestLinear::clearCache(int n, IScriptEnvironment *env);
-  PVideoFrame RequestLinear::requestFrame(int n, IScriptEnvironment *env);
+  int mapn(int n);
+  int getCachePos(int n);
+  void insertCacheFrame(int pframe, IScriptEnvironment *env);
+  PVideoFrame findCachedFrame(int pframe, IScriptEnvironment *env);
+  void clearCache(int n, IScriptEnvironment *env);
+  PVideoFrame requestFrame(int n, IScriptEnvironment *env);
 
 public:
-  RequestLinear::RequestLinear(PClip _child, int _rlim, int _clim, int _elim,
+  RequestLinear(PClip _child, int _rlim, int _clim, int _elim,
     bool _rall, bool _debug, IScriptEnvironment *env);
-  RequestLinear::~RequestLinear();
-  PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env);
+  ~RequestLinear();
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;

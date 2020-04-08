@@ -365,8 +365,10 @@ bool TFM::checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   if (Heighta == Height) Heighta = Height - yhalf;
   const int Widtha = (Width >> (xshift - 1)) << (xshift - 1);
   const bool use_sse2_sum = (use_sse2 && xhalf == 8 && yhalf == 8) ? true : false; // 8x8: no alignment
+#ifdef ALLOW_MMX
   const bool use_isse_sum = (use_isse && xhalf == 8 && yhalf == 8) ? true : false;
   const bool use_mmx_sum = (use_mmx && xhalf == 8 && yhalf == 8) ? true : false;
+#endif
   for (int y = 1; y < yhalf; ++y)
   {
     const int temp1 = (y >> yshift)*xblocks4;
@@ -564,42 +566,42 @@ void TFM::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *
   const unsigned char *dp = tbuffer + tpitch;
   const unsigned char *dpn = tbuffer + tpitch * 2;
   const unsigned char *dpnn = tbuffer + tpitch * 3;
-  int y, count;
+  int count;
   bool upper, lower, upper2, lower2;
 #ifdef USE_C_NO_ASM
   for (int y = 2; y < Height - 2; y += 2) {
-    for (int ebx = 1; ebx < Width - 1; ebx++) {
-
+    for (int x = 1; x < Width - 1; x++) {
+      int eax, esi, edi, edx;
       //mov eax, dpp
       //  mov ecx, dp
       //  mov edx, dpn
       //  mov esi, dstp
 
-      if (dp[ebx] <= 3) continue;
-      if (dp[ebx - 1] <= 3 && dp[ebx + 1] <= 3 &&
-        dpp[ebx - 1] <= 3 && dpp[ebx] <= 3 && dpp[ebx + 1] <= 3 &&
-        dpn[ebx - 1] <= 3 && dpn[ebx] <= 3 && dpn[ebx + 1] <= 3) continue;
-      dstp[ebx]++; // inc BYTE PTR[esi + ebx]
-      if (dp[ebx] <= 19) continue; //  cmp BYTE PTR[ecx + ebx], 19, ja b2
+      if (dp[x] <= 3) continue;
+      if (dp[x - 1] <= 3 && dp[x + 1] <= 3 &&
+        dpp[x - 1] <= 3 && dpp[x] <= 3 && dpp[x + 1] <= 3 &&
+        dpn[x - 1] <= 3 && dpn[x] <= 3 && dpn[x + 1] <= 3) continue;
+      dstp[x]++; // inc BYTE PTR[esi + ebx]
+      if (dp[x] <= 19) continue; //  cmp BYTE PTR[ecx + ebx], 19, ja b2
 
-      int edi = 0; // xor edi, edi
+      edi = 0; // xor edi, edi
       lower = 0;
       upper = 0;
       
-      if (dpp[ebx - 1] > 19) edi++;
-      if (dpp[ebx] > 19) edi++;
-      if (dpp[ebx + 1] > 19) edi++;
+      if (dpp[x - 1] > 19) edi++;
+      if (dpp[x] > 19) edi++;
+      if (dpp[x + 1] > 19) edi++;
 
       if (edi != 0) upper = 1;
 
-      if (dp[ebx - 1] > 19) edi++;
-      if (dp[ebx + 1] > 19) edi++;
+      if (dp[x - 1] > 19) edi++;
+      if (dp[x + 1] > 19) edi++;
 
-      int esi = edi;
+      esi = edi;
 
-      if (dpn[ebx - 1] > 19) edi++;
-      if (dpn[ebx] > 19) edi++;
-      if (dpn[ebx + 1] > 19) edi++;
+      if (dpn[x - 1] > 19) edi++;
+      if (dpn[x] > 19) edi++;
+      if (dpn[x + 1] > 19) edi++;
 
       if (edi <= 2) continue;
 
@@ -607,16 +609,16 @@ void TFM::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *
       if (count != esi) {  // cmp edi, esi, je b11
         lower = 1; // mov lower, 1
         if (upper != 0) { // cmp upper, 0, je b11
-          dstp[ebx] += 2; // mov esi, dstp, add BYTE PTR[esi + ebx], 2
+          dstp[x] += 2; // mov esi, dstp, add BYTE PTR[esi + ebx], 2
           continue; //  jmp c2
         }
       }
       // b11 :
-      int eax = ebx - 4; // mov eax, ebx, add eax, -4
+      eax = x - 4; // mov eax, ebx, add eax, -4
       if (eax < 0) eax = 0; // jge p3, xor eax, eax
       //  p3 :
 
-      int edx = ebx + 5;
+      edx = x + 5;
       lower2 = 0;
       upper2 = 0;
       //mov edx, ebx
@@ -684,20 +686,20 @@ void TFM::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *
         if (lower == 0 || lower2 == 0) {
         // p17:
           if (count > 4)
-            dstp[ebx] += 4;
+            dstp[x] += 4;
         }
         else {
-          dstp[ebx] += 2;
+          dstp[x] += 2;
           // p18
         }
       }
       else {
         if (lower != 0 || upper2 != 0) {
-          dstp[ebx] += 2;
+          dstp[x] += 2;
         }
         else {
           if (count > 4)
-           dstp[ebx] += 4;
+           dstp[x] += 4;
         }
       }
     }

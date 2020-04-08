@@ -67,124 +67,133 @@ class TDeinterlace : public GenericVideoFilter
   unsigned char *tbuffer;
   char buf[120];
   PClip clip2, edeint, emask, emtn;
-  void TDeinterlace::createMotionMap4YV12(PVideoFrame &prv2, PVideoFrame &prv,
+  void createMotionMap4YV12(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
     int n, IScriptEnvironment *env);
-  void TDeinterlace::createMotionMap4YUY2(PVideoFrame &prv2, PVideoFrame &prv,
+  void createMotionMap4YUY2(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
     int n, IScriptEnvironment *env);
-  void TDeinterlace::createMotionMap5YV12(PVideoFrame &prv2, PVideoFrame &prv,
+  void createMotionMap5YV12(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
     int n, IScriptEnvironment *env);
-  void TDeinterlace::createMotionMap5YUY2(PVideoFrame &prv2, PVideoFrame &prv,
+  void createMotionMap5YUY2(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
     int n, IScriptEnvironment *env);
-  void TDeinterlace::linkFULL_YV12(PVideoFrame &mask);
-  void TDeinterlace::linkYtoUV_YV12(PVideoFrame &mask);
-  void TDeinterlace::linkUVtoY_YV12(PVideoFrame &mask);
-  void TDeinterlace::linkFULL_YUY2(PVideoFrame &mask);
-  void TDeinterlace::linkYtoUV_YUY2(PVideoFrame &mask);
-  void TDeinterlace::linkUVtoY_YUY2(PVideoFrame &mask);
-  void TDeinterlace::denoiseYV12(PVideoFrame &mask);
-  void TDeinterlace::denoiseYUY2(PVideoFrame &mask);
-  void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src,
+  void linkFULL_YV12(PVideoFrame &mask);
+  void linkYtoUV_YV12(PVideoFrame &mask);
+  void linkUVtoY_YV12(PVideoFrame &mask);
+  void linkFULL_YUY2(PVideoFrame &mask);
+  void linkYtoUV_YUY2(PVideoFrame &mask);
+  void linkUVtoY_YUY2(PVideoFrame &mask);
+  void denoiseYV12(PVideoFrame &mask);
+  void denoiseYUY2(PVideoFrame &mask);
+  void subtractFields(PVideoFrame &prv, PVideoFrame &src,
     PVideoFrame &nxt, VideoInfo &vit, int &aPn, int &aNn, int &aPm, int &aNm,
     int fieldt, int ordert, int optt, bool d2, int _slow, IScriptEnvironment *env);
-  void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
+  void subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     VideoInfo &vit, int &aPn, int &aNn, int &aPm, int &aNm, int fieldt, int ordert,
     int optt, bool d2, IScriptEnvironment *env);
-  void TDeinterlace::subtractFields2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
+  void subtractFields2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     VideoInfo &vit, int &aPn, int &aNn, int &aPm, int &aNm, int fieldt, int ordert,
     int optt, bool d2, IScriptEnvironment *env);
-  void TDeinterlace::mapColorsYV12(PVideoFrame &dst, PVideoFrame &mask);
-  void TDeinterlace::mapColorsYUY2(PVideoFrame &dst, PVideoFrame &mask);
-  void TDeinterlace::mapMergeYV12(PVideoFrame &dst, PVideoFrame &mask,
+  void mapColorsYV12(PVideoFrame &dst, PVideoFrame &mask);
+  void mapColorsYUY2(PVideoFrame &dst, PVideoFrame &mask);
+  void mapMergeYV12(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::mapMergeYUY2(PVideoFrame &dst, PVideoFrame &mask,
+  void mapMergeYUY2(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::smartELADeintYV12(PVideoFrame &dst, PVideoFrame &mask,
+  void smartELADeintYV12(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
+  void smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::cubicDeintYV12(PVideoFrame &dst, PVideoFrame &mask,
+  void cubicDeintYV12(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::cubicDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
+  void cubicDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::eDeintYV12(PVideoFrame &dst, PVideoFrame &mask,
+  void eDeintYV12(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &efrm);
-  void TDeinterlace::eDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
+  void eDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &efrm);
-  void TDeinterlace::kernelDeintYV12(PVideoFrame &dst, PVideoFrame &mask,
+  void kernelDeintYV12(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::kernelDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
+  void kernelDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::blendDeint(PVideoFrame &dst, PVideoFrame &mask,
+  void blendDeint(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     IScriptEnvironment *env);
-  void TDeinterlace::blendDeint2(PVideoFrame &dst, PVideoFrame &mask,
+  void blendDeint2(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     IScriptEnvironment *env);
-  unsigned char TDeinterlace::cubicInt(unsigned char p1, unsigned char p2,
-    unsigned char p3, unsigned char p4);
-  bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironment *env);
-  bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironment *env);
-  void TDeinterlace::createWeaveFrameYUY2(PVideoFrame &dst, PVideoFrame &prv,
+  bool checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironment *env);
+  bool checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironment *env);
+  void createWeaveFrameYUY2(PVideoFrame &dst, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
-  void TDeinterlace::createWeaveFrameYV12(PVideoFrame &dst, PVideoFrame &prv,
+  void createWeaveFrameYV12(PVideoFrame &dst, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
-  PVideoFrame TDeinterlace::GetFrameYV12(int n, IScriptEnvironment* env, bool &wdtd);
-  PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdtd);
-  void TDeinterlace::ELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
+  PVideoFrame GetFrameYV12(int n, IScriptEnvironment* env, bool &wdtd);
+  PVideoFrame GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdtd);
+  void ELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::ELADeintYV12(PVideoFrame &dst, PVideoFrame &mask,
+  void ELADeintYV12(PVideoFrame &dst, PVideoFrame &mask,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &efrm,
+  void apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &efrm,
     IScriptEnvironment *env);
-  void TDeinterlace::copyForUpsize(PVideoFrame &dst, PVideoFrame &src, int np, IScriptEnvironment *env);
-  void TDeinterlace::setMaskForUpsize(PVideoFrame &msk, int np);
-  void TDeinterlace::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env);
-  void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos,
+  void copyForUpsize(PVideoFrame &dst, PVideoFrame &src, int np, IScriptEnvironment *env);
+  void setMaskForUpsize(PVideoFrame &msk, int np);
+  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env);
+  void absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos,
     IScriptEnvironment *env);
 #ifdef ALLOW_MMX
   void TDeinterlace::absDiffMMX(const unsigned char *srcp1, const unsigned char *srcp2,
     unsigned char *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width, int height,
     int mthresh1, int mthresh2);
 #endif
-  static void TDeinterlace::buildDiffMapPlane(const unsigned char *prvp, const unsigned char *nxtp,
+  static void buildDiffMapPlane(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int optt, IScriptEnvironment *env);
-  void TDeinterlace::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
     int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
-  void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
-  void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
-  void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env);
-  void TDeinterlace::insertCompStats(int n, int norm1, int norm2, int mtn1, int mtn2);
-  int TDeinterlace::getMatch(int norm1, int norm2, int mtn1, int mtn2);
-  void TDeinterlace::expandMap_YUY2(PVideoFrame &mask);
-  void TDeinterlace::expandMap_YV12(PVideoFrame &mask);
-  void TDeinterlace::stackVertical(PVideoFrame &dst2, PVideoFrame &p1, PVideoFrame &p2,
+  void InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env);
+  void insertCompStats(int n, int norm1, int norm2, int mtn1, int mtn2);
+  int getMatch(int norm1, int norm2, int mtn1, int mtn2);
+  void expandMap_YUY2(PVideoFrame &mask);
+  void expandMap_YV12(PVideoFrame &mask);
+  void stackVertical(PVideoFrame &dst2, PVideoFrame &p1, PVideoFrame &p2,
     IScriptEnvironment *env);
-  void TDeinterlace::updateMapAP(PVideoFrame &dst, PVideoFrame &mask, IScriptEnvironment *env);
-  void TDeinterlace::putHint2(PVideoFrame &dst, bool wdtd);
-  PVideoFrame TDeinterlace::createMap(PVideoFrame &src, int c, IScriptEnvironment *env,
+  void updateMapAP(PVideoFrame &dst, PVideoFrame &mask, IScriptEnvironment *env);
+  void putHint2(PVideoFrame &dst, bool wdtd);
+  PVideoFrame createMap(PVideoFrame &src, int c, IScriptEnvironment *env,
     int tf);
+
+  inline unsigned char cubicInt(unsigned char p1, unsigned char p2, unsigned char p3,
+    unsigned char p4)
+  {
+    const int temp = (19 * (p2 + p3) - 3 * (p1 + p4) + 16) >> 5;
+    if (temp > 255) return 255;
+    if (temp < 0) return 0;
+    return (unsigned char)temp;
+  }
+
+
 
 public:
   int *sa;
-  PVideoFrame __stdcall TDeinterlace::GetFrame(int n, IScriptEnvironment* env);
-  TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int _mthreshL,
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
+  TDeinterlace(PClip _child, int _mode, int _order, int _field, int _mthreshL,
     int _mthreshC, int _map, const char* _ovr, int _ovrDefault, int _type, bool _debug,
     int _mtnmode, bool _sharp, bool _hints, PClip _clip2, bool _full, int _cthresh,
     bool _chroma, int _MI, bool _tryWeave, int _link, bool _denoise, int _AP,
     int _blockx, int _blocky, int _APType, PClip _edeint, PClip _emask, int _metric,
     int _expand, int _slow, PClip _emtn, bool _tshints, int _opt, IScriptEnvironment* env);
-  TDeinterlace::~TDeinterlace();
-  static int TDeinterlace::getHint(PVideoFrame &src, unsigned int &storeHint, int &hintField);
-  static void TDeinterlace::putHint(PVideoFrame &dst, unsigned int hint, int fieldt);
+  ~TDeinterlace();
+  static int getHint(PVideoFrame &src, unsigned int &storeHint, int &hintField);
+  static void putHint(PVideoFrame &dst, unsigned int hint, int fieldt);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;

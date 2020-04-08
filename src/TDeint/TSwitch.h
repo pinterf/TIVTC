@@ -33,14 +33,14 @@ private:
   char buf[512];
   bool debug;
   PClip c1, c2;
-  int TSwitch::getHint(PVideoFrame &src, unsigned int &hint, int &htype);
-  void TSwitch::putHint(PVideoFrame &dst, unsigned int hint, int htype);
+  int getHint(PVideoFrame &src, unsigned int &hint, int &htype);
+  void putHint(PVideoFrame &dst, unsigned int hint, int htype);
 
 public:
-  PVideoFrame __stdcall TSwitch::GetFrame(int n, IScriptEnvironment *env);
-  TSwitch::TSwitch(PClip _child, PClip _c1, PClip _c2, bool _debug,
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
+  TSwitch(PClip _child, PClip _c1, PClip _c2, bool _debug,
     IScriptEnvironment *env);
-  TSwitch::~TSwitch();
+  ~TSwitch();
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_MULTI_INSTANCE : 0;
   }

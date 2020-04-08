@@ -46,60 +46,60 @@ private:
   int ywidth, uvwidth;
   int yheight, uvheight;
   unsigned char *y, *u, *v;
-  bool PlanarFrame::allocSpace(VideoInfo &viInfo);
-  bool PlanarFrame::allocSpace(int specs[4]);
-  int PlanarFrame::getCPUInfo();
-  void PlanarFrame::copyInternalFrom(PVideoFrame &frame, VideoInfo &viInfo);
-  void PlanarFrame::copyInternalFrom(PlanarFrame &frame);
-  void PlanarFrame::copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
-  void PlanarFrame::copyInternalTo(PlanarFrame &frame);
-  void PlanarFrame::copyInternalPlaneTo(PlanarFrame &frame, int plane);
+  bool allocSpace(VideoInfo &viInfo);
+  bool allocSpace(int specs[4]);
+  int getCPUInfo();
+  void copyInternalFrom(PVideoFrame &frame, VideoInfo &viInfo);
+  void copyInternalFrom(PlanarFrame &frame);
+  void copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
+  void copyInternalTo(PlanarFrame &frame);
+  void copyInternalPlaneTo(PlanarFrame &frame, int plane);
 #ifdef ALLOW_MMX
-  static void PlanarFrame::asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
+  static void asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
     const unsigned char* srcp, int src_pitch, int row_size, int height);
 #endif
-  void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
+  void convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
 #ifdef ALLOW_MMX
-  void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
+  void convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
 #endif
-  void PlanarFrame::convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
+  void convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
-  void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned char *pv,
+  void conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
-  void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
+  void conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
 #ifndef _M_X64
-  void PlanarFrame::conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsigned char *pv,
+  void conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
 #endif
 
 public:
-  PlanarFrame::PlanarFrame();
-  PlanarFrame::PlanarFrame(VideoInfo &viInfo);
-  PlanarFrame::PlanarFrame(VideoInfo &viInfo, bool _packed);
-  PlanarFrame::~PlanarFrame();
-  void PlanarFrame::createPlanar(int yheight, int uvheight, int ywidth, int uvwidth);
-  void PlanarFrame::createPlanar(int height, int width, int chroma_format);
-  void PlanarFrame::createFromProfile(VideoInfo &viInfo);
-  void PlanarFrame::createFromFrame(PVideoFrame &frame, VideoInfo &viInfo);
-  void PlanarFrame::createFromPlanar(PlanarFrame &frame);
-  void PlanarFrame::copyFrom(PVideoFrame &frame, VideoInfo &viInfo);
-  void PlanarFrame::copyTo(PVideoFrame &frame, VideoInfo &viInfo);
-  void PlanarFrame::copyFrom(PlanarFrame &frame);
-  void PlanarFrame::copyTo(PlanarFrame &frame);
-  void PlanarFrame::copyChromaTo(PlanarFrame &dst);
-  void PlanarFrame::copyToForBMP(PVideoFrame &dst, VideoInfo &viInfo);
-  void PlanarFrame::copyPlaneTo(PlanarFrame &dst, int plane);
-  void PlanarFrame::freePlanar();
-  unsigned char* PlanarFrame::GetPtr(int plane = 0);
-  int PlanarFrame::GetWidth(int plane = 0);
-  int PlanarFrame::GetHeight(int plane = 0);
-  int PlanarFrame::GetPitch(int plane = 0);
-  void PlanarFrame::BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char* srcp,
+  PlanarFrame();
+  PlanarFrame(VideoInfo &viInfo);
+  PlanarFrame(VideoInfo &viInfo, bool _packed);
+  ~PlanarFrame();
+  void createPlanar(int yheight, int uvheight, int ywidth, int uvwidth);
+  void createPlanar(int height, int width, int chroma_format);
+  void createFromProfile(VideoInfo &viInfo);
+  void createFromFrame(PVideoFrame &frame, VideoInfo &viInfo);
+  void createFromPlanar(PlanarFrame &frame);
+  void copyFrom(PVideoFrame &frame, VideoInfo &viInfo);
+  void copyTo(PVideoFrame &frame, VideoInfo &viInfo);
+  void copyFrom(PlanarFrame &frame);
+  void copyTo(PlanarFrame &frame);
+  void copyChromaTo(PlanarFrame &dst);
+  void copyToForBMP(PVideoFrame &dst, VideoInfo &viInfo);
+  void copyPlaneTo(PlanarFrame &dst, int plane);
+  void freePlanar();
+  unsigned char* GetPtr(int plane = 0);
+  int GetWidth(int plane = 0);
+  int GetHeight(int plane = 0);
+  int GetPitch(int plane = 0);
+  void BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char* srcp,
     int src_pitch, int row_size, int height);
-  PlanarFrame& PlanarFrame::operator=(PlanarFrame &ob2);
+  PlanarFrame& operator=(PlanarFrame &ob2);
 };
 
 #endif

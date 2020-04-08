@@ -24,7 +24,7 @@
 */
 
 #include "TDeinterlace.h"
-#include "tdeintasm.h"
+#include "TDeintASM.h"
 
 PVideoFrame TDeinterlace::GetFrameYV12(int n, IScriptEnvironment* env, bool &wdtd)
 {
@@ -1214,8 +1214,10 @@ bool TDeinterlace::checkCombedYV12(PVideoFrame &src, int &MIC, IScriptEnvironmen
   if (Heighta == Height) Heighta = Height - yhalf;
   const int Widtha = (Width >> (xshift - 1)) << (xshift - 1);
   const bool use_sse2_sum = (use_sse2 && xhalf == 8 && yhalf == 8) ? true : false; // 8x8: no alignment
+#ifdef ALLOW_MMX
   const bool use_isse_sum = (use_isse && xhalf == 8 && yhalf == 8) ? true : false;
   const bool use_mmx_sum = (use_mmx && xhalf == 8 && yhalf == 8) ? true : false;
+#endif
   for (int y = 1; y < yhalf; ++y)
   {
     const int temp1 = (y >> yshift)*xblocks4;
@@ -1510,7 +1512,7 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
   int optt, bool d2, IScriptEnvironment *env)
 {
   PVideoFrame map = env->NewVideoFrame(vit);
-  int stop = vit.IsYV12() ? 3 : 1, y;
+  int stop = vit.IsYV12() ? 3 : 1;
   int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   unsigned long accumPns = 0, accumNns = 0, accumNmls = 0;
   unsigned long accumPms = 0, accumNms = 0, accumPmls = 0;
@@ -1653,7 +1655,7 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
   int optt, bool d2, IScriptEnvironment* env)
 {
   PVideoFrame map = env->NewVideoFrame(vit);
-  int stop = vit.IsYV12() ? 3 : 1, y;
+  int stop = vit.IsYV12() ? 3 : 1;
   int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   unsigned long accumPns = 0, accumNns = 0, accumNmls = 0;
   unsigned long accumPms = 0, accumNms = 0, accumPmls = 0;
