@@ -25,23 +25,26 @@
 
 #include "TDBuf.h"
 
-TDBuf::TDBuf(int _size, int _width, int _height, int _cp) : size(_size)
+TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size(_size)
 {
+  constexpr int FRAME_ALIGN = 64;
+  // fixme: align to 32 at least
   y = u = v = NULL;
-  fnum = NULL;
-  if (_cp == 3) // YV12
+  fnum.resize(size);
+  if (_cp == 3) // YV12, YV16, Yv24 planar
   {
     widthy = _width;
-    widthuv = _width / 2;
+    widthuv = planarType == 444 ? _width : _width / 2;
     heighty = _height;
-    heightuv = _height / 2;
-    lpitchy = ((widthy + 15) >> 4) << 4;
-    lpitchuv = ((widthuv + 15) >> 4) << 4;
+    heightuv = planarType == 420 ? _height / 2 : _height;
+    lpitchy = ((widthy + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
+    lpitchuv = ((widthuv + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
     pitchy = lpitchy*size;
     pitchuv = lpitchuv*size;
   }
   else
   {
+    // YUY2
     widthy = _width * 2;
     heighty = _height;
     lpitchy = ((widthy + 15) >> 4) << 4;
@@ -50,13 +53,12 @@ TDBuf::TDBuf(int _size, int _width, int _height, int _cp) : size(_size)
   }
   if (size)
   {
-    fnum = (int*)malloc(size * sizeof(int));
     for (int i = 0; i < size; ++i) fnum[i] = -999999999;
-    y = (unsigned char*)_aligned_malloc(pitchy*heighty, 16);
+    y = (unsigned char*)_aligned_malloc(pitchy*heighty, FRAME_ALIGN);
     if (_cp == 3)
     {
-      u = (unsigned char*)_aligned_malloc(pitchuv*heightuv, 16);
-      v = (unsigned char*)_aligned_malloc(pitchuv*heightuv, 16);
+      u = (unsigned char*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
+      v = (unsigned char*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
     }
   }
   spos = 0;
@@ -64,7 +66,6 @@ TDBuf::TDBuf(int _size, int _width, int _height, int _cp) : size(_size)
 
 TDBuf::~TDBuf()
 {
-  if (fnum) free(fnum);
   if (y) _aligned_free(y);
   if (u) _aligned_free(u);
   if (v) _aligned_free(v);

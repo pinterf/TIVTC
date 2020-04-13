@@ -31,33 +31,25 @@ void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
   IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
-  int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  int stop = vi.IsYV12() ? 3 : 1;
+  if (opt == 0) cpu=0;
+
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int stop = vi.IsYUY2() ? 1 : 3;
   for (int b = 0; b < stop; ++b)
   {
-    const unsigned char *srcp1 = src1->GetReadPtr(plane[b]);
-    const int src1_pitch = src1->GetPitch(plane[b]);
-    const int height = src1->GetHeight(plane[b]);
-    const int width = src1->GetRowSize(plane[b]);
-    const unsigned char *srcp2 = src2->GetReadPtr(plane[b]);
-    const int src2_pitch = src2->GetPitch(plane[b]);
-    unsigned char *dstp = pos == -1 ? dst->GetWritePtr(plane[b]) : db->GetWritePtr(pos, b);
-    const int dst_pitch = pos == -1 ? dst->GetPitch(plane[b]) : db->GetPitch(b);
+    const int plane = planes[b];
+    const unsigned char *srcp1 = src1->GetReadPtr(plane);
+    const int src1_pitch = src1->GetPitch(plane);
+    const int height = src1->GetHeight(plane);
+    const int width = src1->GetRowSize(plane);
+    const unsigned char *srcp2 = src2->GetReadPtr(plane);
+    const int src2_pitch = src2->GetPitch(plane);
+    unsigned char *dstp = pos == -1 ? dst->GetWritePtr(plane) : db->GetWritePtr(pos, b);
+    const int dst_pitch = pos == -1 ? dst->GetPitch(plane) : db->GetPitch(b);
     const int mthresh1 = b == 0 ? mthreshL : mthreshC;
-    const int mthresh2 = stop == 3 ? (b == 0 ? mthreshL : mthreshC) : mthreshC;
-    if ((cpu&CPUF_SSE2) && !((intptr_t(srcp1) | intptr_t(srcp2) | intptr_t(dstp) | src1_pitch | src2_pitch | dst_pitch) & 15))
+    const int mthresh2 = vi.IsYUY2() ? mthreshC : (b == 0 ? mthreshL : mthreshC);
+    if (cpu&CPUF_SSE2)
       absDiffSSE2(srcp1, srcp2, dstp, src1_pitch, src2_pitch, dst_pitch, width, height, mthresh1, mthresh2);
-#if defined(ALLOW_MMX)
-    else if (cpu&CPUF_MMX)
-      absDiffMMX(srcp1, srcp2, dstp, src1_pitch, src2_pitch, dst_pitch, width, height, mthresh1, mthresh2);
-#endif
     else
     {
       for (int y = 0; y < height; ++y)
@@ -78,16 +70,6 @@ void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
   }
 }
 
-#if !defined(USE_INTR) || defined(ALLOW_MMX)
-__declspec(align(16)) const int64_t onesMask[2] = { 0x0101010101010101, 0x0101010101010101 };
-__declspec(align(16)) const int64_t onesMaskLuma[2] = { 0x0001000100010001, 0x0001000100010001 };
-__declspec(align(16)) const int64_t twosMask[2] = { 0x0202020202020202, 0x0202020202020202 };
-__declspec(align(16)) const int64_t mask251[2] = { 0xFBFBFBFBFBFBFBFB, 0xFBFBFBFBFBFBFBFB };
-__declspec(align(16)) const int64_t mask235[2] = { 0xEBEBEBEBEBEBEBEB, 0xEBEBEBEBEBEBEBEB };
-__declspec(align(16)) const int64_t lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
-__declspec(align(16)) const int64_t threeMask[2] = { 0x0003000300030003, 0x0003000300030003 };
-__declspec(align(16)) const int64_t ffMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
-#endif
 
 void absDiffSSE2(const unsigned char *srcp1, const unsigned char *srcp2,
   unsigned char *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
@@ -95,7 +77,7 @@ void absDiffSSE2(const unsigned char *srcp1, const unsigned char *srcp2,
 {
   mthresh1 = min(max(255 - mthresh1, 0), 255);
   mthresh2 = min(max(255 - mthresh2, 0), 255);
-#if defined(USE_INTR)
+
   static const auto onesMask = _mm_set1_epi8(1);
   static const auto sthresh = _mm_set1_epi16((mthresh2 << 8) + mthresh1);
   static const auto all_ff = _mm_set1_epi8(-1);
@@ -126,167 +108,19 @@ void absDiffSSE2(const unsigned char *srcp1, const unsigned char *srcp2,
     dstp += dst_pitch;
   }
 
-#else
-  int64_t sthresh[2];
-  sthresh[0] = (mthresh2 << 8) + mthresh1;
-  sthresh[0] += (sthresh[0] << 48) + (sthresh[0] << 32) + (sthresh[0] << 16);
-  sthresh[1] = sthresh[0];
-  __asm
-  {
-    mov edi, srcp1
-    mov edx, srcp2
-    mov esi, dstp
-    mov ecx, width
-    movdqu xmm5, sthresh
-    pcmpeqb xmm6, xmm6
-    movdqa xmm7, onesMask
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [edi + eax]
-      movdqa xmm1, [edx + eax]
-      movdqa xmm2, xmm0
-      psubusb xmm0, xmm1
-      psubusb xmm1, xmm2
-      por xmm0, xmm1
-      paddusb xmm0, xmm5
-      pcmpeqb xmm0, xmm6
-      pxor xmm0, xmm6
-      pand xmm0, xmm7
-      movdqa[esi + eax], xmm0
-      add eax, 16
-      cmp eax, ecx
-      jl xloop
-      add edi, src1_pitch
-      add edx, src2_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-#if defined(ALLOW_MMX)
-void TDeinterlace::absDiffMMX(const unsigned char *srcp1, const unsigned char *srcp2,
-  unsigned char *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
-  int height, int mthresh1, int mthresh2)
-{
-  mthresh1 = min(max(255 - mthresh1, 0), 255);
-  mthresh2 = min(max(255 - mthresh2, 0), 255);
-  int64_t sthresh = (mthresh2 << 8) + mthresh1;
-  sthresh += (sthresh << 48) + (sthresh << 32) + (sthresh << 16);
-  if (!(width & 15))
-  {
-    __asm
-    {
-      mov edi, srcp1
-      mov edx, srcp2
-      mov esi, dstp
-      mov ecx, width
-      movq mm6, sthresh
-      pcmpeqb mm7, mm7
-      yloop16 :
-      xor eax, eax
-        align 16
-        xloop16 :
-        movq mm0, [edi + eax]
-        movq mm1, [edi + eax + 8]
-        movq mm2, [edx + eax]
-        movq mm3, [edx + eax + 8]
-        movq mm4, mm0
-        movq mm5, mm1
-        psubusb mm0, mm2
-        psubusb mm1, mm3
-        psubusb mm2, mm4
-        psubusb mm3, mm5
-        por mm0, mm2
-        por mm1, mm3
-        paddusb mm0, mm6
-        paddusb mm1, mm6
-        pcmpeqb mm0, mm7
-        pcmpeqb mm1, mm7
-        pxor mm0, mm7
-        pxor mm1, mm7
-        pand mm0, onesMask
-        pand mm1, onesMask
-        movq[esi + eax], mm0
-        movq[esi + eax + 8], mm1
-        add eax, 16
-        cmp eax, ecx
-        jl xloop16
-        add edi, src1_pitch
-        add edx, src2_pitch
-        add esi, dst_pitch
-        dec height
-        jnz yloop16
-        emms
-    }
-  }
-  else
-  {
-    __asm
-    {
-      mov edi, srcp1
-      mov edx, srcp2
-      mov esi, dstp
-      mov ecx, width
-      movq mm5, sthresh
-      pcmpeqb mm6, mm6
-      movq mm7, onesMask
-      yloop8 :
-      xor eax, eax
-        align 16
-        xloop8 :
-        movq mm0, [edi + eax]
-        movq mm1, [edx + eax]
-        movq mm2, mm0
-        psubusb mm0, mm1
-        psubusb mm1, mm2
-        por mm0, mm1
-        paddusb mm0, mm5
-        pcmpeqb mm0, mm6
-        pxor mm0, mm6
-        pand mm0, mm7
-        movq[esi + eax], mm0
-        add eax, 8
-        cmp eax, ecx
-        jl xloop8
-        add edi, src1_pitch
-        add edx, src2_pitch
-        add esi, dst_pitch
-        dec height
-        jnz yloop8
-        emms
-    }
-  }
-}
-#endif
 
 void TDeinterlace::buildDiffMapPlane(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int optt, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (optt != 4)
+  if (optt == 0) cpu = 0;
+  if (cpu&CPUF_SSE2)
   {
-    if (optt == 0) cpu &= ~0x2C;
-    else if (optt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (optt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (optt == 3) cpu |= 0x2C;
+    buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, Width, Height);
   }
-  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | intptr_t(dstp) | prv_pitch | nxt_pitch | dst_pitch) & 15))
-  {
-    buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch,
-      Width, Height);
-  }
-#ifdef ALLOW_MMX
-  else if (cpu&CPUF_MMX)
-  {
-    buildABSDiffMask2_MMX(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch,
-      Width, Height);
-  }
-#endif
   else
   {
     for (int y = 0; y < Height; ++y)
@@ -306,14 +140,13 @@ void TDeinterlace::buildDiffMapPlane(const unsigned char *prvp, const unsigned c
 }
 
 
-// aligned. 
+
 // different path if not mod16, but only for remaining 8 bytes
 void buildABSDiffMask_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
   unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
-#ifdef USE_INTR
-  if (!(width & 15))
+  if (!(width & 15)) // exact mod16
   {
     while (height--) {
       for (int x = 0; x < width; x += 16)
@@ -354,182 +187,20 @@ void buildABSDiffMask_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
       dstp += dst_pitch;
     }
   }
-#else
-  if (!(width & 15))
-  {
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      yloop :
-      xor ecx, ecx
-        align 16
-        xloop :
-        movdqa xmm0, [eax + ecx]
-        movdqa xmm1, [ebx + ecx]
-        movdqa xmm2, xmm0
-        psubusb xmm0, xmm1
-        psubusb xmm1, xmm2
-        por xmm0, xmm1
-        movdqa[edx + ecx], xmm0
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop
-    }
-  }
-  else
-  {
-    width -= 8;
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      yloop2 :
-      xor ecx, ecx
-        align 16
-        xloop2 :
-        movdqa xmm0, [eax + ecx]
-        movdqa xmm1, [ebx + ecx]
-        movdqa xmm2, xmm0
-        psubusb xmm0, xmm1
-        psubusb xmm1, xmm2
-        por xmm0, xmm1
-        movdqa[edx + ecx], xmm0
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop2
-        movq xmm0, qword ptr[eax + ecx]
-        movq xmm1, qword ptr[ebx + ecx]
-        movq xmm2, xmm0
-        psubusb xmm0, xmm1
-        psubusb xmm1, xmm2
-        por xmm0, xmm1
-        movq qword ptr[edx + ecx], xmm0
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop2
-    }
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void buildABSDiffMask_MMX(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
-  int height)
-{
-  if (!(width & 15))
-  {
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      yloop :
-      xor ecx, ecx
-        align 16
-        xloop :
-        movq mm0, [eax + ecx]
-        movq mm1, [eax + ecx + 8]
-        movq mm2, [ebx + ecx]
-        movq mm3, [ebx + ecx + 8]
-        movq mm4, mm0
-        movq mm5, mm1
-        psubusb mm4, mm2
-        psubusb mm5, mm3
-        psubusb mm2, mm0
-        psubusb mm3, mm1
-        por mm2, mm4
-        por mm3, mm5
-        movq[edx + ecx], mm2
-        movq[edx + ecx + 8], mm3
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop
-        emms
-    }
-  }
-  else
-  {
-    width -= 8;
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      yloop2 :
-      xor ecx, ecx
-        align 16
-        xloop2 :
-        movq mm0, [eax + ecx]
-        movq mm1, [eax + ecx + 8]
-        movq mm2, [ebx + ecx]
-        movq mm3, [ebx + ecx + 8]
-        movq mm4, mm0
-        movq mm5, mm1
-        psubusb mm4, mm2
-        psubusb mm5, mm3
-        psubusb mm2, mm0
-        psubusb mm3, mm1
-        por mm2, mm4
-        por mm3, mm5
-        movq[edx + ecx], mm2
-        movq[edx + ecx + 8], mm3
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop2
-        movq mm0, [eax + ecx]
-        movq mm1, [ebx + ecx]
-        movq mm2, mm0
-        psubusb mm2, mm1
-        psubusb mm1, mm0
-        por mm1, mm2
-        movq[edx + ecx], mm1
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop2
-        emms
-    }
-  }
-}
-#endif
 
 void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
   unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
-#ifdef USE_INTR
   __m128i onesMask = _mm_set1_epi8(0x01);
   __m128i twosMask = _mm_set1_epi8(0x02);
   __m128i all_ff = _mm_set1_epi8(-1);
   __m128i mask251 = _mm_set1_epi8((char)0xFB); // 1111 1011
   __m128i mask235 = _mm_set1_epi8((char)0xEB); // 1110 1011
 
-  if (!(width & 15))
+  if (!(width & 15)) // exact mod16
   {
     while (height--) {
       for (int x = 0; x < width; x += 16)
@@ -597,254 +268,10 @@ void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp
       dstp += dst_pitch;
     }
   }
-#else
-  if (!(width & 15))
-  {
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      movdqa xmm3, onesMask
-      movdqa xmm4, twosMask
-      pcmpeqb xmm5, xmm5
-      movdqa xmm6, mask251
-      movdqa xmm7, mask235
-      yloop :
-      xor ecx, ecx
-        align 16
-        xloop :
-        movdqa xmm0, [eax + ecx]
-        movdqa xmm1, [ebx + ecx]
-        movdqa xmm2, xmm0
-        psubusb xmm0, xmm1
-        psubusb xmm1, xmm2
-        por xmm0, xmm1
-        movdqa xmm1, xmm0
-        paddusb xmm0, xmm6
-        paddusb xmm1, xmm7
-        pcmpeqb xmm0, xmm5
-        pcmpeqb xmm1, xmm5
-        pand xmm0, xmm3
-        pand xmm1, xmm4
-        por xmm0, xmm1
-        movdqa[edx + ecx], xmm0
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop
-    }
-  }
-  else
-  {
-    width -= 8;
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      movdqa xmm3, onesMask
-      movdqa xmm4, twosMask
-      pcmpeqb xmm5, xmm5
-      movdqa xmm6, mask251
-      movdqa xmm7, mask235
-      yloop2 :
-      xor ecx, ecx
-        align 16
-        xloop2 :
-        movdqa xmm0, [eax + ecx]
-        movdqa xmm1, [ebx + ecx]
-        movdqa xmm2, xmm0
-        psubusb xmm0, xmm1
-        psubusb xmm1, xmm2
-        por xmm0, xmm1
-        movdqa xmm1, xmm0
-        paddusb xmm0, xmm6
-        paddusb xmm1, xmm7
-        pcmpeqb xmm0, xmm5
-        pcmpeqb xmm1, xmm5
-        pand xmm0, xmm3
-        pand xmm1, xmm4
-        por xmm0, xmm1
-        movdqa[edx + ecx], xmm0
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop2
-        movq xmm0, qword ptr[eax + ecx]
-        movq xmm1, qword ptr[ebx + ecx]
-        movq xmm2, xmm0
-        psubusb xmm0, xmm1
-        psubusb xmm1, xmm2
-        por xmm0, xmm1
-        movdqa xmm1, xmm0
-        paddusb xmm0, xmm6
-        paddusb xmm1, xmm7
-        pcmpeqb xmm0, xmm5
-        pcmpeqb xmm1, xmm5
-        pand xmm0, xmm3
-        pand xmm1, xmm4
-        por xmm0, xmm1
-        movq qword ptr[edx + ecx], xmm0
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop2
-    }
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void buildABSDiffMask2_MMX(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
-  int height)
-{
-  if (!(width & 15))
-  {
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      movq mm6, mask251
-      movq mm7, mask235
-      yloop :
-      xor ecx, ecx
-        align 16
-        xloop :
-        movq mm0, [eax + ecx]
-        movq mm1, [eax + ecx + 8]
-        movq mm2, [ebx + ecx]
-        movq mm3, [ebx + ecx + 8]
-        movq mm4, mm0
-        movq mm5, mm1
-        psubusb mm4, mm2
-        psubusb mm5, mm3
-        psubusb mm2, mm0
-        psubusb mm3, mm1
-        por mm2, mm4
-        por mm3, mm5
-        pcmpeqb mm0, mm0
-        pcmpeqb mm1, mm1
-        movq mm4, mm2
-        movq mm5, mm3
-        paddusb mm4, mm6
-        paddusb mm2, mm7
-        paddusb mm5, mm6
-        paddusb mm3, mm7
-        pcmpeqb mm4, mm0
-        pcmpeqb mm2, mm1
-        pcmpeqb mm5, mm0
-        pcmpeqb mm3, mm1
-        pand mm4, onesMask
-        pand mm5, onesMask
-        pand mm2, twosMask
-        pand mm3, twosMask
-        por mm2, mm4
-        por mm3, mm5
-        movq[edx + ecx], mm2
-        movq[edx + ecx + 8], mm3
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop
-        emms
-    }
-  }
-  else
-  {
-    width -= 8;
-    __asm
-    {
-      mov eax, prvp
-      mov ebx, nxtp
-      mov edx, dstp
-      mov edi, width
-      mov esi, height
-      movq mm6, mask251
-      movq mm7, mask235
-      yloop2 :
-      xor ecx, ecx
-        align 16
-        xloop2 :
-        movq mm0, [eax + ecx]
-        movq mm1, [eax + ecx + 8]
-        movq mm2, [ebx + ecx]
-        movq mm3, [ebx + ecx + 8]
-        movq mm4, mm0
-        movq mm5, mm1
-        psubusb mm4, mm2
-        psubusb mm5, mm3
-        psubusb mm2, mm0
-        psubusb mm3, mm1
-        por mm2, mm4
-        por mm3, mm5
-        pcmpeqb mm0, mm0
-        pcmpeqb mm1, mm1
-        movq mm4, mm2
-        movq mm5, mm3
-        paddusb mm4, mm6
-        paddusb mm2, mm7
-        paddusb mm5, mm6
-        paddusb mm3, mm7
-        pcmpeqb mm4, mm0
-        pcmpeqb mm2, mm1
-        pcmpeqb mm5, mm0
-        pcmpeqb mm3, mm1
-        pand mm4, onesMask
-        pand mm5, onesMask
-        pand mm2, twosMask
-        pand mm3, twosMask
-        por mm2, mm4
-        por mm3, mm5
-        movq[edx + ecx], mm2
-        movq[edx + ecx + 8], mm3
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop2
-        movq mm0, [eax + ecx]
-        movq mm1, [ebx + ecx]
-        movq mm2, mm0
-        psubusb mm2, mm1
-        psubusb mm1, mm0
-        por mm1, mm2
-        pcmpeqb mm0, mm0
-        movq mm2, mm1
-        paddusb mm1, mm6
-        paddusb mm2, mm7
-        pcmpeqb mm1, mm0
-        pcmpeqb mm2, mm0
-        pand mm1, onesMask
-        pand mm2, twosMask
-        por mm1, mm2
-        movq[edx + ecx], mm1
-        add eax, prv_pitch
-        add ebx, nxt_pitch
-        add edx, dst_pitch
-        dec esi
-        jnz yloop2
-        emms
-    }
-  }
-}
-#endif
-
-template<bool aligned, bool with_luma_mask>
+// fixme: also in tfmasm
+template<bool with_luma_mask>
 static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
@@ -932,910 +359,24 @@ static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned 
 }
 
 
-// instantiate
-template void check_combing_SSE2<false>(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
-template void check_combing_SSE2<true>(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
-
-// todo: this one needs an unaligned version, too
 // src_pitch2: src_pitch*2 for inline asm speed reasons
-template<bool aligned>
 void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
-#ifdef USE_INTR
   // no luma masking
-  check_combing_SSE2_generic_simd<aligned, false>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
-#else
-  __asm
-  {
-    mov eax, srcp
-    mov edx, dstp
-    mov edi, src_pitch
-    add eax, edi
-    movdqa xmm6, threshb
-    pcmpeqb xmm7, xmm7 // Full FF
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movdqa xmm0, [eax + ecx]	// next
-      sub eax, edi
-      movdqa xmm4, [eax + ecx]	// srcp
-      movdqa xmm5, xmm0		// cpy next
-      sub eax, edi
-      movdqa xmm1, [eax + ecx]	// prev
-      movdqa xmm2, xmm4		// cpy srcp
-      movdqa xmm3, xmm1		// cpy prev
-      psubusb xmm5, xmm2		// next-srcp
-      psubusb xmm3, xmm4		// prev-srcp
-      psubusb xmm2, xmm0		// srcp-next
-      psubusb xmm4, xmm1		// srcp-prev 
-      pminub xmm3, xmm5
-      pminub xmm2, xmm4
-      pmaxub xmm2, xmm3
-
-      paddusb xmm2, xmm6
-      pcmpeqb xmm2, xmm7
-
-      movdqa xmm3, xmm2
-      psrldq xmm2, 4
-      movd edi, xmm3
-      movd esi, xmm2
-      or edi, esi
-      jnz output2
-
-      movdqa xmm4, xmm2
-      psrldq xmm2, 4
-      psrldq xmm4, 8
-      movd edi, xmm2
-      movd esi, xmm4
-      or edi, esi
-      jnz output2
-
-      mov edi, src_pitch
-      add ecx, 16
-      lea eax, [eax + edi * 2]
-      cmp ecx, width
-      jl xloop
-
-      add eax, edi
-      add edx, dst_pitch
-      dec height
-      jnz yloop
-
-      jmp end
-
-      output2 :
-    mov esi, src_pitch2
-      mov edi, src_pitch
-      pxor xmm7, xmm7
-      movdqa xmm2, xmm0
-      movdqa xmm4, xmm1
-      punpcklbw xmm2, xmm7
-      punpckhbw xmm0, xmm7
-      sub eax, edi
-      punpcklbw xmm4, xmm7
-      punpckhbw xmm1, xmm7
-      paddusw xmm2, xmm4
-      paddusw xmm0, xmm1
-      pmullw xmm2, threeMask	// 3*(p+n)
-      pmullw xmm0, threeMask	// 3*(p+n)
-      movdqa xmm1, [eax + ecx]
-      movdqa xmm4, xmm1
-      punpcklbw xmm4, xmm7
-      add eax, esi
-      punpckhbw xmm1, xmm7
-      movdqa xmm5, [eax + ecx]
-      movdqa xmm6, xmm5
-      punpcklbw xmm6, xmm7
-      punpckhbw xmm5, xmm7
-      psllw xmm6, 2
-      add eax, esi
-      psllw xmm5, 2
-      paddusw xmm4, xmm6
-      paddusw xmm1, xmm5
-      movdqa xmm5, [eax + ecx]
-      movdqa xmm6, xmm5
-      punpcklbw xmm6, xmm7  // PF fix 170418: was: punpcklbw xmm6, mm7
-      punpckhbw xmm5, xmm7  // PF fix 170418: was: punpckhbw xmm5, mm7
-      paddusw xmm4, xmm6			// (pp+c*4+nn)
-      paddusw xmm1, xmm5			// (pp+c*4+nn)
-      movdqa xmm6, xmm4
-      movdqa xmm5, xmm1
-      psubusw xmm6, xmm2
-      psubusw xmm5, xmm0
-      psubusw xmm2, xmm4
-      psubusw xmm0, xmm1
-      pcmpeqb xmm7, xmm7
-      pmaxsw xmm2, xmm6
-      pmaxsw xmm0, xmm5
-      paddusw xmm2, thresh6w
-      paddusw xmm0, thresh6w
-      pcmpeqw xmm2, xmm7
-      pcmpeqw xmm0, xmm7
-      sub eax, edi
-      psrlw xmm2, 8
-      movdqa xmm6, threshb
-      psrlw xmm0, 8
-      packuswb xmm2, xmm0
-      pand xmm3, xmm2
-      movdqa[edx + ecx], xmm3
-      add ecx, 16
-      cmp ecx, width
-      jl xloop
-      
-      add eax, edi
-      add edx, dst_pitch
-
-      dec height
-      jnz yloop
-      end :
-  }
-#endif
+  check_combing_SSE2_generic_simd<false>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
 }
 
-#ifdef ALLOW_MMX
-void check_combing_iSSE(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
-{
-  __asm
-  {
-    mov eax, srcp
-    mov ebx, dstp
-    mov edx, width
-    mov edi, src_pitch
-    add eax, edi
-    movq mm6, threshb
-    pcmpeqb mm7, mm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movq mm0, [eax + ecx]	// next
-      sub eax, edi
-      movq mm4, [eax + ecx]	// srcp
-      movq mm5, mm0		// cpy next
-      sub eax, edi
-      movq mm1, [eax + ecx]	// prev
-      movq mm2, mm4		// cpy srcp
-      movq mm3, mm1		// cpy prev
-      psubusb mm5, mm2		// next-srcp
-      psubusb mm3, mm4		// prev-srcp
-      psubusb mm2, mm0		// srcp-next
-      psubusb mm4, mm1		// srcp-prev 
-      pminub mm3, mm5
-      pminub mm2, mm4
-      pmaxub mm2, mm3
-      paddusb mm2, mm6
-      pcmpeqb mm2, mm7
-      movq mm3, mm2
-      psrlq mm2, 32
-      movd edi, mm3
-      movd esi, mm2
-      or edi, esi
-      jnz output2
-      mov edi, src_pitch
-      add ecx, 8
-      lea eax, [eax + edi * 2]
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      jmp end
-      output2 :
-    mov esi, src_pitch2
-      mov edi, src_pitch
-      pxor mm7, mm7
-      movq mm2, mm0
-      movq mm4, mm1
-      punpcklbw mm2, mm7
-      punpckhbw mm0, mm7
-      sub eax, edi
-      punpcklbw mm4, mm7
-      punpckhbw mm1, mm7
-      paddusw mm2, mm4
-      paddusw mm0, mm1
-      pmullw mm2, threeMask	// 3*(p+n)
-      pmullw mm0, threeMask	// 3*(p+n)
-      movq mm1, [eax + ecx]
-      movq mm4, mm1
-      punpcklbw mm4, mm7
-      add eax, esi
-      punpckhbw mm1, mm7
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      psllw mm6, 2
-      add eax, esi
-      psllw mm5, 2
-      paddusw mm4, mm6
-      paddusw mm1, mm5
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      paddusw mm4, mm6			// (pp+c*4+nn)
-      paddusw mm1, mm5			// (pp+c*4+nn)
-      movq mm6, mm4
-      movq mm5, mm1
-      psubusw mm6, mm2
-      psubusw mm5, mm0
-      psubusw mm2, mm4
-      psubusw mm0, mm1
-      pcmpeqb mm7, mm7
-      pmaxsw mm2, mm6
-      pmaxsw mm0, mm5
-      paddusw mm2, thresh6w
-      paddusw mm0, thresh6w
-      pcmpeqw mm2, mm7
-      pcmpeqw mm0, mm7
-      sub eax, edi
-      psrlw mm2, 8
-      movq mm6, threshb
-      psrlw mm0, 8
-      packuswb mm2, mm0
-      pand mm3, mm2
-      movq[ebx + ecx], mm3
-      add ecx, 8
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      end :
-    emms
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void check_combing_MMX(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
-{
-  __asm
-  {
-    mov eax, srcp
-    mov ebx, dstp
-    mov edx, width
-    mov edi, src_pitch
-    add eax, edi
-    movq mm6, threshb
-    pxor mm7, mm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movq mm0, [eax + ecx]	// next
-      sub eax, edi
-      movq mm4, [eax + ecx]	// srcp
-      movq mm5, mm0		// cpy next
-      sub eax, edi
-      movq mm1, [eax + ecx]	// prev
-      movq mm2, mm4		// cpy srcp
-      movq mm3, mm1		// cpy prev
-      psubusb mm5, mm2		// next-srcp
-      psubusb mm3, mm4		// prev-srcp
-      psubusb mm2, mm0		// srcp-next
-      psubusb mm4, mm1		// srcp-prev
-      //pminub mm3,mm5
-      //pminub mm2,mm4
-      movq mm0, mm3
-      movq mm1, mm2
-      psubusb mm0, mm5
-      psubusb mm1, mm4
-      pcmpeqb mm0, mm7
-      pcmpeqb mm1, mm7
-      pand mm3, mm0
-      pand mm2, mm1
-      pxor mm0, ffMask
-      pxor mm1, ffMask
-      pand mm5, mm0
-      pand mm4, mm1
-      por mm3, mm5			// min(mm3,mm5)
-      por mm2, mm4			// min(mm2,mm4)
-      //pmaxub mm2,mm3
-      movq mm0, mm2
-      psubusb mm0, mm3
-      pcmpeqb mm0, mm7
-      pand mm3, mm0
-      pxor mm0, ffMask
-      pand mm2, mm0
-      por mm2, mm3			// max(mm2,mm3)
-      paddusb mm2, mm6
-      pcmpeqb mm2, ffMask
-      movq mm3, mm2
-      psrlq mm2, 32
-      movd edi, mm3
-      movd esi, mm2
-      or edi, esi
-      jnz output2
-      mov edi, src_pitch
-      add ecx, 8
-      lea eax, [eax + edi * 2]
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      jmp end
-      output2 :
-    movq mm1, [eax + ecx]	// prev
-      mov esi, src_pitch2
-      mov edi, src_pitch
-      add eax, esi
-      movq mm0, [eax + ecx]	// next
-      movq mm2, mm0
-      movq mm4, mm1
-      sub eax, esi
-      punpcklbw mm2, mm7
-      punpckhbw mm0, mm7
-      sub eax, edi
-      punpcklbw mm4, mm7
-      punpckhbw mm1, mm7
-      paddusw mm2, mm4
-      paddusw mm0, mm1
-      pmullw mm2, threeMask	// 3*(p+n)
-      pmullw mm0, threeMask	// 3*(p+n)
-      movq mm1, [eax + ecx]
-      movq mm4, mm1
-      punpcklbw mm4, mm7
-      add eax, esi
-      punpckhbw mm1, mm7
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      psllw mm6, 2
-      add eax, esi
-      psllw mm5, 2
-      paddusw mm4, mm6
-      paddusw mm1, mm5
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      paddusw mm4, mm6			// (pp+c*4+nn)
-      paddusw mm1, mm5			// (pp+c*4+nn)
-      movq mm6, mm4
-      movq mm5, mm1
-      psubusw mm6, mm2
-      psubusw mm5, mm0
-      psubusw mm2, mm4
-      psubusw mm0, mm1
-      //pmaxsw mm2,mm6
-      //pmaxsw mm0,mm5
-      movq mm1, mm2
-      movq mm4, mm0
-      pcmpgtw mm1, mm6
-      pcmpgtw mm4, mm5
-      pand mm2, mm1
-      pand mm0, mm4
-      pxor mm1, ffMask
-      pxor mm4, ffMask
-      pand mm6, mm1
-      pand mm5, mm4
-      por mm2, mm6				// max(mm2,mm6)
-      por mm0, mm5				// max(mm0,mm5)
-      paddusw mm2, thresh6w
-      paddusw mm0, thresh6w
-      pcmpeqw mm2, ffMask
-      pcmpeqw mm0, ffMask
-      sub eax, edi
-      psrlw mm2, 8
-      movq mm6, threshb
-      psrlw mm0, 8
-      packuswb mm2, mm0
-      pand mm3, mm2
-      movq[ebx + ecx], mm3
-      add ecx, 8
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      end :
-    emms
-  }
-}
-#endif
-
-
-template<bool aligned>
 void check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
   int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
 {
-#ifdef USE_INTR
   // with luma masking
-  check_combing_SSE2_generic_simd<aligned, true>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
-#else
-  __asm
-  {
-    mov eax, srcp
-    mov edx, dstp
-    mov edi, src_pitch
-    add eax, edi
-    movdqa xmm6, threshb
-    pcmpeqb xmm7, xmm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movdqa xmm0, [eax + ecx]	// next
-      sub eax, edi
-      movdqa xmm4, [eax + ecx]	// srcp
-      movdqa xmm5, xmm0		// cpy next
-      sub eax, edi
-      movdqa xmm1, [eax + ecx]	// prev
-      movdqa xmm2, xmm4		// cpy srcp
-      movdqa xmm3, xmm1		// cpy prev
-      psubusb xmm5, xmm2		// next-srcp
-      psubusb xmm3, xmm4		// prev-srcp
-      psubusb xmm2, xmm0		// srcp-next
-      psubusb xmm4, xmm1		// srcp-prev 
-      pminub xmm3, xmm5
-      pminub xmm2, xmm4
-      pmaxub xmm2, xmm3
-      paddusb xmm2, xmm6
-      pcmpeqb xmm2, xmm7
-      pand xmm2, lumaMask
-
-      movdqa xmm3, xmm2
-      psrldq xmm2, 4
-      movd edi, xmm3
-      movd esi, xmm2
-      or edi, esi
-      jnz output2
-      movdqa xmm4, xmm2
-      psrldq xmm2, 4
-      psrldq xmm4, 8
-      movd edi, xmm2
-      movd esi, xmm4
-      or edi, esi
-      jnz output2
-      mov edi, src_pitch
-      add ecx, 16
-      lea eax, [eax + edi * 2]
-      cmp ecx, width
-      jl xloop
-      add eax, edi
-      add edx, dst_pitch
-      dec height
-      jnz yloop
-      jmp end
-      output2 :
-    mov esi, src_pitch2
-      mov edi, src_pitch
-      pxor xmm7, xmm7 // PF Fix: 170418 was: pxor xmm7, mm7. Used in YUY2
-      movdqa xmm2, xmm0
-      movdqa xmm4, xmm1
-      punpcklbw xmm2, xmm7
-      punpckhbw xmm0, xmm7
-      sub eax, edi
-      punpcklbw xmm4, xmm7
-      punpckhbw xmm1, xmm7
-      paddusw xmm2, xmm4
-      paddusw xmm0, xmm1
-      pmullw xmm2, threeMask	// 3*(p+n)
-      pmullw xmm0, threeMask	// 3*(p+n)
-      movdqa xmm1, [eax + ecx]
-      movdqa xmm4, xmm1
-      punpcklbw xmm4, xmm7
-      add eax, esi
-      punpckhbw xmm1, xmm7
-      movdqa xmm5, [eax + ecx]
-      movdqa xmm6, xmm5
-      punpcklbw xmm6, xmm7
-      punpckhbw xmm5, xmm7
-      psllw xmm6, 2
-      add eax, esi
-      psllw xmm5, 2
-      paddusw xmm4, xmm6
-      paddusw xmm1, xmm5
-      movdqa xmm5, [eax + ecx]
-      movdqa xmm6, xmm5
-      punpcklbw xmm6, xmm7
-      punpckhbw xmm5, xmm7
-      paddusw xmm4, xmm6			// (pp+c*4+nn)
-      paddusw xmm1, xmm5			// (pp+c*4+nn)
-      movdqa xmm6, xmm4
-      movdqa xmm5, xmm1
-      psubusw xmm6, xmm2
-      psubusw xmm5, xmm0
-      psubusw xmm2, xmm4
-      psubusw xmm0, xmm1
-      pcmpeqb xmm7, xmm7
-      pmaxsw xmm2, xmm6
-      pmaxsw xmm0, xmm5
-      paddusw xmm2, thresh6w
-      paddusw xmm0, thresh6w
-      pcmpeqw xmm2, xmm7
-      pcmpeqw xmm0, xmm7
-      sub eax, edi
-      psrlw xmm2, 8
-      movdqa xmm6, threshb
-      psrlw xmm0, 8
-      packuswb xmm2, xmm0
-      pand xmm3, xmm2
-      movdqa[edx + ecx], xmm3
-      add ecx, 16
-      cmp ecx, width
-      jl xloop
-      add eax, edi
-      add edx, dst_pitch
-      dec height
-      jnz yloop
-      end :
-  }
-#endif
+  check_combing_SSE2_generic_simd<true>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
 }
 
-// instantiate
-template void check_combing_SSE2_Luma<false>(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
-template void check_combing_SSE2_Luma<true>(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w);
-
-#ifdef ALLOW_MMX
-void check_combing_iSSE_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
-{
-  __asm
-  {
-    mov eax, srcp
-    mov ebx, dstp
-    mov edx, width
-    mov edi, src_pitch
-    add eax, edi
-    movq mm6, threshb
-    pcmpeqb mm7, mm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movq mm0, [eax + ecx]	// next
-      sub eax, edi
-      movq mm4, [eax + ecx]	// srcp
-      movq mm5, mm0		// cpy next
-      sub eax, edi
-      movq mm1, [eax + ecx]	// prev
-      movq mm2, mm4		// cpy srcp
-      movq mm3, mm1		// cpy prev
-      psubusb mm5, mm2		// next-srcp
-      psubusb mm3, mm4		// prev-srcp
-      psubusb mm2, mm0		// srcp-next
-      psubusb mm4, mm1		// srcp-prev 
-      pminub mm3, mm5
-      pminub mm2, mm4
-      pmaxub mm2, mm3
-      paddusb mm2, mm6
-      pcmpeqb mm2, mm7
-      pand mm2, lumaMask
-      movq mm3, mm2
-      psrlq mm2, 32
-      movd edi, mm3
-      movd esi, mm2
-      or edi, esi
-      jnz output2
-      mov edi, src_pitch
-      add ecx, 8
-      lea eax, [eax + edi * 2]
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      jmp end
-      output2 :
-    mov esi, src_pitch2
-      mov edi, src_pitch
-      pxor mm7, mm7
-      movq mm2, mm0
-      movq mm4, mm1
-      punpcklbw mm2, mm7
-      punpckhbw mm0, mm7
-      sub eax, edi
-      punpcklbw mm4, mm7
-      punpckhbw mm1, mm7
-      paddusw mm2, mm4
-      paddusw mm0, mm1
-      pmullw mm2, threeMask	// 3*(p+n)
-      pmullw mm0, threeMask	// 3*(p+n)
-      movq mm1, [eax + ecx]
-      movq mm4, mm1
-      punpcklbw mm4, mm7
-      add eax, esi
-      punpckhbw mm1, mm7
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      psllw mm6, 2
-      add eax, esi
-      psllw mm5, 2
-      paddusw mm4, mm6
-      paddusw mm1, mm5
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      paddusw mm4, mm6			// (pp+c*4+nn)
-      paddusw mm1, mm5			// (pp+c*4+nn)
-      movq mm6, mm4
-      movq mm5, mm1
-      psubusw mm6, mm2
-      psubusw mm5, mm0
-      psubusw mm2, mm4
-      psubusw mm0, mm1
-      pcmpeqb mm7, mm7
-      pmaxsw mm2, mm6
-      pmaxsw mm0, mm5
-      paddusw mm2, thresh6w
-      paddusw mm0, thresh6w
-      pcmpeqw mm2, mm7
-      pcmpeqw mm0, mm7
-      sub eax, edi
-      psrlw mm2, 8
-      movq mm6, threshb
-      psrlw mm0, 8
-      packuswb mm2, mm0
-      pand mm3, mm2
-      movq[ebx + ecx], mm3
-      add ecx, 8
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      end :
-    emms
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void check_combing_MMX_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, int64_t threshb, int64_t thresh6w)
-{
-  __asm
-  {
-    mov eax, srcp
-    mov ebx, dstp
-    mov edx, width
-    mov edi, src_pitch
-    add eax, edi
-    movq mm6, threshb
-    pxor mm7, mm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movq mm0, [eax + ecx]	// next
-      sub eax, edi
-      movq mm4, [eax + ecx]	// srcp
-      movq mm5, mm0		// cpy next
-      sub eax, edi
-      movq mm1, [eax + ecx]	// prev
-      movq mm2, mm4		// cpy srcp
-      movq mm3, mm1		// cpy prev
-      psubusb mm5, mm2		// next-srcp
-      psubusb mm3, mm4		// prev-srcp
-      psubusb mm2, mm0		// srcp-next
-      psubusb mm4, mm1		// srcp-prev
-      //pminub mm3,mm5
-      //pminub mm2,mm4
-      movq mm0, mm3
-      movq mm1, mm2
-      psubusb mm0, mm5
-      psubusb mm1, mm4
-      pcmpeqb mm0, mm7
-      pcmpeqb mm1, mm7
-      pand mm3, mm0
-      pand mm2, mm1
-      pxor mm0, ffMask
-      pxor mm1, ffMask
-      pand mm5, mm0
-      pand mm4, mm1
-      por mm3, mm5			// min(mm3,mm5)
-      por mm2, mm4			// min(mm2,mm4)
-      //pmaxub mm2,mm3
-      movq mm0, mm2
-      psubusb mm0, mm3
-      pcmpeqb mm0, mm7
-      pand mm3, mm0
-      pxor mm0, ffMask
-      pand mm2, mm0
-      por mm2, mm3			// max(mm2,mm3)
-      paddusb mm2, mm6
-      pcmpeqb mm2, ffMask
-      pand mm2, lumaMask
-      movq mm3, mm2
-      psrlq mm2, 32
-      movd edi, mm3
-      movd esi, mm2
-      or edi, esi
-      jnz output2
-      mov edi, src_pitch
-      add ecx, 8
-      lea eax, [eax + edi * 2]
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      jmp end
-      output2 :
-    movq mm1, [eax + ecx]	// prev
-      mov esi, src_pitch2
-      mov edi, src_pitch
-      add eax, esi
-      movq mm0, [eax + ecx]	// next
-      movq mm2, mm0
-      movq mm4, mm1
-      sub eax, esi
-      punpcklbw mm2, mm7
-      punpckhbw mm0, mm7
-      sub eax, edi
-      punpcklbw mm4, mm7
-      punpckhbw mm1, mm7
-      paddusw mm2, mm4
-      paddusw mm0, mm1
-      pmullw mm2, threeMask	// 3*(p+n)
-      pmullw mm0, threeMask	// 3*(p+n)
-      movq mm1, [eax + ecx]
-      movq mm4, mm1
-      punpcklbw mm4, mm7
-      add eax, esi
-      punpckhbw mm1, mm7
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      psllw mm6, 2
-      add eax, esi
-      psllw mm5, 2
-      paddusw mm4, mm6
-      paddusw mm1, mm5
-      movq mm5, [eax + ecx]
-      movq mm6, mm5
-      punpcklbw mm6, mm7
-      punpckhbw mm5, mm7
-      paddusw mm4, mm6			// (pp+c*4+nn)
-      paddusw mm1, mm5			// (pp+c*4+nn)
-      movq mm6, mm4
-      movq mm5, mm1
-      psubusw mm6, mm2
-      psubusw mm5, mm0
-      psubusw mm2, mm4
-      psubusw mm0, mm1
-      //pmaxsw mm2,mm6
-      //pmaxsw mm0,mm5
-      movq mm1, mm2
-      movq mm4, mm0
-      pcmpgtw mm1, mm6
-      pcmpgtw mm4, mm5
-      pand mm2, mm1
-      pand mm0, mm4
-      pxor mm1, ffMask
-      pxor mm4, ffMask
-      pand mm6, mm1
-      pand mm5, mm4
-      por mm2, mm6				// max(mm2,mm6)
-      por mm0, mm5				// max(mm0,mm5)
-      paddusw mm2, thresh6w
-      paddusw mm0, thresh6w
-      pcmpeqw mm2, ffMask
-      pcmpeqw mm0, ffMask
-      sub eax, edi
-      psrlw mm2, 8
-      movq mm6, threshb
-      psrlw mm0, 8
-      packuswb mm2, mm0
-      pand mm3, mm2
-      movq[ebx + ecx], mm3
-      add ecx, 8
-      cmp ecx, edx
-      jl xloop
-      add eax, edi
-      add ebx, dst_pitch
-      dec height
-      jnz yloop
-      end :
-    emms
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void check_combing_MMX_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, int64_t thresh)
-{
-  __asm
-  {
-    mov ebx, srcp
-    mov edi, dstp
-    mov eax, ebx
-    mov esi, ebx
-    sub eax, src_pitch
-    add esi, src_pitch
-    mov edx, width
-    movq mm6, thresh
-    pxor mm7, mm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movq mm0, [eax + ecx]
-      movq mm1, [ebx + ecx]
-      movq mm2, [esi + ecx]
-      movq mm3, mm0
-      movq mm4, mm1
-      movq mm5, mm2
-      punpcklbw mm0, mm7
-      punpcklbw mm1, mm7
-      punpcklbw mm2, mm7
-      punpckhbw mm3, mm7
-      punpckhbw mm4, mm7
-      punpckhbw mm5, mm7
-      psubsw mm0, mm1
-      psubsw mm2, mm1
-      psubsw mm3, mm4
-      psubsw mm5, mm4
-      movq mm1, mm0
-      movq mm4, mm2
-      punpcklwd mm0, mm7
-      punpckhwd mm1, mm7
-      punpcklwd mm2, mm7
-      punpckhwd mm4, mm7
-      pmaddwd mm0, mm2
-      pmaddwd mm1, mm4
-      movq mm2, mm3
-      movq mm4, mm5
-      punpcklwd mm2, mm7
-      punpckhwd mm3, mm7
-      punpcklwd mm4, mm7
-      punpckhwd mm5, mm7
-      pmaddwd mm2, mm4
-      pmaddwd mm3, mm5
-      pcmpgtd mm0, mm6
-      pcmpgtd mm1, mm6
-      pcmpgtd mm2, mm6
-      pcmpgtd mm3, mm6
-      packssdw mm0, mm1
-      packssdw mm2, mm3
-      pand mm0, lumaMask
-      pand mm2, lumaMask
-      packuswb mm0, mm2
-      movq[edi + ecx], mm0
-      add ecx, 8
-      cmp ecx, edx
-      jl xloop
-      add eax, src_pitch
-      add ebx, src_pitch
-      add esi, src_pitch
-      add edi, dst_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
-
-template<bool aligned>
 void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
-#ifdef USE_INTR
   __m128i zero = _mm_setzero_si128();
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
 
@@ -1892,147 +433,12 @@ void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
     dstp += dst_pitch;
   }
 
-#else
-  __asm
-  {
-    movdqa xmm6, thresh
-    mov edx, srcp
-    mov edi, dstp
-    mov eax, edx
-    mov esi, edx
-    sub eax, src_pitch
-    add esi, src_pitch
-    pxor xmm7, xmm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movdqa xmm0, [eax + ecx] // prev
-      movdqa xmm1, [edx + ecx] // curr
-      movdqa xmm2, [esi + ecx] // next
-      movdqa xmm3, xmm0
-      movdqa xmm4, xmm1
-      movdqa xmm5, xmm2
-      punpcklbw xmm0, xmm7 // prev_lo
-      punpcklbw xmm1, xmm7 // curr_lo
-      punpcklbw xmm2, xmm7 // next_lo
-      punpckhbw xmm3, xmm7 // prev_hi
-      punpckhbw xmm4, xmm7 // curr_hi
-      punpckhbw xmm5, xmm7 // next_hi
-      psubsw xmm0, xmm1 // diff_prev_curr_lo = prev_lo - curr_lo
-      psubsw xmm2, xmm1 // diff_next_curr_lo = next_lo - curr_lo
-      psubsw xmm3, xmm4 // diff_prev_curr_hi = prev_hi - curr_hi
-      psubsw xmm5, xmm4 // diff_next_curr_hi = next_hi - curr_hi
-
-      movdqa xmm1, xmm0
-      movdqa xmm4, xmm2
-      punpcklwd xmm0, xmm7 // diff_prev_curr_lo_lo
-      punpckhwd xmm1, xmm7 // diff_prev_curr_lo_hi
-      punpcklwd xmm2, xmm7 // diff_next_curr_lo_lo
-      punpckhwd xmm4, xmm7 // diff_next_curr_lo_hi
-      pmaddwd xmm0, xmm2   // res_lo_lo = _mm_madd_epi16(diff_prev_curr_lo_lo,diff_next_curr_lo_lo)
-      pmaddwd xmm1, xmm4   // res_lo_hi = _mm_madd_epi16(diff_prev_curr_lo_hi,diff_next_curr_lo_hi)
-
-      movdqa xmm2, xmm3   
-      movdqa xmm4, xmm5
-      punpcklwd xmm2, xmm7 // diff_prev_curr_hi_lo
-      punpckhwd xmm3, xmm7 // diff_prev_curr_hi_hi
-      punpcklwd xmm4, xmm7 // diff_next_curr_hi_lo
-      punpckhwd xmm5, xmm7 // diff_next_curr_hi_hi
-      pmaddwd xmm2, xmm4   // res_hi_lo = _mm_madd_epi16(diff_prev_curr_hi_lo,diff_next_curr_hi_lo)
-      pmaddwd xmm3, xmm5   // res_hi_hi = _mm_madd_epi16(diff_prev_curr_hi_hi,diff_next_curr_hi_hi)
-
-      pcmpgtd xmm0, xmm6   // cmp_lo_lo = mm_cmp_epi32(res_lo_lo,thresh)
-      pcmpgtd xmm1, xmm6   // cmp_lo_hi = mm_cmp_epi32(res_lo_hi,thresh)
-      pcmpgtd xmm2, xmm6   // cmp_hi_lo = mm_cmp_epi32(res_hi_lo,thresh)
-      pcmpgtd xmm3, xmm6   // cmp_hi_hi = mm_cmp_epi32(res_hi_hi,thresh)
-
-      packssdw xmm0, xmm1  // cmp_lo = mm_packs_epi32(cmp_lo_lo,cmp_lo_hi);
-      packssdw xmm2, xmm3  // cmp_hi = mm_packs_epi32(cmp_hi_lo,cmp_hi_hi);
-      pand xmm0, lumaMask  // cmp_lo_masked = _mm_and_si128(cmp_lo, lumaMask)
-      pand xmm2, lumaMask  // cmp_hi_masked = _mm_and_si128(cmp_hi, lumaMask)
-      packuswb xmm0, xmm2  // res = _mm_packus_epi16(cmp_lo_masked, cmp_hi_masked)
-      movdqa[edi + ecx], xmm0
-      add ecx, 16
-      cmp ecx, width
-      jl xloop
-      add eax, src_pitch
-      add edx, src_pitch
-      add esi, src_pitch
-      add edi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-// instantiate
-template void check_combing_SSE2_M1<false>(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-template void check_combing_SSE2_M1<true>(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
 
-#ifdef ALLOW_MMX
-void check_combing_MMX_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, int64_t thresh)
-{
-  __asm
-  {
-    mov ebx, srcp
-    mov edi, dstp
-    mov eax, ebx
-    mov esi, ebx
-    sub eax, src_pitch
-    add esi, src_pitch
-    mov edx, width
-    movq mm5, lumaMask
-    movq mm6, thresh
-    pxor mm7, mm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movq mm0, [eax + ecx]
-      movq mm1, [ebx + ecx]
-      movq mm2, [esi + ecx]
-      pand mm0, mm5
-      pand mm1, mm5
-      pand mm2, mm5
-      psubsw mm0, mm1
-      psubsw mm2, mm1
-      movq mm1, mm0
-      movq mm4, mm2
-      punpcklwd mm0, mm7
-      punpckhwd mm1, mm7
-      punpcklwd mm2, mm7
-      punpckhwd mm4, mm7
-      pmaddwd mm0, mm2
-      pmaddwd mm1, mm4
-      pcmpgtd mm0, mm6
-      pcmpgtd mm1, mm6
-      packssdw mm0, mm1
-      pand mm0, mm5
-      movq[edi + ecx], mm0
-      add ecx, 8
-      cmp ecx, edx
-      jl xloop
-      add eax, src_pitch
-      add ebx, src_pitch
-      add esi, src_pitch
-      add edi, dst_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
-
-
-template<bool aligned>
 void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
 {
-#ifdef USE_INTR
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
   __m128i zero = _mm_setzero_si128();
   while (height--) {
@@ -2067,424 +473,112 @@ void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
     srcp += src_pitch;
     dstp += dst_pitch;
   }
-#else
-  __asm
-  {
-    movdqa xmm6, thresh
-    mov edx, srcp
-    mov edi, dstp
-    mov eax, edx
-    mov esi, edx
-    sub eax, src_pitch
-    add esi, src_pitch
-    movdqa xmm5, lumaMask
-    pxor xmm7, xmm7
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movdqa xmm0, [eax + ecx]
-      movdqa xmm1, [edx + ecx]
-      movdqa xmm2, [esi + ecx]
-      pand xmm0, xmm5
-      pand xmm1, xmm5
-      pand xmm2, xmm5
-      psubsw xmm0, xmm1
-      psubsw xmm2, xmm1
-      movdqa xmm1, xmm0
-      movdqa xmm4, xmm2
-      punpcklwd xmm0, xmm7
-      punpckhwd xmm1, xmm7
-      punpcklwd xmm2, xmm7
-      punpckhwd xmm4, xmm7
-      pmaddwd xmm0, xmm2
-      pmaddwd xmm1, xmm4
-      pcmpgtd xmm0, xmm6
-      pcmpgtd xmm1, xmm6
-      packssdw xmm0, xmm1
-      pand xmm0, xmm5
-      movdqa[edi + ecx], xmm0
-      add ecx, 16
-      cmp ecx, width
-      jl xloop
-      add eax, src_pitch
-      add edx, src_pitch
-      add esi, src_pitch
-      add edi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-// instantiate
-template void check_combing_SSE2_Luma_M1<false>(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-template void check_combing_SSE2_Luma_M1<true>(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-
-// There are no emms instructions at the end of these compute_sum 
-// mmx/isse routines because it is called at the end of the routine 
-// that calls these individual functions.
-
-// no alignment needed for 8 bytes
 void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
 {
   // sums masks
   // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;
-  __m128i onesMask = _mm_set1_epi8(1);
-  __m128i prev0 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp));
-  __m128i prev1_currMinus1 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp + pitch));
-  __m128i zero = _mm_setzero_si128();
-  __m128i summa = _mm_setzero_si128();
-  srcp += pitch * 2;
+  // scrp is prev
+  auto onesMask = _mm_set1_epi8(1);
+  auto all_ff = _mm_set1_epi8(-1);
+  auto prev = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp));
+  auto curr = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp + pitch));
+  auto summa = _mm_setzero_si128();
+  srcp += pitch * 2; // points to next
   for (int i = 0; i < 4; i++) { // 4x2=8
-    __m128i curr0_prev2 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp));
-    __m128i curr1 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp + pitch));
+    /*
+    p  #
+    c  # #
+    n  # #
+    nn   #
+    */
+    auto next = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp));
+    auto nextnext = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp + pitch));
 
-    __m128i prev_anded = _mm_and_si128(prev0, prev1_currMinus1);
-    prev_anded = _mm_and_si128(prev_anded, curr0_prev2); // prev0 prev1 prev2
-    prev_anded = _mm_and_si128(prev_anded, onesMask);
+    auto anded_common = _mm_and_si128(curr, next);
+    auto with_prev = _mm_and_si128(prev, anded_common);
+    auto with_nextnext = _mm_and_si128(anded_common, nextnext);
 
-    __m128i curr_anded = _mm_and_si128(curr0_prev2, curr1);
-    curr_anded = _mm_and_si128(curr_anded, prev1_currMinus1); // currMinus1 curr0 curr1
-    curr_anded = _mm_and_si128(curr_anded, onesMask);
+    // these were missing from the original assembler code (== 0xFF)
+    with_prev = _mm_cmpeq_epi8(with_prev, all_ff);
+    with_nextnext = _mm_cmpeq_epi8(with_nextnext, all_ff);
 
-    prev0 = curr0_prev2;
-    prev1_currMinus1 = curr1;
+    with_prev = _mm_and_si128(with_prev, onesMask);
+    with_nextnext = _mm_and_si128(with_nextnext, onesMask);
 
-    summa = _mm_adds_epu8(summa, prev_anded);
-    summa = _mm_adds_epu8(summa, curr_anded);
+    prev = next;
+    curr = nextnext;
+
+    summa = _mm_adds_epu8(summa, with_prev);
+    summa = _mm_adds_epu8(summa, with_nextnext);
     srcp += pitch * 2;
   }
   // now we have to sum up lower 8 bytes
   // in sse2, we use sad
-  __m128i tmpsum = _mm_sad_epu8(summa, zero);  // sum(lo 8 bytes)(needed) / sum(hi 8 bytes)(not needed)
+  auto zero = _mm_setzero_si128();
+  auto tmpsum = _mm_sad_epu8(summa, zero);  // sum(lo 8 bytes)(needed) / sum(hi 8 bytes)(not needed)
   sum = _mm_cvtsi128_si32(tmpsum);
 }
 
-#pragma warning(push)
-#pragma warning(disable:4799)	// disable no emms warning message
 
-#ifdef ALLOW_MMX
-void compute_sum_8x8_mmx(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
 {
-  __asm
-  {
-    mov eax, srcp
-    mov edi, pitch
-    mov ecx, 4
-    movq mm0, [eax]
-    movq mm1, [eax + edi]
-    movq mm5, onesMask
-    lea eax, [eax + edi * 2]
-    pxor mm6, mm6
-    pxor mm7, mm7
-    align 16
-    loopy:
-    movq mm2, [eax]
-      movq mm3, [eax + edi]
-      movq mm4, mm2
-      pand mm0, mm1
-      pand mm4, mm3
-      pand mm0, mm2
-      pand mm4, mm1
-      pand mm0, mm5
-      pand mm4, mm5
-      paddusb mm7, mm0
-      lea eax, [eax + edi * 2]
-      movq mm0, mm2
-      movq mm1, mm3
-      paddusb mm7, mm4
-      dec ecx
-      jnz loopy
-      movq mm0, mm7
-      mov eax, sum
-      punpcklbw mm7, mm6
-      punpckhbw mm0, mm6
-      paddusw mm7, mm0
-      movq mm0, mm7
-      punpcklwd mm7, mm6
-      punpckhwd mm0, mm6
-      paddd mm7, mm0
-      movq mm0, mm7
-      psrlq mm7, 32
-      paddd mm0, mm7
-      movd[eax], mm0
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void compute_sum_8x8_isse(const unsigned char *srcp, int pitch, int &sum)
-{
-  __asm
-  {
-    mov eax, srcp
-    mov edi, pitch
-    mov ecx, 4
-    movq mm0, [eax]
-    movq mm1, [eax + edi]
-    movq mm5, onesMask
-    lea eax, [eax + edi * 2]
-    pxor mm6, mm6
-    pxor mm7, mm7
-    align 16
-    loopy:
-    movq mm2, [eax]
-      movq mm3, [eax + edi]
-      movq mm4, mm2
-      pand mm0, mm1
-      pand mm4, mm3
-      pand mm0, mm2
-      pand mm4, mm1
-      pand mm0, mm5
-      pand mm4, mm5
-      paddusb mm7, mm0
-      lea eax, [eax + edi * 2]
-      movq mm0, mm2
-      movq mm1, mm3
-      paddusb mm7, mm4
-      dec ecx
-      jnz loopy
-      mov eax, sum
-      psadbw mm7, mm6
-      movd[eax], mm7
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void compute_sum_8x16_mmx_luma(const unsigned char *srcp, int pitch, int &sum)
-{
-  __asm
-  {
-    mov eax, srcp
-    mov edi, pitch
-    mov ecx, 4
-    xor edx, edx
-    movq mm0, [eax]
-    movq mm1, [eax + edi]
-    movq mm5, onesMaskLuma
-    lea eax, [eax + edi * 2]
-    pxor mm6, mm6
-    pxor mm7, mm7
-    jmp xskip
-    loopx :
-    mov eax, srcp
-      mov ecx, 4
-      add eax, 8
-      inc edx
-      movq mm0, [eax]
-      movq mm1, [eax + edi]
-      lea eax, [eax + edi * 2]
-      xskip:
-    align 16
-      loopy :
-      movq mm2, [eax]
-      movq mm3, [eax + edi]
-      movq mm4, mm2
-      pand mm0, mm1
-      pand mm4, mm3
-      pand mm0, mm2
-      pand mm4, mm1
-      pand mm0, mm5
-      pand mm4, mm5
-      paddusb mm7, mm0
-      lea eax, [eax + edi * 2]
-      movq mm0, mm2
-      movq mm1, mm3
-      paddusb mm7, mm4
-      dec ecx
-      jnz loopy
-      or edx, edx
-      jz loopx
-      movq mm0, mm7
-      mov eax, sum
-      punpcklwd mm7, mm6
-      punpckhwd mm0, mm6
-      paddd mm7, mm0
-      movq mm0, mm7
-      psrlq mm7, 32
-      paddd mm0, mm7
-      movd[eax], mm0
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void compute_sum_8x16_isse_luma(const unsigned char *srcp, int pitch, int &sum)
-{
-  __asm
-  {
-    mov eax, srcp
-    mov edi, pitch
-    mov ecx, 4
-    xor edx, edx
-    movq mm0, [eax]
-    movq mm1, [eax + edi]
-    movq mm5, onesMaskLuma
-    lea eax, [eax + edi * 2]
-    pxor mm6, mm6
-    pxor mm7, mm7
-    jmp xskip
-    loopx :
-    mov eax, srcp
-      add ecx, 4
-      add eax, 8
-      inc edx
-      movq mm0, [eax]
-      movq mm1, [eax + edi]
-      lea eax, [eax + edi * 2]
-      xskip:
-    align 16
-      loopy :
-      movq mm2, [eax]
-      movq mm3, [eax + edi]
-      movq mm4, mm2
-      pand mm0, mm1
-      pand mm4, mm3
-      pand mm0, mm2
-      pand mm4, mm1
-      pand mm0, mm5
-      pand mm4, mm5
-      paddusb mm7, mm0
-      lea eax, [eax + edi * 2]
-      movq mm0, mm2
-      movq mm1, mm3
-      paddusb mm7, mm4
-      dec ecx
-      jnz loopy
-      or edx, edx
-      jz loopx
-      mov eax, sum
-      psadbw mm7, mm6
-      movd[eax], mm7
-  }
-}
-#endif
-
-
-template<bool aligned>
-void compute_sum_8x16_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
-{
-#ifdef USE_INTR
   // sums masks
   // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;
-  __m128i onesMask = _mm_set1_epi16(1); // onesMaskLuma Word(1)
-  __m128i prev0, prev1_currMinus1;
-  if (aligned) {
-    prev0 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp));
-    prev1_currMinus1 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
-  }
-  else {
-    prev0 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp));
-    prev1_currMinus1 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
-  }
-  __m128i zero = _mm_setzero_si128();
-  __m128i summa = _mm_setzero_si128();
-  srcp += pitch * 2;
+  // scrp is prev
+  auto onesMask = _mm_set1_epi16(0x0001); // ones where luma
+  auto all_ff = _mm_set1_epi8(-1);
+  auto prev = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp));
+  auto curr = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + pitch));
+  auto summa = _mm_setzero_si128();
+  srcp += pitch * 2; // points to next
   for (int i = 0; i < 4; i++) { // 4x2=8
-    __m128i curr0_prev2, curr1;
-    if (aligned) {
-      curr0_prev2 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp));
-      curr1 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
-    }
-    else {
-      curr0_prev2 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp));
-      curr1 = _mm_loadu_si128(reinterpret_cast<const __m128i *>(srcp + pitch));
-    }
+    /*
+    p  #
+    c  # #
+    n  # #
+    nn   #
+    */
+    auto next = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp));
+    auto nextnext = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + pitch));
 
-    __m128i prev_anded = _mm_and_si128(prev0, prev1_currMinus1);
-    prev_anded = _mm_and_si128(prev_anded, curr0_prev2); // prev0 prev1 prev2
-    prev_anded = _mm_and_si128(prev_anded, onesMask);
+    auto anded_common = _mm_and_si128(curr, next);
+    auto with_prev = _mm_and_si128(prev, anded_common);
+    auto with_nextnext = _mm_and_si128(anded_common, nextnext);
 
-    __m128i curr_anded = _mm_and_si128(curr0_prev2, curr1);
-    curr_anded = _mm_and_si128(curr_anded, prev1_currMinus1); // currMinus1 curr0 curr1
-    curr_anded = _mm_and_si128(curr_anded, onesMask);
+    // these were missing from the original assembler code (== 0xFF)
+    with_prev = _mm_cmpeq_epi8(with_prev, all_ff);
+    with_nextnext = _mm_cmpeq_epi8(with_nextnext, all_ff);
 
-    prev0 = curr0_prev2;
-    prev1_currMinus1 = curr1;
+    with_prev = _mm_and_si128(with_prev, onesMask);
+    with_nextnext = _mm_and_si128(with_nextnext, onesMask);
 
-    summa = _mm_adds_epu8(summa, prev_anded);
-    summa = _mm_adds_epu8(summa, curr_anded);
+    prev = next;
+    curr = nextnext;
+
+    summa = _mm_adds_epu8(summa, with_prev);
+    summa = _mm_adds_epu8(summa, with_nextnext);
     srcp += pitch * 2;
   }
-  // now we have to sum up lower 8 bytes
+
+  // now we have to sum up lower and upper 8 bytes
   // in sse2, we use sad
-  __m128i tmpsum = _mm_sad_epu8(summa, zero);  // sum(lo 8 bytes) / sum(hi 8 bytes)
+  auto zero = _mm_setzero_si128();
+  auto tmpsum = _mm_sad_epu8(summa, zero);  // sum(lo 8 bytes) / sum(hi 8 bytes)
   tmpsum = _mm_add_epi32(tmpsum, _mm_srli_si128(tmpsum, 8)); // lo + hi
   sum = _mm_cvtsi128_si32(tmpsum);
-#else
-  __asm
-  {
-    mov eax, srcp
-    mov edi, pitch
-    mov ecx, 4
-    movdqa xmm0, [eax]
-    movdqa xmm1, [eax + edi]
-    movdqa xmm5, onesMaskLuma
-    lea eax, [eax + edi * 2]
-    pxor xmm6, xmm6
-    pxor xmm7, xmm7
-    align 16
-    loopy:
-    movdqa xmm2, [eax]
-      movdqa xmm3, [eax + edi]
-      movdqa xmm4, xmm2
-      pand xmm0, xmm1
-      pand xmm4, xmm3
-      pand xmm0, xmm2
-      pand xmm4, xmm1
-      pand xmm0, xmm5
-      pand xmm4, xmm5
-      paddusb xmm7, xmm0
-      lea eax, [eax + edi * 2]
-      movdqa xmm0, xmm2
-      movdqa xmm1, xmm3
-      paddusb xmm7, xmm4
-      dec ecx
-      jnz loopy
-
-      mov eax, sum
-      psadbw xmm7, xmm6
-      movdqa xmm4, xmm7
-      psrldq xmm7, 8
-      paddq xmm4, xmm7
-      movd[eax], xmm4
-  }
-#endif
 }
-
-// instantiate
-template void compute_sum_8x16_sse2_luma<false>(const unsigned char *srcp, int pitch, int &sum);
-template void compute_sum_8x16_sse2_luma<true>(const unsigned char *srcp, int pitch, int &sum);
-
-#pragma warning(pop)	// reenable no emms warning
 
 void TDeinterlace::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
   int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
+  if (opt == 0) cpu = 0;
+  if (cpu&CPUF_SSE2)
   {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
+    buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height);
   }
-  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch | tpitch) & 15))
-  {
-    buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch,
-      width, height);
-  }
-#ifdef ALLOW_MMX
-  else if (cpu&CPUF_MMX)
-  {
-    buildABSDiffMask_MMX(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch,
-      width, height);
-  }
-#endif
   else
   {
     unsigned char *dstp = tbuffer;
@@ -2505,7 +599,7 @@ void TDeinterlace::buildABSDiffMask(const unsigned char *prvp, const unsigned ch
 }
 
 
-void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
+void TDeinterlace::buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
@@ -2571,16 +665,7 @@ void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsign
       edx = x + 5;
       lower2 = 0;
       upper2 = 0;
-      //mov edx, ebx
       if (edx > Width) edx = Width;
-      //mov ecx, Width
-      //mov lower2, 0
-      //add edx, 5
-      //mov upper2, 0
-      //cmp edx, ecx
-      //jle p4
-      //mov edx, ecx
-      //p4 :
       if (y != 2) { // cmp y, 2,  je p5
         int esi = eax;
         do {
@@ -2663,6 +748,7 @@ void TDeinterlace::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsign
 
 #else
   // TFMYV12 565
+int y;
   __asm
   {
     mov y, 2
@@ -2900,7 +986,9 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
   int count;
   bool upper, lower, upper2, lower2;
 
-  constexpr bool mChroma = true; // same as in TFM, but here we have on the first part
+  // ??? Why is YUY2 with chroma, but planar with no chroma?
+  // P.F. 2020.04.13 debug to false like in YV12 case.
+  constexpr bool mChroma = false; // true; // same as in TFM, but here we have on the first part
 
 #ifdef USE_C_NO_ASM
   // reconstructed from inline asm by pf
@@ -2931,22 +1019,28 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
         edi = 0;
         lower = 0;
         upper = 0;
+
         if (dpp[x - 2] > 19) edi++;
         if (dpp[x] > 19) edi++;
         if (dpp[x + 2] > 19) edi++;
+
         if (edi != 0) upper = 1;
+
         if (dp[x - 2] > 19) edi++;
         if (dp[x + 2] > 19) edi++;
         
         esi = edi;
+
         if (dpn[x - 2] > 19) edi++;
         if (dpn[x] > 19) edi++;
         if (dpn[x + 2] > 19) edi++;
+
         if (edi <= 2) {
           goto chroma_sec; // continue in TFMYUY2 1051;
         }// continue in TFMYUY2 1051;
+
         count = edi;
-        if (esi != edi) {
+        if (count != esi) {
           lower = 1;
           if (upper != 0) {
             dstp[x] += 2;
@@ -2954,13 +1048,13 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
           }
         }
         // b111:
-        eax = x - 8;
+        eax = x - 2*4;
         if (eax < 0) eax = 0;
         // p31:
         lower2 = 0;
         upper2 = 0;
         { // blocked for local vars
-          int edx = x + 10;
+          int edx = x + 2*5;
           if (edx > Width) edx = Width;
           // p41:
     //-----------
@@ -2971,7 +1065,7 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
                 upper2 = 1;
                 break;
               }
-              esi += 2;
+              esi += 2; // YUY2 inc
             } while (esi < edx);
           }
           // p51 :
@@ -2983,7 +1077,7 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
               lower = 1;
             if (upper != 0 && lower != 0)
               break;
-            esi += 2;
+            esi += 2; // YUY2 inc
           } while (esi < edx);
           //---------
           // p121
@@ -2995,7 +1089,7 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
                 lower2 = 1;
                 break;
               }
-              esi += 2;
+              esi += 2; // YUY2 inc
             } while (esi < edx);
           }
         }
@@ -3028,6 +1122,7 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
         //-------------- itt vége van egy ebx+=2-vel a másiknak   
 
       chroma_sec:
+        // skip to chroma
         x++;
 
         if (dp[x] < 3) {
@@ -3156,6 +1251,7 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
     }
   }
   else {
+    // no YUY2 chroma, 
     // TFMYUV2 1051
     //env->ThrowError("not implemented yet"); // to be checked. What options do we need
     for (int y = 2; y < Height - 2; y += 2) {
@@ -3286,6 +1382,7 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
 
   }
 #else
+int y;
   if (mChroma)
   {
     // TFMYUV2 636

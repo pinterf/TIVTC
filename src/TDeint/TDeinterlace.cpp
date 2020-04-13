@@ -33,8 +33,12 @@ PVideoFrame __stdcall TDeinterlace::GetFrame(int n, IScriptEnvironment* env)
   else if (mode == 1 && n > nfrms2) n = nfrms2;
   PVideoFrame dst;
   bool wdtd = false;
-  if (vi.IsYV12()) dst = GetFrameYV12(n, env, wdtd);
-  else dst = GetFrameYUY2(n, env, wdtd);
+  
+  if (vi.IsPlanar()) 
+    dst = GetFramePlanar(n, env, wdtd);
+  else 
+    dst = GetFrameYUY2(n, env, wdtd);
+
   if (tshints && map != 1 && map != 2)
   {
     env->MakeWritable(&dst);
@@ -45,7 +49,7 @@ PVideoFrame __stdcall TDeinterlace::GetFrame(int n, IScriptEnvironment* env)
 
 void TDeinterlace::insertCompStats(int n, int norm1, int norm2, int mtn1, int mtn2)
 {
-  if (sa)
+  if (sa.size() > 0)
   {
     int pos = sa_pos * 5;
     sa[pos + 0] = n;
@@ -222,16 +226,17 @@ void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, 
 void TDeinterlace::stackVertical(PVideoFrame &dst2, PVideoFrame &p1, PVideoFrame &p2,
   IScriptEnvironment *env)
 {
-  const int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = vi.IsYV12() ? 3 : 1;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int stop = vi.IsYUY2() ? 1 : 3;
   for (int b = 0; b < stop; ++b)
   {
-    env->BitBlt(dst2->GetWritePtr(plane[b]), dst2->GetPitch(plane[b]),
-      p1->GetReadPtr(plane[b]), p1->GetPitch(plane[b]), p1->GetRowSize(plane[b]),
-      p1->GetHeight(plane[b]));
-    env->BitBlt(dst2->GetWritePtr(plane[b]) + dst2->GetPitch(plane[b])*p1->GetHeight(plane[b]),
-      dst2->GetPitch(plane[b]), p2->GetReadPtr(plane[b]), p2->GetPitch(plane[b]),
-      p2->GetRowSize(plane[b]), p2->GetHeight(plane[b]));
+    const int plane = planes[b];
+    env->BitBlt(dst2->GetWritePtr(plane), dst2->GetPitch(plane),
+      p1->GetReadPtr(plane), p1->GetPitch(plane), p1->GetRowSize(plane),
+      p1->GetHeight(plane));
+    env->BitBlt(dst2->GetWritePtr(plane) + dst2->GetPitch(plane)*p1->GetHeight(plane),
+      dst2->GetPitch(plane), p2->GetReadPtr(plane), p2->GetPitch(plane),
+      p2->GetRowSize(plane), p2->GetHeight(plane));
   }
 }
 
@@ -253,22 +258,22 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   char linein[1024];
   char *linep;
   FILE *f = NULL;
-  input = cArray = NULL;
+  cArray = NULL;
   tbuffer = NULL;
   db = NULL;
-  sa = NULL;
   if (mode == 2)
   {
     mode = 1;
     if (type == 2 || mtnmode > 1 || tryWeave)
     {
-      sa = (int *)malloc(5 * 500 * sizeof(int));
-      if (!sa) env->ThrowError("TDeint:  malloc failure (sa)!");
+      sa.resize(5 * 500);
       for (int i = 0; i < 500; ++i) sa[i] = -1;
     }
   }
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("TDeint:  YV12 and YUY2 data only!");
+  if (vi.IsRGB() || vi.IsYV411())
+    env->ThrowError("TDeint:  RGB or 411 data not supported!");
+  if (vi.BitsPerComponent() != 8)
+    env->ThrowError("TDeint:  Only 8 bit clip data supported!");
   if (mode != 0 && mode != 1 && mode != -1 && mode != -2)
     env->ThrowError("TDeint:  mode must be set to -2, -1, 0, or 1!");
   if (order != 0 && order != 1 && order != -1)
@@ -312,11 +317,11 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   if ((hints || !full) && mode == 0 && clip2)
   {
     const VideoInfo& vi1 = clip2->GetVideoInfo();
-    if (vi1.height != vi.height || vi1.width != vi.width)
-      env->ThrowError("TDeint:  width and height of clip2 must equal that of the input clip!");
-    if (!vi1.IsYV12() && !vi1.IsYUY2())
-      env->ThrowError("TDeint:  YV12 and YUY2 data only (clip2)!");
-    if ((vi.IsYV12() && vi1.IsYUY2()) || (vi.IsYUY2() && vi1.IsYV12()))
+    if (vi1.height != vi.height || vi1.width != vi.width || vi1.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TDeint:  width and height and bit depth of clip2 must equal that of the input clip!");
+    if (vi.IsRGB())
+      env->ThrowError("TDeint: no RGB format allowed!");
+    if (!vi.IsSameColorspace(vi1))
       env->ThrowError("TDeint:  colorspace of clip2 doesn't match that of the input clip!");
     if (vi.num_frames != vi1.num_frames)
       env->ThrowError("TDeint:  number of frames in clip2 doesn't match that of the input clip!");
@@ -325,11 +330,11 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   if (edeint)
   {
     const VideoInfo& vi1 = edeint->GetVideoInfo();
-    if (vi1.height != vi.height || vi1.width != vi.width)
-      env->ThrowError("TDeint:  width and height of edeint clip must equal that of the input clip!");
-    if (!vi1.IsYV12() && !vi1.IsYUY2())
-      env->ThrowError("TDeint:  YV12 and YUY2 data only (edeint)!");
-    if ((vi.IsYV12() && vi1.IsYUY2()) || (vi.IsYUY2() && vi1.IsYV12()))
+    if (vi1.height != vi.height || vi1.width != vi.width || vi1.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TDeint:  width and height and bit depth of edeint clip must equal that of the input clip!");
+    if (vi.IsRGB())
+      env->ThrowError("TDeint: no RGB format allowed (edeint)!");
+    if (!vi.IsSameColorspace(vi1))
       env->ThrowError("TDeint:  colorspace of edeint clip doesn't match that of the input clip!");
     if ((mode == 0 && vi.num_frames != vi1.num_frames) ||
       (mode == 1 && vi.num_frames * 2 != vi1.num_frames))
@@ -339,11 +344,11 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   if (emask)
   {
     const VideoInfo& vi1 = emask->GetVideoInfo();
-    if (vi1.height != vi.height || vi1.width != vi.width)
-      env->ThrowError("TDeint:  width and height of emask clip must equal that of the input clip!");
-    if (!vi1.IsYV12() && !vi1.IsYUY2())
-      env->ThrowError("TDeint:  YV12 and YUY2 data only (emask)!");
-    if ((vi.IsYV12() && vi1.IsYUY2()) || (vi.IsYUY2() && vi1.IsYV12()))
+    if (vi1.height != vi.height || vi1.width != vi.width || vi1.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TDeint:  width and height and bit depth of emask clip must equal that of the input clip!");
+    if (vi.IsRGB())
+      env->ThrowError("TDeint: no RGB format allowed (edeint)!");
+    if (!vi.IsSameColorspace(vi1))
       env->ThrowError("TDeint:  colorspace of emask clip doesn't match that of the input clip!");
     if ((mode == 0 && vi.num_frames != vi1.num_frames) ||
       (mode == 1 && vi.num_frames * 2 != vi1.num_frames))
@@ -353,11 +358,11 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   if (emtn)
   {
     const VideoInfo& vi1 = emtn->GetVideoInfo();
-    if (vi1.height != vi.height || vi1.width != vi.width)
-      env->ThrowError("TDeint:  width and height of emtn clip must equal that of the input clip!");
-    if (!vi1.IsYV12() && !vi1.IsYUY2())
-      env->ThrowError("TDeint:  YV12 and YUY2 data only (emtn)!");
-    if ((vi.IsYV12() && vi1.IsYUY2()) || (vi.IsYUY2() && vi1.IsYV12()))
+    if (vi1.height != vi.height || vi1.width != vi.width || vi1.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TDeint:  width and height and bit depth of emtn clip must equal that of the input clip!");
+    if (vi.IsRGB())
+      env->ThrowError("TDeint: no RGB format allowed (emtn)!");
+    if (!vi.IsSameColorspace(vi1))
       env->ThrowError("TDeint:  colorspace of emtn clip doesn't match that of the input clip!");
     if ((mode == 0 && vi.num_frames != vi1.num_frames) ||
       (mode == 1 && vi.num_frames * 2 != vi1.num_frames))
@@ -368,35 +373,49 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     emtn->SetCacheHints(CACHE_GENERIC, 5);
 #endif
   }
+
+  // like in FrameDiff
   sa_pos = 0;
-  xhalf = blockx >> 1;
-  yhalf = blocky >> 1;
-  xshift = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
+  blockx_half = blockx >> 1;
+  blocky_half = blocky >> 1;
+  blockx_shift = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
     blockx == 64 ? 6 : blockx == 128 ? 7 : blockx == 256 ? 8 : blockx == 512 ? 9 :
     blockx == 1024 ? 10 : 11;
-  yshift = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
+  blocky_shift = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
     blocky == 64 ? 6 : blocky == 128 ? 7 : blocky == 256 ? 8 : blocky == 512 ? 9 :
     blocky == 1024 ? 10 : 11;
   if (((!full && mode == 0) || tryWeave) && mode >= 0)
   {
-    cArray = (int *)_aligned_malloc((((vi.width + xhalf) >> xshift) + 1)*(((vi.height + yhalf) >> yshift) + 1) * 4 * sizeof(int), 32);
+    constexpr int ALIGN = 64;
+    cArray = (int *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(int), ALIGN);
     if (cArray == NULL) env->ThrowError("TDeint:  malloc failure!");
   }
-  db = new TDBuf((mtnmode & 1) ? 7 : mode == 1 ? 4 : 3, vi.width, vi.height, vi.IsYV12() ? 3 : 1);
+
+  const int planarType = vi.Is444() ? 444 : vi.Is422() ? 422 : 420; // 411 not supported, YUY2: n/a
+  db = new TDBuf((mtnmode & 1) ? 7 : mode == 1 ? 4 : 3, vi.width, vi.height, vi.IsPlanar() ? 3 : 1, planarType);
   if (vi.IsYUY2())
   {
-    xhalf *= 2;
-    ++xshift;
+    blockx_half *= 2;
+    ++blockx_shift;
   }
   if (slow > 0)
   {
-    if (vi.IsYV12())
+    // fixme: alignnot 16
+    // must be greater than Avisynth's internal alignment, because GetRowSize(PLANAR_XXX_ALIGNED) is used at many places
+    // check why is aligned used?
+    // We'll set it to max
+    constexpr int ALIGN = 64;
+    if (vi.IsPlanar())
     {
-      tpitchy = (vi.width & 15) ? vi.width + 16 - (vi.width & 15) : vi.width;
-      tpitchuv = ((vi.width >> 1) & 15) ? (vi.width >> 1) + 16 - ((vi.width >> 1) & 15) : (vi.width >> 1);
+      tpitchy = (vi.width & (ALIGN - 1)) ? vi.width + ALIGN - (vi.width & (ALIGN - 1)) : vi.width;
+      const int widthUV = vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U);
+      tpitchuv = (widthUV & (ALIGN - 1)) ? widthUV + ALIGN - (widthUV & (ALIGN - 1)) : widthUV;
     }
-    else tpitchy = ((vi.width << 1) & 15) ? (vi.width << 1) + 16 - ((vi.width << 1) & 15) : (vi.width << 1);
-    tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1)*tpitchy, 16);
+    else {
+      // YUY2
+      tpitchy = ((vi.width << 1) & (ALIGN - 1)) ? (vi.width << 1) + ALIGN - ((vi.width << 1) & (ALIGN - 1)) : (vi.width << 1);
+    }
+    tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1) * tpitchy, ALIGN);
     if (tbuffer == NULL)
       env->ThrowError("TDeinterlace:  malloc failure (tbuffer)!");
   }
@@ -485,10 +504,8 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
       if (countOvr <= 0) return;
       ++countOvr;
       countOvr *= 4;
-      input = (int *)malloc(countOvr * sizeof(int));
-      if (input == NULL)
-        env->ThrowError("TDeint: ovr input error (malloc failure)!");
-      memset(input, 255, countOvr * sizeof(int));
+      input.resize(countOvr);
+      memset(input.data(), 255, countOvr * sizeof(int));
       if ((f = fopen(ovr, "r")) != NULL)
       {
         while (fgets(linein, 80, f) != NULL)
@@ -503,8 +520,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
             if (w == 0) w = nfrms;
             if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
             {
-              free(input);
-              input = NULL;
+              input.clear();
               fclose(f);
               f = NULL;
               env->ThrowError("TDeint: ovr input error (invalid frame range)!");
@@ -520,33 +536,28 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
                 linep += 2;
                 if (*linep == 0)
                 {
-                  free(input);
-                  input = NULL;
-                  fclose(f);
+                  input.clear();
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (no change value specified)!");
                 }
                 sscanf(linep, "%d", &b);
                 if (q == 102 && b != 0 && b != 1)
                 {
-                  free(input);
-                  input = NULL;
+                  input.clear();
                   fclose(f);
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (bad field value)!");
                 }
                 else if (q == 111 && b != 0 && b != 1)
                 {
-                  free(input);
-                  input = NULL;
+                  input.clear();
                   fclose(f);
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (bad order value)!");
                 }
                 else if (q == 116 && (b < 0 || b > 5))
                 {
-                  free(input);
-                  input = NULL;
+                  input.clear();
                   fclose(f);
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (bad type value)!");
@@ -588,8 +599,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
               }
               else
               {
-                free(input);
-                input = NULL;
+                input.clear();
                 fclose(f);
                 f = NULL;
                 env->ThrowError("TDeint:  ovr input error (bad specifier)!");
@@ -597,8 +607,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
             }
             else
             {
-              free(input);
-              input = NULL;
+              input.clear();
               fclose(f);
               f = NULL;
               env->ThrowError("TDeint:  ovr input error (no space after frame range)!");
@@ -609,8 +618,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
             sscanf(linein, "%d", &z);
             if (z<0 || z>nfrms)
             {
-              free(input);
-              input = NULL;
+              input.clear();
               fclose(f);
               f = NULL;
               env->ThrowError("TDeint: ovr input error (out of range frame #)!");
@@ -629,8 +637,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
                 linep += 2;
                 if (*linep == 0)
                 {
-                  free(input);
-                  input = NULL;
+                  input.clear();
                   fclose(f);
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (no change value specified)!");
@@ -638,24 +645,21 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
                 sscanf(linep, "%d", &b);
                 if (q == 102 && b != 0 && b != 1)
                 {
-                  free(input);
-                  input = NULL;
+                  input.clear();
                   fclose(f);
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (bad field value)!");
                 }
                 else if (q == 111 && b != 0 && b != 1)
                 {
-                  free(input);
-                  input = NULL;
+                  input.clear();
                   fclose(f);
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (bad order value)!");
                 }
                 else if (q == 116 && (b < 0 || b > 5))
                 {
-                  free(input);
-                  input = NULL;
+                  input.clear();
                   fclose(f);
                   f = NULL;
                   env->ThrowError("TDeint:  ovr input error (bad type value)!");
@@ -665,8 +669,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
               else if (*linep == '+' || *linep == '-') ++i;
               else
               {
-                free(input);
-                input = NULL;
+                input.clear();
                 fclose(f);
                 f = NULL;
                 env->ThrowError("TDeint:  ovr input error (bad specifier)!");
@@ -674,8 +677,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
             }
             else
             {
-              free(input);
-              input = NULL;
+              input.clear();
               fclose(f);
               f = NULL;
               env->ThrowError("TDeint:  ovr input error (no space after frame number)!");
@@ -683,8 +685,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
           }
           else
           {
-            free(input);
-            input = NULL;
+            input.clear();
             fclose(f);
             f = NULL;
             env->ThrowError("TDeint:  ovr input error (invalid line)!");
@@ -695,8 +696,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
       }
       else
       {
-        free(input);
-        input = NULL;
+        input.clear();
         env->ThrowError("TDeint: ovr input error (cannot open file)!");
       }
     }
@@ -707,9 +707,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
 TDeinterlace::~TDeinterlace()
 {
   if (db) delete db;
-  if (input != NULL) free(input);
   if (cArray != NULL) _aligned_free(cArray);
-  if (sa) free(sa);
   if (tbuffer) _aligned_free(tbuffer);
 }
 
@@ -798,22 +796,16 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
 
 AVSValue __cdecl Create_TSwitch(AVSValue args, void* user_data, IScriptEnvironment* env);
 
-#ifdef AVISYNTH_PLUGIN_25
-extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit2(IScriptEnvironment* env) {
-#else
 /* New 2.6 requirement!!! */
 // Declare and initialise server pointers static storage.
 const AVS_Linkage *AVS_linkage = 0;
 
-/* New 2.6 requirement!!! */
-// DLL entry point called from LoadPlugin() to setup a user plugin.
 extern "C" __declspec(dllexport) const char* __stdcall
 AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
 
   /* New 2.6 requirment!!! */
   // Save the server pointers.
   AVS_linkage = vectors;
-#endif
   env->AddFunction("TDeint", "c[mode]i[order]i[field]i[mthreshL]i[mthreshC]i[map]i[ovr]s" \
     "[ovrDefault]i[type]i[debug]b[mtnmode]i[sharp]b[hints]b[clip2]c[full]b[cthresh]i" \
     "[chroma]b[MI]i[tryWeave]b[link]i[denoise]b[AP]i[blockx]i[blocky]i[APType]i[edeint]c" \

@@ -31,13 +31,14 @@
 #ifndef TDeint_included
 #include "TDeinterlace.h"
 #endif
+#include <vector>
 
 class TDeinterlace;
 
-void subtractFramesSSE2(const unsigned char* srcp1, int src1_pitch,
+void subtractFrames_SSE2(const unsigned char* srcp1, int src1_pitch,
   const unsigned char* srcp2, int src2_pitch, int height, int width, int inc,
   unsigned long& diff);
-void blendFramesSSE2(const unsigned char* srcp1, int src1_pitch,
+void blendFrames_SSE2(const unsigned char* srcp1, int src1_pitch,
   const unsigned char* srcp2, int src2_pitch, unsigned char* dstp, int dst_pitch,
   int height, int width);
 
@@ -48,31 +49,17 @@ private:
   char buf[512];
   bool debug;
   unsigned long lim;
-  int nfrms, field, order, opt, *sa, slow;
+  int nfrms, field, order, opt;
+  std::vector<int> &sa;
+  int slow;
   int mapn(int n);
   unsigned long subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptEnvironment *env);
-#ifdef ALLOW_MMX
-  void subtractFramesISSE(const unsigned char *srcp1, int src1_pitch,
-    const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
-    unsigned long &diff);
-  void subtractFramesMMX(const unsigned char *srcp1, int src1_pitch,
-    const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
-    unsigned long &diff);
-#endif
   void blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env);
-#ifdef ALLOW_MMX
-  void blendFramesISSE(const unsigned char *srcp1, int src1_pitch,
-    const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-    int height, int width);
-  void blendFramesMMX(const unsigned char *srcp1, int src1_pitch,
-    const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-    int height, int width);
-#endif
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
   ~TDHelper();
   TDHelper(PClip _child, int _order, int _field, double _lim, bool _debug,
-    int _opt, int* _sa, int _slow, TDeinterlace *_tdptr, IScriptEnvironment *env);
+    int _opt, std::vector<int>& _sa, int _slow, TDeinterlace *_tdptr, IScriptEnvironment *env);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;

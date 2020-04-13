@@ -25,6 +25,7 @@
 
 #include <windows.h>
 #include <malloc.h>
+#include <vector>
 
 class TDBuf
 {
@@ -37,8 +38,8 @@ private:
   int size, spos;
 
 public:
-  int *fnum;
-  TDBuf(int _size, int _width, int _height, int _cp);
+  std::vector<int> fnum;
+  TDBuf(int _size, int _width, int _height, int _cp, int planarType);
   ~TDBuf();
   const unsigned char* GetReadPtr(int pos, int plane);
   unsigned char* GetWritePtr(int pos, int plane);

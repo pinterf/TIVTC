@@ -32,12 +32,12 @@ TDHelper::~TDHelper()
 }
 
 TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debug,
-  int _opt, int* _sa, int _slow, TDeinterlace * _tdptr, IScriptEnvironment *env) :
+  int _opt, std::vector<int> &_sa, int _slow, TDeinterlace * _tdptr, IScriptEnvironment *env) :
   GenericVideoFilter(_child), order(_order), field(_field), debug(_debug), opt(_opt),
   sa(_sa), slow(_slow), tdptr(_tdptr)
 {
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("TDHelper:  only YV12 and YUY2 input supported!");
+  if (!vi.IsYUV())
+    env->ThrowError("TDHelper:  YUV colorspaces only!");
   if (order != -1 && order != 0 && order != 1)
     env->ThrowError("TDHelper:  order must be set to -1, 0, or 1!");
   if (field != -1 && field != 0 && field != 1)
@@ -84,7 +84,7 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
   PVideoFrame nxt = child->GetFrame(mapn(n + 1), env);
   int norm1 = -1, norm2 = -1;
   int mtn1 = -1, mtn2 = -1;
-  if (sa)
+  if (sa.size() > 0)
   {
     for (int i = 0; i < 500; ++i)
     {
@@ -105,7 +105,7 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
       mtn2, field, order, opt, true, slow, env);
   if (debug)
   {
-    sprintf(buf, "TDeint:  frame %d:  n1 = %u  n2 = %u  m1 = %u  m2 = %u\n",
+    sprintf(buf, "TDeint2:  frame %d:  n1 = %u  n2 = %u  m1 = %u  m2 = %u\n",
       n >> 1, norm1, norm2, mtn1, mtn2);
     OutputDebugString(buf);
   }
@@ -115,14 +115,14 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
     unsigned long d2 = subtractFrames(src, nxt, env);
     if (debug)
     {
-      sprintf(buf, "TDeint:  frame %d:  d1 = %u  d2 = %u  lim = %u\n", n >> 1, (int)d1, (int)d2, (int)lim);
+      sprintf(buf, "TDeint2:  frame %d:  d1 = %u  d2 = %u  lim = %u\n", n >> 1, (int)d1, (int)d2, (int)lim);
       OutputDebugString(buf);
     }
     if (d1 > lim && d2 > lim)
     {
       if (debug)
       {
-        sprintf(buf, "TDeint:  frame %d:  not blending (returning src)\n", n >> 1);
+        sprintf(buf, "TDeint2:  frame %d:  not blending (returning src)\n", n >> 1);
         OutputDebugString(buf);
       }
       return src;
@@ -156,7 +156,7 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
   else env->ThrowError("TDeint:  mode 2 internal error!");
   if (debug)
   {
-    sprintf(buf, "TDeint:  frame %d:  blending with %s\n", n >> 1, ret ? "nxt" : "prv");
+    sprintf(buf, "TDeint2:  frame %d:  blending with %s\n", n >> 1, ret ? "nxt" : "prv");
     OutputDebugString(buf);
   }
   return dst;
@@ -168,26 +168,15 @@ unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, ISc
   const unsigned char *srcp1 = src1->GetReadPtr();
   const int src1_pitch = src1->GetPitch();
   const int height = src1->GetHeight();
-  const int width = (src1->GetRowSize() >> 4) << 4;
+  const int width = (src1->GetRowSize() >> 4) << 4; // mod 16
   const unsigned char *srcp2 = src2->GetReadPtr();
   const int src2_pitch = src2->GetPitch();
-  const int inc = vi.IsYV12() ? 1 : 2;
+  const int inc = vi.IsPlanar() ? 1 : 2;
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
-  if ((cpu&CPUF_SSE2) && !((intptr_t(srcp1) | intptr_t(srcp2) | src1_pitch | src2_pitch) & 15))
-    subtractFramesSSE2(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
-#ifdef ALLOW_MMX
-  else if (cpu&CPUF_INTEGER_SSE)
-    subtractFramesISSE(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
-  else if (cpu&CPUF_MMX)
-    subtractFramesMMX(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
-#endif
+  if (opt == 0) cpu = 0;
+
+  if (cpu&CPUF_SSE2)
+    subtractFrames_SSE2(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
   else
   {
     for (int y = 0; y < height; ++y)
@@ -203,34 +192,24 @@ unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, ISc
 
 void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env)
 {
-  int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  int stop = vi.IsYV12() ? 3 : 1;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int stop = vi.IsYUY2() ? 1 : 3;
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
+  if (opt == 0) cpu = 0;
+
   for (int b = 0; b < stop; ++b)
   {
-    const unsigned char *srcp1 = src1->GetReadPtr(plane[b]);
-    const int src1_pitch = src1->GetPitch(plane[b]);
-    const int height = src1->GetHeight(plane[b]);
-    const int width = src1->GetRowSize(plane[b]);
-    const unsigned char *srcp2 = src2->GetReadPtr(plane[b]);
-    const int src2_pitch = src2->GetPitch(plane[b]);
-    unsigned char *dstp = dst->GetWritePtr(plane[b]);
-    const int dst_pitch = dst->GetPitch(plane[b]);
-    if ((cpu&CPUF_SSE2) && !((intptr_t(srcp1) | intptr_t(srcp2) | intptr_t(dstp) | src1_pitch | src2_pitch | dst_pitch) & 15))
-      blendFramesSSE2(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
-#ifdef ALLOW_MMX
-    else if (cpu&CPUF_INTEGER_SSE)
-      blendFramesISSE(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
-    else if (cpu&CPUF_MMX)
-      blendFramesMMX(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
-#endif
+    const int plane = planes[b];
+    const unsigned char *srcp1 = src1->GetReadPtr(plane);
+    const int src1_pitch = src1->GetPitch(plane);
+    const int height = src1->GetHeight(plane);
+    const int width = src1->GetRowSize(plane);
+    const unsigned char *srcp2 = src2->GetReadPtr(plane);
+    const int src2_pitch = src2->GetPitch(plane);
+    unsigned char *dstp = dst->GetWritePtr(plane);
+    const int dst_pitch = dst->GetPitch(plane);
+    if (cpu&CPUF_SSE2)
+      blendFrames_SSE2(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
     else
     {
       for (int y = 0; y < height; ++y)
@@ -245,12 +224,7 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
   }
 }
 
-#ifdef ALLOW_MMX
-__declspec(align(16)) const int64_t lumaMask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
-__declspec(align(16)) const int64_t onesMask[2] = { 0x0001000100010001, 0x0001000100010001 };
-#endif
-
-void subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch,
+void subtractFrames_SSE2(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
   unsigned long &diff)
 {
@@ -307,207 +281,7 @@ void subtractFramesSSE2(const unsigned char *srcp1, int src1_pitch,
   }
 }
 
-#ifdef ALLOW_MMX
-void TDHelper::subtractFramesISSE(const unsigned char *srcp1, int src1_pitch,
-  const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
-  unsigned long &diff)
-{
-  if (inc == 1)
-  {
-    __asm
-    {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov ecx, width
-      mov esi, height
-      pxor mm2, mm2
-      pxor mm3, mm3
-      yloopyv12 :
-      xor eax, eax
-        align 16
-        xloopyv12 :
-        movq mm0, [ebx + eax]
-        movq mm1, [ebx + eax + 8]
-        psadbw mm0, [edx + eax]
-        psadbw mm1, [edx + eax + 8]
-        add eax, 16
-        paddd mm2, mm0
-        paddd mm3, mm1
-        cmp eax, ecx
-        jl xloopyv12
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        dec esi
-        jnz yloopyv12
-        paddd mm2, mm3
-        mov eax, diff
-        movd[eax], mm2
-        emms
-    }
-  }
-  else
-  {
-    __asm
-    {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov ecx, width
-      mov esi, height
-      pxor mm4, mm4
-      pxor mm5, mm5
-      movq mm6, lumaMask
-      movq mm7, lumaMask
-      yloopyuy2 :
-      xor eax, eax
-        align 16
-        xloopyuy2 :
-        movq mm0, [ebx + eax]
-        movq mm1, [ebx + eax + 8]
-        movq mm2, [edx + eax]
-        movq mm3, [edx + eax + 8]
-        pand mm0, mm6
-        pand mm1, mm7
-        pand mm2, mm6
-        pand mm3, mm7
-        psadbw mm0, mm2
-        psadbw mm1, mm3
-        add eax, 16
-        paddd mm4, mm0
-        paddd mm5, mm1
-        cmp eax, ecx
-        jl xloopyuy2
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        dec esi
-        jnz yloopyuy2
-        paddd mm4, mm5
-        mov eax, diff
-        movd[eax], mm4
-        emms
-    }
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void TDHelper::subtractFramesMMX(const unsigned char *srcp1, int src1_pitch,
-  const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
-  unsigned long &diff)
-{
-  if (inc == 1)
-  {
-    __asm
-    {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov ecx, width
-      mov esi, height
-      pxor mm6, mm6
-      pxor mm7, mm7
-      yloopyv12 :
-      xor eax, eax
-        align 16
-        xloopyv12 :
-        movq mm0, [ebx + eax]
-        movq mm1, [ebx + eax + 8]
-        movq mm2, [edx + eax]
-        movq mm3, [edx + eax + 8]
-        movq mm4, mm0
-        movq mm5, mm1
-        psubusb mm0, mm2
-        psubusb mm1, mm3
-        psubusb mm2, mm4
-        psubusb mm3, mm5
-        por mm0, mm2
-        por mm1, mm3
-        pxor mm4, mm4
-        pxor mm5, mm5
-        movq mm2, mm0
-        movq mm3, mm1
-        punpcklbw mm0, mm4
-        punpcklbw mm1, mm5
-        punpckhbw mm2, mm4
-        punpckhbw mm3, mm5
-        paddw mm0, mm1
-        paddw mm2, mm3
-        paddw mm0, mm2
-        movq mm1, mm0
-        punpcklwd mm0, mm4
-        punpckhwd mm1, mm5
-        add eax, 16
-        paddd mm6, mm0
-        paddd mm7, mm1
-        cmp eax, ecx
-        jl xloopyv12
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        dec esi
-        jnz yloopyv12
-        paddd mm6, mm7
-        movq mm5, mm6
-        psrlq mm6, 32
-        paddd mm5, mm6
-        mov eax, diff
-        movd[eax], mm5
-        emms
-    }
-  }
-  else
-  {
-    __asm
-    {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov ecx, width
-      mov esi, height
-      pxor mm6, mm6
-      pxor mm7, mm7
-      yloopyuy2 :
-      xor eax, eax
-        align 16
-        xloopyuy2 :
-        movq mm0, [ebx + eax]
-        movq mm1, [ebx + eax + 8]
-        movq mm2, [edx + eax]
-        movq mm3, [edx + eax + 8]
-        movq mm4, mm0
-        movq mm5, mm1
-        psubusb mm0, mm2
-        psubusb mm1, mm3
-        psubusb mm2, mm4
-        psubusb mm3, mm5
-        por mm0, mm2
-        por mm1, mm3
-        pand mm0, lumaMask
-        pand mm1, lumaMask
-        pxor mm4, mm4
-        paddw mm0, mm1
-        pxor mm5, mm5
-        movq mm1, mm0
-        punpcklwd mm0, mm4
-        punpckhwd mm1, mm5
-        add eax, 16
-        paddd mm6, mm0
-        paddd mm7, mm1
-        cmp eax, ecx
-        jl xloopyuy2
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        dec esi
-        jnz yloopyuy2
-        paddd mm6, mm7
-        movq mm5, mm6
-        psrlq mm6, 32
-        paddd mm5, mm6
-        mov eax, diff
-        movd[eax], mm5
-        emms
-    }
-  }
-}
-#endif
-
-void blendFramesSSE2(const unsigned char *srcp1, int src1_pitch,
+void blendFrames_SSE2(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
   int height, int width)
 {
@@ -536,114 +310,3 @@ void blendFramesSSE2(const unsigned char *srcp1, int src1_pitch,
   }
 }
 
-#ifdef ALLOW_MMX
-void TDHelper::blendFramesISSE(const unsigned char *srcp1, int src1_pitch,
-  const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-  int height, int width)
-{
-  if (width & 15)
-  {
-    __asm
-    {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov esi, dstp
-      mov edi, height
-      mov ecx, width
-      yloop8 :
-      xor eax, eax
-        align 16
-        xloop8 :
-        movq mm0, [ebx + eax]
-        pavgb mm0, [edx + eax]
-        movq[esi + eax], mm0
-        add eax, 8
-        cmp eax, ecx
-        jl xloop8
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        add esi, dst_pitch
-        dec edi
-        jnz yloop8
-        emms
-    }
-  }
-  else
-  {
-    __asm
-    {
-      mov ebx, srcp1
-      mov edx, srcp2
-      mov esi, dstp
-      mov edi, height
-      mov ecx, width
-      yloop16 :
-      xor eax, eax
-        align 16
-        xloop16 :
-        movq mm0, [ebx + eax]
-        movq mm1, [ebx + eax + 8]
-        pavgb mm0, [edx + eax]
-        pavgb mm1, [edx + eax + 8]
-        movq[esi + eax], mm0
-        movq[esi + eax + 8], mm1
-        add eax, 16
-        cmp eax, ecx
-        jl xloop16
-        add ebx, src1_pitch
-        add edx, src2_pitch
-        add esi, dst_pitch
-        dec edi
-        jnz yloop16
-        emms
-    }
-  }
-}
-#endif
-
-#ifdef ALLOW_MMX
-void TDHelper::blendFramesMMX(const unsigned char *srcp1, int src1_pitch,
-  const unsigned char *srcp2, int src2_pitch, unsigned char *dstp, int dst_pitch,
-  int height, int width)
-{
-  __asm
-  {
-    mov ebx, srcp1
-    mov edx, srcp2
-    mov esi, dstp
-    mov edi, height
-    mov ecx, width
-    movq mm6, onesMask
-    pxor mm7, mm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [ebx + eax]
-      movq mm1, [edx + eax]
-      movq mm2, mm0
-      movq mm3, mm1
-      punpcklbw mm0, mm7
-      punpcklbw mm1, mm7
-      punpckhbw mm2, mm7
-      punpckhbw mm3, mm7
-      paddusw mm0, mm1
-      paddusw mm2, mm3
-      paddusw mm0, mm6
-      paddusw mm2, mm6
-      psrlw mm0, 1
-      psrlw mm2, 1
-      packuswb mm0, mm2
-      movq[esi + eax], mm0
-      add eax, 8
-      cmp eax, ecx
-      jl xloop
-      add ebx, src1_pitch
-      add edx, src2_pitch
-      add esi, dst_pitch
-      dec edi
-      jnz yloop
-      emms
-  }
-}
-#endif
