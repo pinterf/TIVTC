@@ -111,21 +111,26 @@ void absDiffSSE2(const unsigned char *srcp1, const unsigned char *srcp2,
 }
 
 
-void TDeinterlace::buildDiffMapPlane(const unsigned char *prvp, const unsigned char *nxtp,
-  unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int optt, IScriptEnvironment *env)
+void TDeinterlace::buildDiffMapPlane(const unsigned char* prvp, const unsigned char* nxtp,
+  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+  int Width, int optt, IScriptEnvironment* env)
 {
   long cpu = env->GetCPUFlags();
   if (optt == 0) cpu = 0;
-  if (cpu&CPUF_SSE2)
+  
+  int startx = 0;
+
+  if (cpu & CPUF_SSE2 && Width >= 8)
   {
-    buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, Width, Height);
+    int mod8Width = Width / 8 * 8;
+    buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, mod8Width, Height);
+    startx = mod8Width;
   }
-  else
-  {
+
+  if (startx != Width) {
     for (int y = 0; y < Height; ++y)
     {
-      for (int x = 0; x < Width; ++x)
+      for (int x = startx; x < Width; ++x)
       {
         const int diff = abs(prvp[x] - nxtp[x]);
         if (diff > 19) dstp[x] = 3;
@@ -475,7 +480,8 @@ void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
   }
 }
 
-void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
+template<int blockSizeY>
+void compute_sum_8xN_sse2(const unsigned char *srcp, int pitch, int &sum)
 {
   // sums masks
   // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;
@@ -486,7 +492,8 @@ void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
   auto curr = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp + pitch));
   auto summa = _mm_setzero_si128();
   srcp += pitch * 2; // points to next
-  for (int i = 0; i < 4; i++) { // 4x2=8
+  // unroll 2
+  for (int i = 0; i < blockSizeY / 2; i++) { // 4x2=8
     /*
     p  #
     c  # #
@@ -521,7 +528,10 @@ void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum)
   sum = _mm_cvtsi128_si32(tmpsum);
 }
 
+// instantiate for 8x8
+template void compute_sum_8xN_sse2<8>(const unsigned char* srcp, int pitch, int& sum);
 
+// YUY2 luma only case
 void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
 {
   // sums masks
@@ -570,40 +580,68 @@ void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
   sum = _mm_cvtsi128_si32(tmpsum);
 }
 
+template<bool ignoreYUY2chroma>
 void TDeinterlace::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
   int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
   if (opt == 0) cpu = 0;
-  if (cpu&CPUF_SSE2)
+
+  int startx = 0;
+
+  if (cpu&CPUF_SSE2 && width >= 8)
   {
-    buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height);
+    const int mod8Width = width / 8 * 8;
+    buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, mod8Width, height);
+    startx = mod8Width;
   }
-  else
+
+  if (width != startx)
   {
-    unsigned char *dstp = tbuffer;
-    for (int y = 0; y < height; ++y)
-    {
-      for (int x = 0; x < width; x += 4)
+    unsigned char* dstp = tbuffer;
+    if constexpr (ignoreYUY2chroma) {
+      // with 'true': only from TFM where
+      // (vi.IsYUY2() && !mChroma)
+      // C version is quicker if dealing with every second (luma) pixel
+      for (int y = 0; y < height; ++y)
       {
-        dstp[x + 0] = abs(prvp[x + 0] - nxtp[x + 0]);
-        dstp[x + 1] = abs(prvp[x + 1] - nxtp[x + 1]);
-        dstp[x + 2] = abs(prvp[x + 2] - nxtp[x + 2]);
-        dstp[x + 3] = abs(prvp[x + 3] - nxtp[x + 3]);
+        for (int x = startx; x < width; x += 4)
+        {
+          dstp[x + 0] = abs(prvp[x + 0] - nxtp[x + 0]);
+          dstp[x + 2] = abs(prvp[x + 2] - nxtp[x + 2]);
+        }
+        prvp += prv_pitch;
+        nxtp += nxt_pitch;
+        dstp += tpitch;
       }
-      prvp += prv_pitch;
-      nxtp += nxt_pitch;
-      dstp += tpitch;
+    }
+    else {
+      for (int y = 0; y < height; ++y)
+      {
+        for (int x = startx; x < width; x += 4)
+        {
+          dstp[x + 0] = abs(prvp[x + 0] - nxtp[x + 0]);
+          dstp[x + 1] = abs(prvp[x + 1] - nxtp[x + 1]);
+          dstp[x + 2] = abs(prvp[x + 2] - nxtp[x + 2]);
+          dstp[x + 3] = abs(prvp[x + 3] - nxtp[x + 3]);
+        }
+        prvp += prv_pitch;
+        nxtp += nxt_pitch;
+        dstp += tpitch;
+      }
     }
   }
 }
 
+template void TDeinterlace::buildABSDiffMask<false>(const unsigned char* prvp, const unsigned char* nxtp, int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment* env);
+template void TDeinterlace::buildABSDiffMask<true>(const unsigned char* prvp, const unsigned char* nxtp, int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment* env);
 
 void TDeinterlace::buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
-  buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch,
+  // false template: planar (or don't ignore chroma in YUY2)
+  buildABSDiffMask<false>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch,
     tpitch, Width, Height >> 1, env);
   const unsigned char* dppp = tbuffer - tpitch;
   const unsigned char* dpp = tbuffer;
@@ -978,6 +1016,19 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
+  // ??? Why is YUY2 with chroma, but planar with no chroma?
+  // P.F. 2020.04.13 debug to false like in YV12 case.
+  constexpr bool mChroma = false; // true; // same as in TFM, but here we have on the first part
+  // here YUY2 chroma is not ignored, unlike in TFM's buildABSDiffMask where mChroma is checked 
+  // (only in C code, where half of pixels can be omitted for speed reasons )
+  // false: ignore YUY2 chroma
+  if (mChroma)
+    buildABSDiffMask<false>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch,
+      tpitch, Width, Height >> 1, env);
+  else
+    buildABSDiffMask<true>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch,
+      tpitch, Width, Height >> 1, env);
+
   const unsigned char* dppp = tbuffer - tpitch;
   const unsigned char* dpp = tbuffer;
   const unsigned char* dp = tbuffer + tpitch;
@@ -986,10 +1037,8 @@ void TDeinterlace::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsign
   int count;
   bool upper, lower, upper2, lower2;
 
-  // ??? Why is YUY2 with chroma, but planar with no chroma?
-  // P.F. 2020.04.13 debug to false like in YV12 case.
-  constexpr bool mChroma = false; // true; // same as in TFM, but here we have on the first part
-
+  
+  // fixit: make if common with TFM
 #ifdef USE_C_NO_ASM
   // reconstructed from inline asm by pf
   if (mChroma) // TFM YUY2's mChroma bool parameter

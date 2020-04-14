@@ -45,13 +45,15 @@ void blendFrames_SSE2(const unsigned char* srcp1, int src1_pitch,
 class TDHelper : public GenericVideoFilter
 {
 private:
-  TDeinterlace *tdptr;
   char buf[512];
-  bool debug;
+  int nfrms, order, field;
   unsigned long lim;
-  int nfrms, field, order, opt;
+  int debug;
+  int opt;
   std::vector<int> &sa;
   int slow;
+  TDeinterlace* tdptr;
+
   int mapn(int n);
   unsigned long subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptEnvironment *env);
   void blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env);

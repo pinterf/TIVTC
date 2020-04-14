@@ -212,18 +212,16 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
         PVideoFrame nxte = emtn->GetFrame(n < nfrms ? n + 1 : nfrms, env);
         PVideoFrame nxt2e = emtn->GetFrame(n < nfrms - 1 ? n + 2 : n < nfrms ? n + 1 : nfrms, env);
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4YUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, env);
+          createMotionMap4_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, true /*yuy2*/, env);
         else
-          //createMotionMap5YUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, env);
-        createMotionMap5_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, true /*yuy2*/, env);
+          createMotionMap5_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, true /*yuy2*/, env);
       }
       else
       {
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4YUY2(prv2, prv, src, nxt, nxt2, mask, n, env);
+          createMotionMap4_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, true /*yuy2*/, env);
         else
-          //createMotionMap5YUY2(prv2, prv, src, nxt, nxt2, mask, n, env);
-        createMotionMap5_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, true /* YUY2*/, env);
+          createMotionMap5_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, true /* yuy2*/, env);
       }
     }
     else env->ThrowError("TDeint:  an unknown error occured!");
@@ -287,425 +285,6 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
   return dst;
 }
 
-void TDeinterlace::createMotionMap4YUY2(PVideoFrame &prv2, PVideoFrame &prv,
-  PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-  int n, IScriptEnvironment *env)
-{
-  db->resetCacheStart(n);
-  InsertDiff(prv, src, n, db->GetPos(0), env);
-  InsertDiff(src, nxt, n + 1, db->GetPos(1), env);
-  if (mode == 0)
-  {
-    if (field^order) InsertDiff(nxt, nxt2, n + 2, db->GetPos(2), env);
-    else InsertDiff(prv2, prv, n - 1, db->GetPos(2), env);
-  }
-  else
-  {
-    InsertDiff(nxt, nxt2, n + 2, db->GetPos(2), env);
-    InsertDiff(prv2, prv, n - 1, db->GetPos(3), env);
-  }
-  const int dpitch = db->GetPitch(0) << 1;
-  const int dpitchl = db->GetPitch(0);
-  const int Height = db->GetHeight(0);
-  const int Width = db->GetWidth(0);
-  const unsigned char *d1p = db->GetReadPtr(db->GetPos(0), 0) + dpitchl*field;
-  const unsigned char *d2p = db->GetReadPtr(db->GetPos(1), 0) + dpitchl*field;
-  const unsigned char *d3p;
-  if (mode == 0) d3p = db->GetReadPtr(db->GetPos(2), 0) + dpitchl*field;
-  else d3p = db->GetReadPtr(db->GetPos(field^order ? 2 : 3), 0) + dpitchl*field;
-  unsigned char *maskw = mask->GetWritePtr();
-  const int mask_pitch = mask->GetPitch() << 1;
-  memset(maskw, 10, (mask_pitch >> 1)*Height);
-  maskw += (mask_pitch >> 1)*field;
-  const unsigned char *d1pn = d1p + dpitchl;
-  const unsigned char *d2pn = d2p + dpitchl;
-  const unsigned char *d1pp = field ? d1p - dpitchl : d1pn;
-  const unsigned char *d2pp = field ? d2p - dpitchl : d2pn;
-  if (field^order)
-  {
-    const int val1 = mtnmode > 2 ? (rmatch == 0 ? 10 : 30) : 40;
-    if (n <= 1 || n >= nfrms - 1)
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t1 = n == 0 ? 0 : d1pp[x];
-          const int t5 = n == 0 ? 0 : d1p[x];
-          const int t2 = n == 0 ? 0 : d1pn[x];
-          const int t3 = n == nfrms ? 0 : d2pp[x];
-          const int t6 = n == nfrms ? 0 : d2p[x];
-          const int t4 = n == nfrms ? 0 : d2pn[x];
-          const int t7 = n >= nfrms - 1 ? 0 : d3p[x];
-          if (t6 && ((t1 && t2) || (t3 && t4) || (((t2 && t4) || (t1 && t3)) && (t5 || t7))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2) maskw[x] = 10;
-          else if (t3 && t7 && t4) maskw[x] = 30;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          d1pp += dpitch;
-          d2pp += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          d1pn += dpitch;
-          d2pn += dpitch;
-        }
-        d1p += dpitch;
-        d2p += dpitch;
-        d3p += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-    else
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t1 = d1pp[x];
-          const int t5 = d1p[x];
-          const int t2 = d1pn[x];
-          const int t3 = d2pp[x];
-          const int t6 = d2p[x];
-          const int t4 = d2pn[x];
-          const int t7 = d3p[x];
-          if (t6 && ((t1 && t2) || (t3 && t4) || (((t2 && t4) || (t1 && t3)) && (t5 || t7))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2) maskw[x] = 10;
-          else if (t3 && t7 && t4) maskw[x] = 30;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          d1pp += dpitch;
-          d2pp += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          d1pn += dpitch;
-          d2pn += dpitch;
-        }
-        d1p += dpitch;
-        d2p += dpitch;
-        d3p += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-  }
-  else
-  {
-    const int val1 = mtnmode > 2 ? (rmatch == 0 ? 20 : 10) : 50;
-    if (n <= 1 || n >= nfrms - 1)
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t1 = n == 0 ? 0 : d1pp[x];
-          const int t6 = n == 0 ? 0 : d1p[x];
-          const int t2 = n == 0 ? 0 : d1pn[x];
-          const int t3 = n == nfrms ? 0 : d2pp[x];
-          const int t7 = n == nfrms ? 0 : d2p[x];
-          const int t4 = n == nfrms ? 0 : d2pn[x];
-          const int t5 = n <= 1 ? 0 : d3p[x];
-          if (t6 && ((t1 && t2) || (t3 && t4) || (((t2 && t4) || (t1 && t3)) && (t5 || t7))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2) maskw[x] = 20;
-          else if (t3 && t7 && t4) maskw[x] = 10;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          d1pp += dpitch;
-          d2pp += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          d1pn += dpitch;
-          d2pn += dpitch;
-        }
-        d1p += dpitch;
-        d2p += dpitch;
-        d3p += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-    else
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t1 = d1pp[x];
-          const int t6 = d1p[x];
-          const int t2 = d1pn[x];
-          const int t3 = d2pp[x];
-          const int t7 = d2p[x];
-          const int t4 = d2pn[x];
-          const int t5 = d3p[x];
-          if (t6 && ((t1 && t2) || (t3 && t4) || (((t2 && t4) || (t1 && t3)) && (t5 || t7))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2) maskw[x] = 20;
-          else if (t3 && t7 && t4) maskw[x] = 10;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          d1pp += dpitch;
-          d2pp += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          d1pn += dpitch;
-          d2pn += dpitch;
-        }
-        d1p += dpitch;
-        d2p += dpitch;
-        d3p += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-  }
-}
-
-#if 0
-// merged into planar
-void TDeinterlace::createMotionMap5YUY2(PVideoFrame &prv2, PVideoFrame &prv,
-  PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-  int n, IScriptEnvironment *env)
-{
-  db->resetCacheStart(n - 1);
-  InsertDiff(prv2, prv, n - 1, db->GetPos(0), env);
-  InsertDiff(prv, src, n, db->GetPos(1), env);
-  InsertDiff(src, nxt, n + 1, db->GetPos(2), env);
-  InsertDiff(nxt, nxt2, n + 2, db->GetPos(3), env);
-  InsertDiff(prv2, src, -n - 2, db->GetPos(4), env);
-  InsertDiff(prv, nxt, -n - 3, db->GetPos(5), env);
-  InsertDiff(src, nxt2, -n - 4, db->GetPos(6), env);
-  const int dpitch = db->GetPitch(0) << 1;
-  const int dpitchl = db->GetPitch(0);
-  const int Height = db->GetHeight(0);
-  const int Width = db->GetWidth(0);
-  const unsigned char *dpp[7], *dp[7], *dpn[7];
-  for (int i = 0; i < 7; ++i)
-  {
-    dp[i] = db->GetReadPtr(db->GetPos(i), 0) + dpitchl*field;
-    dpn[i] = dp[i] + dpitchl;
-    dpp[i] = field ? dp[i] - dpitchl : dpn[i];
-  }
-  unsigned char *maskw = mask->GetWritePtr();
-  const int mask_pitch = mask->GetPitch() << 1;
-  memset(maskw, 10, (mask_pitch >> 1)*Height);
-  maskw += (mask_pitch >> 1)*field;
-  if (field^order)
-  {
-    const int val1 = mtnmode > 2 ? (rmatch == 0 ? 10 : 30) : 40;
-    if (n <= 1 || n >= nfrms - 1)
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t8 = n <= 1 ? 0 : dpp[0][x];
-          const int t9 = n <= 1 ? 0 : dpn[0][x];
-          const int t1 = n == 0 ? 0 : dpp[1][x];
-          const int t5 = n == 0 ? 0 : dp[1][x];
-          const int t2 = n == 0 ? 0 : dpn[1][x];
-          const int t3 = n == nfrms ? 0 : dpp[2][x];
-          const int t6 = n == nfrms ? 0 : dp[2][x];
-          const int t4 = n == nfrms ? 0 : dpn[2][x];
-          const int t10 = n >= nfrms - 1 ? 0 : dpp[3][x];
-          const int t7 = n >= nfrms - 1 ? 0 : dp[3][x];
-          const int t11 = n >= nfrms - 1 ? 0 : dpn[3][x];
-          const int t12 = dpp[4][x];
-          const int t13 = dpn[4][x];
-          const int t14 = dpp[5][x];
-          const int t18 = dp[5][x];
-          const int t15 = dpn[5][x];
-          const int t16 = dpp[6][x];
-          const int t19 = dp[6][x];
-          const int t17 = dpn[6][x];
-          if (t6 && ((t1 && t2 && ((t3 && t4 && t14 && t15) || (t5 && t18))) ||
-            (t3 && t4 && t7 && t19) ||
-            (t5 && t18 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t1 && t8 && t12) || (t2 && t9 && t13))) ||
-            (t7 && t19 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t3 && t10 && t16) || (t4 && t11 && t17)))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2 && t8 && t9 && t12 && t13) maskw[x] = 10;
-          else if (t3 && t7 && t4 && t10 && t11 && t16 && t17) maskw[x] = 30;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpp[i] += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpn[i] += dpitch;
-        }
-        for (int i = 0; i < 7; ++i)
-          dp[i] += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-    else
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t8 = dpp[0][x];
-          const int t9 = dpn[0][x];
-          const int t1 = dpp[1][x];
-          const int t5 = dp[1][x];
-          const int t2 = dpn[1][x];
-          const int t3 = dpp[2][x];
-          const int t6 = dp[2][x];
-          const int t4 = dpn[2][x];
-          const int t10 = dpp[3][x];
-          const int t7 = dp[3][x];
-          const int t11 = dpn[3][x];
-          const int t12 = dpp[4][x];
-          const int t13 = dpn[4][x];
-          const int t14 = dpp[5][x];
-          const int t18 = dp[5][x];
-          const int t15 = dpn[5][x];
-          const int t16 = dpp[6][x];
-          const int t19 = dp[6][x];
-          const int t17 = dpn[6][x];
-          if (t6 && ((t1 && t2 && ((t3 && t4 && t14 && t15) || (t5 && t18))) ||
-            (t3 && t4 && t7 && t19) ||
-            (t5 && t18 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t1 && t8 && t12) || (t2 && t9 && t13))) ||
-            (t7 && t19 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t3 && t10 && t16) || (t4 && t11 && t17)))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2 && t8 && t9 && t12 && t13) maskw[x] = 10;
-          else if (t3 && t7 && t4 && t10 && t11 && t16 && t17) maskw[x] = 30;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpp[i] += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpn[i] += dpitch;
-        }
-        for (int i = 0; i < 7; ++i)
-          dp[i] += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-  }
-  else
-  {
-    const int val1 = mtnmode > 2 ? (rmatch == 0 ? 20 : 10) : 50;
-    if (n <= 1 || n >= nfrms - 1)
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t8 = n <= 1 ? 0 : dpp[0][x];
-          const int t5 = n <= 1 ? 0 : dp[0][x];
-          const int t9 = n <= 1 ? 0 : dpn[0][x];
-          const int t1 = n == 0 ? 0 : dpp[1][x];
-          const int t6 = n == 0 ? 0 : dp[1][x];
-          const int t2 = n == 0 ? 0 : dpn[1][x];
-          const int t3 = n == nfrms ? 0 : dpp[2][x];
-          const int t7 = n == nfrms ? 0 : dp[2][x];
-          const int t4 = n == nfrms ? 0 : dpn[2][x];
-          const int t10 = n >= nfrms - 1 ? 0 : dpp[3][x];
-          const int t11 = n >= nfrms - 1 ? 0 : dpn[3][x];
-          const int t12 = dpp[4][x];
-          const int t18 = dp[4][x];
-          const int t13 = dpn[4][x];
-          const int t14 = dpp[5][x];
-          const int t19 = dp[5][x];
-          const int t15 = dpn[5][x];
-          const int t16 = dpp[6][x];
-          const int t17 = dpn[6][x];
-          if (t6 && ((t1 && t2 && ((t3 && t4 && t14 && t15) || (t5 && t18))) ||
-            (t3 && t4 && t7 && t19) ||
-            (t5 && t18 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t1 && t8 && t12) || (t2 && t9 && t13))) ||
-            (t7 && t19 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t3 && t10 && t16) || (t4 && t11 && t17)))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2 && t8 && t9 && t12 && t13) maskw[x] = 20;
-          else if (t3 && t7 && t4 && t10 && t11 && t16 && t17) maskw[x] = 10;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpp[i] += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpn[i] += dpitch;
-        }
-        for (int i = 0; i < 7; ++i)
-          dp[i] += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-    else
-    {
-      for (int y = field; y < Height; y += 2)
-      {
-        for (int x = 0; x < Width; ++x)
-        {
-          const int t8 = dpp[0][x];
-          const int t5 = dp[0][x];
-          const int t9 = dpn[0][x];
-          const int t1 = dpp[1][x];
-          const int t6 = dp[1][x];
-          const int t2 = dpn[1][x];
-          const int t3 = dpp[2][x];
-          const int t7 = dp[2][x];
-          const int t4 = dpn[2][x];
-          const int t10 = dpp[3][x];
-          const int t11 = dpn[3][x];
-          const int t12 = dpp[4][x];
-          const int t18 = dp[4][x];
-          const int t13 = dpn[4][x];
-          const int t14 = dpp[5][x];
-          const int t19 = dp[5][x];
-          const int t15 = dpn[5][x];
-          const int t16 = dpp[6][x];
-          const int t17 = dpn[6][x];
-          if (t6 && ((t1 && t2 && ((t3 && t4 && t14 && t15) || (t5 && t18))) ||
-            (t3 && t4 && t7 && t19) ||
-            (t5 && t18 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t1 && t8 && t12) || (t2 && t9 && t13))) ||
-            (t7 && t19 && ((t1 && t3 && t14) || (t2 && t4 && t15) || (t3 && t10 && t16) || (t4 && t11 && t17)))))
-            maskw[x] = val1;
-          else if (t1 && t5 && t2 && t8 && t9 && t12 && t13) maskw[x] = 20;
-          else if (t3 && t7 && t4 && t10 && t11 && t16 && t17) maskw[x] = 10;
-          else maskw[x] = 60;
-        }
-        if (y != 0)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpp[i] += dpitch;
-        }
-        if (y != Height - 3)
-        {
-          for (int i = 0; i < 7; ++i)
-            dpn[i] += dpitch;
-        }
-        for (int i = 0; i < 7; ++i)
-          dp[i] += dpitch;
-        maskw += mask_pitch;
-      }
-    }
-  }
-}
-#endif
 
 void TDeinterlace::expandMap_YUY2(PVideoFrame &mask)
 {
@@ -1104,7 +683,8 @@ cjump:
   int Heighta = (Height >> (blocky_shift - 1)) << (blocky_shift - 1);
   if (Heighta == Height) Heighta = Height - blocky_half;
   const int Widtha = (Width >> (blockx_shift - 1)) << (blockx_shift - 1);
-  const bool use_sse2_sum = (use_sse2 && blockx_half == 16 && blocky_half == 8) ? true : false;
+  const bool use_16x8_sse2_sum = (use_sse2 && blockx_half == 16 && blocky_half == 8) ? true : false;
+  // top y block
   for (int y = 1; y < blocky_half; ++y)
   {
     const int temp1 = (y >> blocky_shift)*xblocks4;
@@ -1125,11 +705,12 @@ cjump:
     cmkp += cmk_pitch;
     cmkpn += cmk_pitch;
   }
+  // middle y blocks
   for (int y = blocky_half; y < Heighta; y += blocky_half)
   {
     const int temp1 = (y >> blocky_shift)*xblocks4;
     const int temp2 = ((y + blocky_half) >> blocky_shift)*xblocks4;
-    if (use_sse2_sum)
+    if (use_16x8_sse2_sum)
     {
       // use_sse2_sum is checked agains 16x8 blocksize
       for (int x = 0; x < Widtha; x += blockx_half)
@@ -1177,6 +758,7 @@ cjump:
         }
       }
     }
+    // rest unaligned on the right
     for (int x = Widtha; x < Width; x += 2)
     {
       const unsigned char *cmkppT = cmkpp;
@@ -1205,6 +787,7 @@ cjump:
     cmkp += cmk_pitch*blocky_half;
     cmkpn += cmk_pitch*blocky_half;
   }
+  // bottom non-whole y block
   for (int y = Heighta; y < Height - 1; ++y)
   {
     const int temp1 = (y >> blocky_shift)*xblocks4;

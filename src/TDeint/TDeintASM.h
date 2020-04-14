@@ -51,7 +51,8 @@
   void buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
   
-  void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum);
+  template<int blockSizeY>
+  void compute_sum_8xN_sse2(const unsigned char *srcp, int pitch, int &sum);
 
   void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum);
 

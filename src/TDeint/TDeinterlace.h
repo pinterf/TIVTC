@@ -69,18 +69,12 @@ class TDeinterlace : public GenericVideoFilter
   unsigned char *tbuffer;
   char buf[120];
   PClip clip2, edeint, emask, emtn;
-  void createMotionMap4_Planar(PVideoFrame &prv2, PVideoFrame &prv,
+  void createMotionMap4_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-    int n, IScriptEnvironment *env);
-  void createMotionMap4YUY2(PVideoFrame &prv2, PVideoFrame &prv,
-    PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-    int n, IScriptEnvironment *env);
+    int n, bool isYUY2, IScriptEnvironment *env);
   void createMotionMap5_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
     int n, bool IsYUY2, IScriptEnvironment *env);
-  void createMotionMap5YUY2(PVideoFrame &prv2, PVideoFrame &prv,
-    PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-    int n, IScriptEnvironment *env);
   template<int planarType>
   void linkFULL_Planar(PVideoFrame &mask);
   template<int planarType>
@@ -151,6 +145,7 @@ class TDeinterlace : public GenericVideoFilter
   static void buildDiffMapPlane(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int optt, IScriptEnvironment *env);
+  template<bool ignoreYUY2chroma>
   void buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
     int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
   void buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,

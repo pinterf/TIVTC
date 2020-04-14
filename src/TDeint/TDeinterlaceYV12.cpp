@@ -213,14 +213,14 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
         PVideoFrame nxte = emtn->GetFrame(n < nfrms ? n + 1 : nfrms, env);
         PVideoFrame nxt2e = emtn->GetFrame(n < nfrms - 1 ? n + 2 : n < nfrms ? n + 1 : nfrms, env);
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4_Planar(prv2e, prve, srce, nxte, nxt2e, mask, n, env);
+          createMotionMap4_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, false/*planar*/, env);
         else
           createMotionMap5_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, false/*planar*/, env);
       }
       else
       {
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4_Planar(prv2, prv, src, nxt, nxt2, mask, n, env);
+          createMotionMap4_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, false/*planar*/, env);
         else
           createMotionMap5_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, false/*planar*/, env);
       }
@@ -326,9 +326,9 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
   return dst;
 }
 
-void TDeinterlace::createMotionMap4_Planar(PVideoFrame &prv2, PVideoFrame &prv,
+void TDeinterlace::createMotionMap4_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
   PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-  int n, IScriptEnvironment *env)
+  int n, bool isYUY2, IScriptEnvironment *env)
 {
   db->resetCacheStart(n);
   InsertDiff(prv, src, n, db->GetPos(0), env);
@@ -344,7 +344,7 @@ void TDeinterlace::createMotionMap4_Planar(PVideoFrame &prv2, PVideoFrame &prv,
     InsertDiff(prv2, prv, n - 1, db->GetPos(3), env);
   }
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (int b = 0; b < 3; ++b)
+  for (int b = 0; b < (isYUY2 ? 1 : 3); ++b)
   {
     const int plane = planes[b];
     const int dpitch = db->GetPitch(b) << 1;
@@ -360,7 +360,6 @@ void TDeinterlace::createMotionMap4_Planar(PVideoFrame &prv2, PVideoFrame &prv,
     const int mask_pitch = mask->GetPitch(plane) << 1;
     memset(maskw, 10, (mask_pitch >> 1)*Height);
     maskw += (mask_pitch >> 1)*field;
-    const int mthresh = b == 0 ? mthreshL : mthreshC;
     const unsigned char *d1pn = d1p + dpitchl;
     const unsigned char *d2pn = d2p + dpitchl;
     const unsigned char *d1pp = field ? d1p - dpitchl : d1pn;
@@ -951,7 +950,7 @@ void TDeinterlace::linkUVtoY_Planar(PVideoFrame &mask)
   maskpV += mask_pitchUV*field;
   maskpU += mask_pitchUV*field;
   
-  // only at 420:
+  // only used at 420:
   unsigned char *maskpnY = maskpY + mask_pitchY2;
   for (int y = field; y < HeightUV; y += 2)
   {
@@ -974,7 +973,8 @@ void TDeinterlace::linkUVtoY_Planar(PVideoFrame &mask)
       }
     }
     maskpY += mask_pitchY4;
-    maskpnY += mask_pitchY4;
+    if constexpr (planarType == 420)
+      maskpnY += mask_pitchY4;
     maskpV += mask_pitchUV2;
     maskpU += mask_pitchUV2;
   }
@@ -1022,11 +1022,19 @@ void TDeinterlace::denoisePlanar(PVideoFrame &mask)
 bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironment *env)
 {
   PVideoFrame cmask = env->NewVideoFrame(vi_saved);
+  
   bool use_sse2 = (env->GetCPUFlags() & CPUF_SSE2) ? true : false;
   if (opt == 0) use_sse2 = false;
+
+  // cthresh: Area combing threshold used for combed frame detection.
+  // This essentially controls how "strong" or "visible" combing must be to be detected.
+  // Good values are from 6 to 12. If you know your source has a lot of combed frames set 
+  // this towards the low end(6 - 7). If you know your source has very few combed frames set 
+  // this higher(10 - 12). Going much lower than 5 to 6 or much higher than 12 is not recommended.
   const int cthresh6 = cthresh * 6;
   __m128i cthreshb_m128i;
   __m128i cthresh6w_m128i;
+
   if (metric == 0 && use_sse2)
   {
     unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
@@ -1038,9 +1046,10 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
   {
     cthreshb_m128i = _mm_set1_epi32(cthresh * cthresh);
   }
+
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int np = chroma ? 3 : 1;
-  for (int b = 0; b < np; ++b) // fix: mode==0 checkCombedPlanar
+  const int stop = chroma ? 3 : 1;
+  for (int b = 0; b < stop; ++b) // fix 2020413: mode==0 checkCombedPlanar failed (never processed luma)
   {
     const int plane = planes[b];
     const unsigned char *srcp = src->GetReadPtr(plane);
@@ -1053,8 +1062,13 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
     const unsigned char *srcpnn = srcpn + src_pitch;
     unsigned char *cmkp = cmask->GetWritePtr(plane);
     const int cmk_pitch = cmask->GetPitch(plane);
-    if (cthresh < 0) { memset(cmkp, 255, Height*cmk_pitch); continue; }
+    
+    if (cthresh < 0) { 
+      memset(cmkp, 255, Height*cmk_pitch); 
+      continue;
+    }
     memset(cmkp, 0, Height*cmk_pitch);
+
     if (metric == 0)
     {
       // top 1 
@@ -1197,6 +1211,9 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
       }
     }
   }
+
+  // 'chroma' parameter default false.
+  // Includes chroma combing in the decision about whether a frame is combed.
   if (chroma)
   {
     unsigned char *cmkp = cmask->GetWritePtr(PLANAR_Y);
@@ -1213,6 +1230,12 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
     unsigned char *cmkpnU = cmkpU + cmk_pitchUV;
     unsigned char *cmkppV = cmkpV - cmk_pitchUV;
     unsigned char *cmkpnV = cmkpV + cmk_pitchUV;
+
+    int planarType;
+    if (vi_saved.Is420()) planarType = 420;
+    else if (vi_saved.Is422()) planarType = 422;
+    else if (vi_saved.Is444()) planarType = 444;
+
     for (int y = 1; y < Height - 1; ++y)
     {
       cmkpp += cmk_pitch;
@@ -1234,14 +1257,30 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
             cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
             cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF)))
         {
-          ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
-          ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
-          if (y & 1) ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
-          else ((unsigned short*)cmkpnn)[x] = (unsigned short)0xFFFF;
+          // fixme: template?
+          // like in Link chroma
+          if (planarType == 420) {
+            ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
+            ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
+            if (y & 1) ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
+            else ((unsigned short*)cmkpnn)[x] = (unsigned short)0xFFFF;
+          }
+          else if (planarType == 422) {
+            ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
+            ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
+            ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
+          }
+          else if (planarType == 444) {
+            cmkp[x] = 0xFF;
+            cmkpn[x] = 0xFF;
+            cmkpp[x] = 0xFF;
+          }
         }
       }
     }
   }
+  // end of chroma handling
+
   const int cmk_pitch = cmask->GetPitch(PLANAR_Y);
   const unsigned char *cmkp = cmask->GetReadPtr(PLANAR_Y) + cmk_pitch;
   const unsigned char *cmkpp = cmkp - cmk_pitch;
@@ -1256,7 +1295,10 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
   int Heighta = (Height >> (blocky_shift - 1)) << (blocky_shift - 1);
   if (Heighta == Height) Heighta = Height - blocky_half;
   const int Widtha = (Width >> (blockx_shift - 1)) << (blockx_shift - 1);
-  const bool use_sse2_sum = (use_sse2 && blockx_half == 8 && blocky_half == 8) ? true : false; // 8x8: no alignment
+  // quick case for 16x16 base
+  const bool use_sse2_8x8_sum = (use_sse2 && blockx_half == 8 && blocky_half == 8) ? true : false;
+  
+  // top y block
   for (int y = 1; y < blocky_half; ++y)
   {
     const int temp1 = (y >> blocky_shift)*xblocks4;
@@ -1277,17 +1319,18 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
     cmkp += cmk_pitch;
     cmkpn += cmk_pitch;
   }
+  // middle y blocks
   for (int y = blocky_half; y < Heighta; y += blocky_half)
   {
     const int temp1 = (y >> blocky_shift)*xblocks4;
     const int temp2 = ((y + blocky_half) >> blocky_shift)*xblocks4;
-    if (use_sse2_sum)
+    if (use_sse2_8x8_sum)
     {
       for (int x = 0; x < Widtha; x += blockx_half)
       {
-        // only if blockx_half and blocky_half is 8!!! checked above
+        // only if blockx_half and blocky_half is 8x8!!! checked above
         int sum = 0;
-        compute_sum_8x8_sse2(cmkpp + x, cmk_pitch, sum);
+        compute_sum_8xN_sse2<8>(cmkpp + x, cmk_pitch, sum);
         if (sum)
         {
           const int box1 = (x >> blockx_shift) << 2;
@@ -1329,6 +1372,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
         }
       }
     }
+    // rest on the right
     for (int x = Widtha; x < Width; ++x)
     {
       const unsigned char *cmkppT = cmkpp;
@@ -1357,6 +1401,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
     cmkp += cmk_pitch*blocky_half;
     cmkpn += cmk_pitch*blocky_half;
   }
+  // rest non-whole blocky at the bottom
   for (int y = Heighta; y < Height - 1; ++y)
   {
     const int temp1 = (y >> blocky_shift)*xblocks4;
@@ -1383,6 +1428,14 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
     if (cArray[x] > MIC)
       MIC = cArray[x];
   }
+
+  // 'MI': The number of required combed pixels inside any of the blockx by blocky sized blocks 
+  // on the frame for the frame to be considered combed. While cthresh controls how "visible" or
+  // "strong" the combing must be, this setting controls how much combing there must be in any 
+  // localized area(a blockx by blocky sized window) on the frame.
+  // Min setting = 0, max setting = blockx x blocky (at which point no frames will ever be detected as combed).
+  // default - 64 (int)
+
   if (MIC > MI) return true;
   return false;
 }
@@ -1413,9 +1466,6 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
     const unsigned char *srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int Width = src->GetRowSize(plane); // fixme: at HBD /2
-    const int ALIGN = 8;
-    const int Widtha = (Width + (ALIGN - 1)) & ~(ALIGN - 1); // PF 20200413 align to mod8 instead of Avisynth's 64!     // src->GetRowSize(plane + 8);
-    //const int Widtha = src->GetRowSize(plane + 8); // +8 = _ALIGNED fixme: why
     const int Height = src->GetHeight(plane);
     const unsigned char *nxtp = nxt->GetReadPtr(plane);
     int nxt_pitch = nxt->GetPitch(plane);
@@ -1458,10 +1508,10 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
     unsigned char *mapn = mapp + map_pitch;
     if (fieldt != 1)
       buildDiffMapPlane(prvpf - prvf_pitch, nxtpf - nxtf_pitch, mapp - map_pitch, prvf_pitch,
-        nxtf_pitch, map_pitch, Height >> 1, Widtha, optt, env);
+        nxtf_pitch, map_pitch, Height >> 1, Width, optt, env);
     else
       buildDiffMapPlane(prvnf - prvf_pitch, nxtnf - nxtf_pitch, mapn - map_pitch, prvf_pitch,
-        nxtf_pitch, map_pitch, Height >> 1, Widtha, optt, env);
+        nxtf_pitch, map_pitch, Height >> 1, Width, optt, env);
     for (int y = 2; y < Height - 2; y += 2)
     {
       for (int x = startx; x < stopx; x++)
@@ -1533,8 +1583,6 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
     const unsigned char* srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int Width = src->GetRowSize(plane);
-    const int ALIGN = 8;
-    const int Widtha = (Width + (ALIGN - 1)) & ~(ALIGN - 1); // PF 20200413 align to mod8 instead of Avisynth's 64!     // src->GetRowSize(plane + 8);
     const int Height = src->GetHeight(plane);
     const unsigned char* nxtp = nxt->GetReadPtr(plane);
     const int nxt_pitch = nxt->GetPitch(plane);
@@ -1579,33 +1627,27 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
     if (b == 0) tp = tpitchy;
     else tp = tpitchuv;
     
-    assert(Widtha <= tp); // Widtha cannot be greater or else BuildDiffMap will write past tbuffer
-
     if (vit.IsPlanar()) // plane count 3: planar YV12
     {
       if (fieldt != 1)
-        buildDiffMapPlane_Planar(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlane_Planar(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
     else
     {
       if (fieldt != 1)
-        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
 
     for (int y = 2; y < Height - 2; y += 2)
     {
       for (int x = startx; x < stopx; x++) {
         int eax = (mapp[x] << 3) + mapn[x];
-        if (eax == 0) {
-          //x++;
-          //if (x < stopx)
+        if (eax == 0)
             continue;
-          //break;
-        }
 
         int ecx = (curf[x] << 2) + curpf[x] + curnf[x];
 
@@ -1682,9 +1724,6 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
     const unsigned char* srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int Width = src->GetRowSize(plane);
-    const int ALIGN = 8;
-    const int Widtha = (Width + (ALIGN - 1)) & ~(ALIGN - 1); // PF 20200413 align to mod8 instead of Avisynth's 64!     // src->GetRowSize(plane + 8);
-    //const int Widtha = src->GetRowSize(plane + 8); // +8 = _ALIGNED fixme: why
     const int Height = src->GetHeight(plane);
     const unsigned char* nxtp = nxt->GetReadPtr(plane);
     const int nxt_pitch = nxt->GetPitch(plane);
@@ -1741,16 +1780,16 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
     {
       // planar YUV
       if (fieldt != 1)
-        buildDiffMapPlane_Planar(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlane_Planar(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
     else
     {
       if (fieldt != 1)
-        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
 
     if (fieldt == 0)
