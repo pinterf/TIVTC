@@ -254,6 +254,10 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   edeint(_edeint), emask(_emask), metric(_metric), expand(_expand), slow(_slow),
   emtn(_emtn), tshints(_tshints), opt(_opt)
 {
+
+  has_at_least_v8 = true;
+  try { env->CheckVersion(8); } catch (const AvisynthError&) { has_at_least_v8 = false; }
+
   int z, w, q, b, i, track, count;
   char linein[1024];
   char *linep;

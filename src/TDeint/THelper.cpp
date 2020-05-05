@@ -36,6 +36,10 @@ TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debu
   GenericVideoFilter(_child), order(_order), field(_field), debug(_debug), opt(_opt),
   sa(_sa), slow(_slow), tdptr(_tdptr)
 {
+  has_at_least_v8 = true;
+  try { env->CheckVersion(8); }
+  catch (const AvisynthError&) { has_at_least_v8 = false; }
+
   if (!vi.IsYUV())
     env->ThrowError("TDHelper:  YUV colorspaces only!");
   if (order != -1 && order != 0 && order != 1)
@@ -128,7 +132,10 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
       return src;
     }
   }
-  PVideoFrame dst = env->NewVideoFrame(vi);
+  PVideoFrame dst = 
+    has_at_least_v8 ? 
+    env->NewVideoFrameP(vi, &src) :
+    env->NewVideoFrame(vi);
   int ret = -1;
   float c1 = float(max(norm1, norm2)) / float(max(min(norm1, norm2), 1));
   float c2 = float(max(mtn1, mtn2)) / float(max(min(mtn1, mtn2), 1));

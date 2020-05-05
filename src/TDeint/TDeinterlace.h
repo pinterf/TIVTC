@@ -49,6 +49,8 @@ void absDiffSSE2(const unsigned char* srcp1, const unsigned char* srcp2,
 
 class TDeinterlace : public GenericVideoFilter
 {
+  bool has_at_least_v8;
+
   friend class TDHelper;
   TDBuf *db;
   VideoInfo vi_saved;

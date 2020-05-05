@@ -33,7 +33,8 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
   if (mode < 0)
   {
     PVideoFrame src2up = child->GetFrame(n, env);
-    PVideoFrame dst2up = env->NewVideoFrame(vi_saved);
+    PVideoFrame dst2up = // frame property support
+      has_at_least_v8 ? env->NewVideoFrameP(vi_saved, &src2up) : env->NewVideoFrame(vi_saved);
     PVideoFrame msk2up = env->NewVideoFrame(vi_saved);
     copyForUpsize(dst2up, src2up, 3, env);
     setMaskForUpsize(msk2up, 3);
@@ -155,7 +156,13 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
     nxt = clip2->GetFrame(n < nfrms ? n + 1 : nfrms, env);
     nxt2 = clip2->GetFrame(n < nfrms - 1 ? n + 2 : n < nfrms ? n + 1 : nfrms, env);
   }
-  dst = env->NewVideoFrame(vi_saved);
+
+  // property support
+  if(has_at_least_v8)
+    dst = env->NewVideoFrameP(vi_saved, &src);
+  else
+    dst = env->NewVideoFrame(vi_saved);
+
   if (type == 2 || mtnmode > 1 || tryWeave)
   {
     subtractFields(prv, src, nxt, vi_saved, accumPn, accumNn, accumPm, accumNm,

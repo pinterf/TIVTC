@@ -45,6 +45,7 @@ void blendFrames_SSE2(const unsigned char* srcp1, int src1_pitch,
 class TDHelper : public GenericVideoFilter
 {
 private:
+  bool has_at_least_v8;
   char buf[512];
   int nfrms, order, field;
   unsigned long lim;
