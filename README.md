@@ -1,8 +1,17 @@
-# TIVTC v1.0.14 (20190207) # TDeInt v1.2 (20200404)
+# TIVTC v1.0.14 (20190207) # TDeInt v1.2 (20200505)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
-**TDeInt v1.2 (20200404)**
+# TDeint (see change log of TIVTC later) 
+
+** TDeInt v1.2 (20200505 - work in progress) **
+- Add AviSynth+ V8 interface support: passing frame properties
+- Add planar YV16 and YV24 color spaces (The Big Work)
+  result: YV16 output is identical with YUY2 (but a bit slower at the moment)
+- Fix mode=0 for yuy2 (asm code was completely off)
+- Fix mode=0 (general), luma was never processed in CheckedComb
+- Fix crash with AviSynth+ versions (in general: when frame buffer alignment is more than 16 bytes)
+- TDeint: refactor, code clean, c++17 conformity, keep C and SSE2
 - Inline assembler code ported to intrinsics and C code. 
 - Add some more SSE2 (MMX and ISSE code kept but is not active)
 - x64 version is compilable!
@@ -12,6 +21,8 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
     1>        Please choose the Technical Support command on the Visual C++
     1>        Help menu, or open the Technical Support help file for more information
     1>    The command exited with code -1073741819.
+
+# TIVTC v1.0.14 (20190207):
 
 **v1.0.14 (20190207)**
 - Fix: option slow=2 field<>0. Thanks to 299792458m. 
