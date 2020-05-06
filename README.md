@@ -1,4 +1,4 @@
-# TIVTC v1.0.14+ (20200506 - refactor and planar project work in progress) 
+# TIVTC v1.0.15-test (20200506 - refactor and planar project work in progress) 
 # TDeInt v1.2 (20200505)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -18,7 +18,13 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.14 (20190207):
+# TIVTC v1.0.15 (20190506-):
+
+**v1.0.15-test (20200506)**
+- Support planar YV16 and YV24 besides YV12 (YUY2 was not removed)
+- Huge refactor and code clean (common parts with TDeint source)
+- only C and SSE2 inside
+- parameter opt=0 disables SSE2
 
 **v1.0.14 (20190207)**
 - Fix: option slow=2 field<>0. Thanks to 299792458m. 
