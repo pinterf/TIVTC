@@ -89,18 +89,18 @@ void HorizontalBlurSSE2_Planar_R(const unsigned char *srcp, unsigned char *dstp,
 
 //-- helpers
 void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, const VideoInfo& vi);
 
 void calcDiffSSD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, const VideoInfo& vi);
 
 void calcDiffSSD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi);
 
 void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi);
 
-void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, int np, PVideoFrame& currt, CalcMetricData& d);
+void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFrame& currt, CalcMetricData& d);
 
 void VerticalBlurSSE2(const unsigned char* srcp, unsigned char* dstp, int src_pitch,
   int dst_pitch, int width, int height);

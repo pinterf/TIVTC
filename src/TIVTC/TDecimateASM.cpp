@@ -854,133 +854,111 @@ void VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dstp,
 
 
 //-------- helpers
-void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma)
+
+// true SAD false SSD
+template<bool SAD>
+void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
-  const unsigned char *ptr1T, *ptr2T;
-  if (np == 3) // YV12
+  const unsigned char* ptr1T, * ptr2T;
+  const bool IsPlanar = (np == 3);
+  if (IsPlanar) // YV12, YV16, YV24: number of planes = 3 (planar)
   {
-    if (plane == 0)
-    {
-      // fixme: make common with chroma
-      heighta = (height >> 4) << 4;
-      widtha = (width >> 4) << 4;
-      height >>= 4;
-      width >>= 4;
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> 1)*xblocks4;
-        temp2 = ((y + 1) >> 1)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSAD_SSE2_16xN<16>(ptr1 + (x << 4), ptr2 + (x << 4), pitch1, pitch2, difft);
-          box1 = (x >> 1) << 2;
-          box2 = ((x + 1) >> 1) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 16; ++u)
-          {
-            difft += abs(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> 5) << 2;
-          box2 = ((x + 16) >> 5) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 4;
-        ptr2 += pitch2 << 4;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> 5)*xblocks4;
-        temp2 = ((y + 16) >> 5)*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = abs(ptr1[x] - ptr2[x]);
-          box1 = (x >> 5) << 2;
-          box2 = ((x + 16) >> 5) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
-    }
-    else
-    {
-      // fixme: planar chroma
-      heighta = (height >> 3) << 3;
-      widtha = (width >> 3) << 3;
-      height >>= 3;
-      width >>= 3;
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> 1)*xblocks4;
-        temp2 = ((y + 1) >> 1)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSAD_SSE2_8xN<8>(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
-          box1 = (x >> 1) << 2;
-          box2 = ((x + 1) >> 1) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
+    // from YV12 to generic planar
+    const int xsubsampling = vi.GetPlaneWidthSubsampling(plane);
+    const int ysubsampling = vi.GetPlaneHeightSubsampling(plane);
+    // base: luma: 16x16, chroma: divided with subsampling
+    const int w_to_shift = 4 - xsubsampling;
+    const int h_to_shift = 4 - ysubsampling;
+    // whole blocks
+    heighta = (height >> h_to_shift) << h_to_shift; // mod16 for luma, mod8 or 16 for chroma
+    widtha = (width >> w_to_shift) << w_to_shift; // mod16 for luma, mod8 or 16 for chroma
+    height >>= h_to_shift;
+    width >>= w_to_shift;
 
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 8; ++u)
-          {
-            difft += abs(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> 4) << 2;
-          box2 = ((x + 8) >> 4) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 3;
-        ptr2 += pitch2 << 3;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> 4)*xblocks4;
-        temp2 = ((y + 8) >> 4)*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = abs(ptr1[x] - ptr2[x]);
-          box1 = (x >> 4) << 2;
-          box2 = ((x + 8) >> 4) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
+    using SAD_fn_t = decltype(calcSAD_SSE2_16xN<16>);
+    SAD_fn_t* SAD_fn = nullptr;
+    if constexpr (SAD) {
+      if (xsubsampling == 0 && ysubsampling == 0) // YV24 or luma
+        SAD_fn = calcSAD_SSE2_16xN<16>;
+      else if (xsubsampling == 1 && ysubsampling == 0) // YV16
+        SAD_fn = calcSAD_SSE2_8xN<16>;
+      else if (xsubsampling == 1 && ysubsampling == 1) // YV12
+        SAD_fn = calcSAD_SSE2_8xN<8>;
     }
+    else {
+      if (xsubsampling == 0 && ysubsampling == 0) // YV24 or luma
+        SAD_fn = calcSSD_SSE2_16xN<16>;
+      else if (xsubsampling == 1 && ysubsampling == 0) // YV16
+        SAD_fn = calcSSD_SSE2_8xN<16>;
+      else if (xsubsampling == 1 && ysubsampling == 1) // YV12
+        SAD_fn = calcSSD_SSE2_8xN<8>;
+    }
+    // other formats are forbidden and were pre-checked
+
+    for (y = 0; y < height; ++y)
+    {
+      temp1 = (y >> 1) * xblocks4;
+      temp2 = ((y + 1) >> 1) * xblocks4;
+      for (x = 0; x < width; ++x)
+      {
+        SAD_fn(ptr1 + (x << w_to_shift), ptr2 + (x << w_to_shift), pitch1, pitch2, difft);
+        box1 = (x >> 1) << 2;
+        box2 = ((x + 1) >> 1) << 2;
+        diff[temp1 + box1 + 0] += difft;
+        diff[temp1 + box2 + 1] += difft;
+        diff[temp2 + box1 + 2] += difft;
+        diff[temp2 + box2 + 3] += difft;
+      }
+      // rest non-simd
+      for (x = widtha; x < widths; ++x)
+      {
+        ptr1T = ptr1;
+        ptr2T = ptr2;
+        for (difft = 0, u = 0; u < (1 << w_to_shift); ++u) // 16 or 8. u<blocksize
+        {
+          if constexpr (SAD)
+            difft += abs(ptr1T[x] - ptr2T[x]);
+          else
+            difft += (ptr1T[x] - ptr2T[x]) * (ptr1T[x] - ptr2T[x]);
+          ptr1T += pitch1;
+          ptr2T += pitch2;
+        }
+        box1 = (x >> (w_to_shift + 1)) << 2;
+        box2 = ((x + (1 << w_to_shift)) >> (w_to_shift + 1)) << 2;
+        diff[temp1 + box1 + 0] += difft;
+        diff[temp1 + box2 + 1] += difft;
+        diff[temp2 + box1 + 2] += difft;
+        diff[temp2 + box2 + 3] += difft;
+      }
+      ptr1 += pitch1 << w_to_shift; // += pitch1 * blocksize
+      ptr2 += pitch2 << w_to_shift;
+    }
+    for (y = heighta; y < heights; ++y)
+    {
+      temp1 = (y >> (w_to_shift + 1)) * xblocks4; // y >> 5 or 4
+      temp2 = ((y + (1 << w_to_shift)) >> (w_to_shift + 1)) * xblocks4;
+      for (x = 0; x < widths; ++x)
+      {
+        if constexpr (SAD)
+          difft = abs(ptr1[x] - ptr2[x]);
+        else {
+          difft = ptr1[x] - ptr2[x];
+          difft *= difft;
+        }
+        box1 = (x >> (w_to_shift + 1)) << 2;
+        box2 = ((x + (1 << w_to_shift)) >> (w_to_shift + 1)) << 2;
+        diff[temp1 + box1 + 0] += difft;
+        diff[temp1 + box2 + 1] += difft;
+        diff[temp2 + box1 + 2] += difft;
+        diff[temp2 + box2 + 3] += difft;
+      }
+      ptr1 += pitch1;
+      ptr2 += pitch2;
+    }
+    // planar (was: YV12)
   }
   else // YUY2
   {
@@ -993,11 +971,14 @@ void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2
       // YUY2 common luma chroma
       for (y = 0; y < height; ++y)
       {
-        temp1 = (y >> 1)*xblocks4;
-        temp2 = ((y + 1) >> 1)*xblocks4;
+        temp1 = (y >> 1) * xblocks4;
+        temp2 = ((y + 1) >> 1) * xblocks4;
         for (x = 0; x < width; ++x)
         {
-          calcSAD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+          if constexpr (SAD)
+            calcSAD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+          else
+            calcSSD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
           box1 = (x >> 1) << 2;
           box2 = ((x + 1) >> 1) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1011,7 +992,10 @@ void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2
           ptr2T = ptr2;
           for (difft = 0, u = 0; u < 16; ++u)
           {
-            difft += abs(ptr1T[x] - ptr2T[x]);
+            if constexpr (SAD)
+              difft += abs(ptr1T[x] - ptr2T[x]);
+            else
+              difft += (ptr1T[x] - ptr2T[x]) * (ptr1T[x] - ptr2T[x]);
             ptr1T += pitch1;
             ptr2T += pitch2;
           }
@@ -1027,11 +1011,16 @@ void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2
       }
       for (y = heighta; y < heights; ++y)
       {
-        temp1 = (y >> 5)*xblocks4;
-        temp2 = ((y + 16) >> 5)*xblocks4;
+        temp1 = (y >> 5) * xblocks4;
+        temp2 = ((y + 16) >> 5) * xblocks4;
         for (x = 0; x < widths; ++x)
         {
-          difft = abs(ptr1[x] - ptr2[x]);
+          if constexpr (SAD)
+            difft = abs(ptr1[x] - ptr2[x]);
+          else {
+            difft = ptr1[x] - ptr2[x];
+            difft *= difft;
+          }
           box1 = (x >> 6) << 2;
           box2 = ((x + 32) >> 6) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1047,11 +1036,14 @@ void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2
     {
       for (y = 0; y < height; ++y)
       {
-        temp1 = (y >> 1)*xblocks4;
-        temp2 = ((y + 1) >> 1)*xblocks4;
+        temp1 = (y >> 1) * xblocks4;
+        temp2 = ((y + 1) >> 1) * xblocks4;
         for (x = 0; x < width; ++x)
         {
-          calcSAD_SSE2_32x16_YUY2_lumaonly(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+          if constexpr (SAD)
+            calcSAD_SSE2_32x16_YUY2_lumaonly(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
+          else
+            calcSSD_SSE2_32x16_YUY2_lumaonly(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
           box1 = (x >> 1) << 2;
           box2 = ((x + 1) >> 1) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1065,7 +1057,10 @@ void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2
           ptr2T = ptr2;
           for (difft = 0, u = 0; u < 16; ++u)
           {
-            difft += abs(ptr1T[x] - ptr2T[x]);
+            if constexpr (SAD)
+              difft += abs(ptr1T[x] - ptr2T[x]);
+            else
+              difft += (ptr1T[x] - ptr2T[x]) * (ptr1T[x] - ptr2T[x]);
             ptr1T += pitch1;
             ptr2T += pitch2;
           }
@@ -1081,11 +1076,16 @@ void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2
       }
       for (y = heighta; y < heights; ++y)
       {
-        temp1 = (y >> 5)*xblocks4;
-        temp2 = ((y + 16) >> 5)*xblocks4;
+        temp1 = (y >> 5) * xblocks4;
+        temp2 = ((y + 16) >> 5) * xblocks4;
         for (x = 0; x < widths; x += 2)
         {
-          difft = abs(ptr1[x] - ptr2[x]);
+          if constexpr (SAD)
+            difft = abs(ptr1[x] - ptr2[x]);
+          else {
+            difft = ptr1[x] - ptr2[x];
+            difft *= difft;
+          }
           box1 = (x >> 6) << 2;
           box2 = ((x + 32) >> 6) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1100,647 +1100,134 @@ void calcDiffSAD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2
   }
 }
 
-
-void calcDiffSSD_32x32_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma)
+void calcDiffSAD_32x32_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
-  int temp1, temp2, y, x, u, difft, box1, box2;
-  int widtha, heighta, heights = height, widths = width;
-  const unsigned char *ptr1T, *ptr2T;
-
-  if (np == 3) // YV12
-  {
-      // YV12 chroma generalized to any plane
-      // FIXME to template
-      // blocksize, to template, xsubsampling and ysubsampling
-      int xsubsampling;
-      int ysubsampling;
-      const int blocksize = 16;
-      if (plane == 0) {
-        xsubsampling = 0;
-        ysubsampling = 0;
-      }
-      else {
-        xsubsampling = 1; // yv12 specific
-        ysubsampling = 1; // yv12 specific
-      }
-      const int xblocksize = blocksize >> xsubsampling;
-      const int yblocksize = blocksize >> ysubsampling;
-      heighta = (height / yblocksize) * yblocksize;
-      widtha = (width / xblocksize) * xblocksize;
-      height /= yblocksize; // originally >>3 /8
-      width /= xblocksize; // originally: >>3 /8
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> 1)*xblocks4;
-        temp2 = ((y + 1) >> 1)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          // fixme: 16x16 (444), 8x16 (422), 8x8 (420)
-          if (xblocksize == 16) {
-            if (xsubsampling == 0 && ysubsampling == 0) // yv24
-              calcSSD_SSE2_16xN<16>(ptr1 + (x * xblocksize), ptr2 + (x * xblocksize), pitch1, pitch2, difft);
-            else if (xsubsampling == 1 && ysubsampling == 0) // yv16
-              calcSSD_SSE2_8xN<16>(ptr1 + (x * xblocksize), ptr2 + (x * xblocksize), pitch1, pitch2, difft);
-            else if (xsubsampling == 1 && ysubsampling == 1) // yv12
-              calcSSD_SSE2_8xN<8>(ptr1 + (x * xblocksize), ptr2 + (x * xblocksize), pitch1, pitch2, difft);
-          }
-          else if (xblocksize == 8) {
-            if (xsubsampling == 0 && ysubsampling == 0) // yv24
-              calcSSD_SSE2_8xN<8>(ptr1 + (x * xblocksize), ptr2 + (x * xblocksize), pitch1, pitch2, difft);
-            else if (xsubsampling == 1 && ysubsampling == 0) // yv16
-              calcSSD_SSE2_4xN<8>(ptr1 + (x * xblocksize), ptr2 + (x * xblocksize), pitch1, pitch2, difft);
-            else if (xsubsampling == 1 && ysubsampling == 1) // yv12
-              calcSSD_SSE2_4xN<4>(ptr1 + (x * xblocksize), ptr2 + (x * xblocksize), pitch1, pitch2, difft);
-          }
-          box1 = (x >> 1) << 2;
-          box2 = ((x + 1) >> 1) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        // rest non-simd
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < xblocksize; ++u)
-          {
-            difft += (ptr1T[x] - ptr2T[x])*(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> (5 - xsubsampling)) << 2;
-          box2 = ((x + xblocksize) >> (5-xsubsampling)) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 * xblocksize;
-        ptr2 += pitch2 * xblocksize;
-      }
-      // rest non-simd fraction height
-      // we are still at yv12 chroma
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> (5-xsubsampling))*xblocks4;
-        temp2 = ((y + xblocksize) >> (5-xsubsampling))*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = ptr1[x] - ptr2[x];
-          difft *= difft;
-          box1 = (x >> (5-xsubsampling)) << 2;
-          box2 = ((x + xblocksize) >> (5 - xsubsampling)) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
-  }
-  else // YUY2
-  {
-    heighta = (height >> 4) << 4;
-    widtha = (width >> 5) << 5;
-    height >>= 4;
-    width >>= 5;
-    if (chroma)
-    {
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> 1)*xblocks4;
-        temp2 = ((y + 1) >> 1)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSSD_SSE2_32x16(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
-          box1 = (x >> 1) << 2;
-          box2 = ((x + 1) >> 1) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 16; ++u)
-          {
-            difft += (ptr1T[x] - ptr2T[x])*(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> 6) << 2;
-          box2 = ((x + 32) >> 6) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 4;
-        ptr2 += pitch2 << 4;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> 5)*xblocks4;
-        temp2 = ((y + 16) >> 5)*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = ptr1[x] - ptr2[x];
-          difft *= difft;
-          box1 = (x >> 6) << 2;
-          box2 = ((x + 32) >> 6) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
-    }
-    else
-    {
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> 1)*xblocks4;
-        temp2 = ((y + 1) >> 1)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSSD_SSE2_32x16_YUY2_lumaonly(ptr1 + (x << 5), ptr2 + (x << 5), pitch1, pitch2, difft);
-          box1 = (x >> 1) << 2;
-          box2 = ((x + 1) >> 1) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; x += 2)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 16; ++u)
-          {
-            difft += (ptr1T[x] - ptr2T[x])*(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> 6) << 2;
-          box2 = ((x + 32) >> 6) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 4;
-        ptr2 += pitch2 << 4;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> 5)*xblocks4;
-        temp2 = ((y + 16) >> 5)*xblocks4;
-        for (x = 0; x < widths; x += 2)
-        {
-          difft = ptr1[x] - ptr2[x];
-          difft *= difft;
-          box1 = (x >> 6) << 2;
-          box2 = ((x + 32) >> 6) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
-    }
-  }
+  calcDiff_SADorSSD_32x32_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, vi);
 }
 
-void calcDiffSSD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
+void calcDiffSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
+{
+  calcDiff_SADorSSD_32x32_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, vi);
+}
+
+
+// true: SAD, false: SSD
+template<bool SAD>
+void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
   int heighta, heights = height, widtha, widths = width;
   int yshifta, yhalfa, xshifta, xhalfa;
-  const unsigned char *ptr1T, *ptr2T;
-  if (np == 3) // YV12
+  const unsigned char* ptr1T, * ptr2T;
+  const bool IsPlanar = (np == 3);
+  if (IsPlanar) // YV12, YV16, YV24
   {
-    if (plane == 0)
-    {
-      heighta = (height >> 3) << 3;
-      widtha = (width >> 3) << 3;
-      height >>= 3;
-      width >>= 3;
-      yshifta = yshiftS;
-      yhalfa = yhalfS;
-      xshifta = xshiftS;
-      xhalfa = xhalfS;
-      yshift = yshiftS - 3;
-      yhalf = yhalfS >> 3;
-      xshift = xshiftS - 3;
-      xhalf = xhalfS >> 3;
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSSD_SSE2_8xN<8>(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
-          box1 = (x >> xshift) << 2;
-          box2 = ((x + xhalf) >> xshift) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 8; ++u)
-          {
-            difft += (ptr1T[x] - ptr2T[x])*(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 3;
-        ptr2 += pitch2 << 3;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = ptr1[x] - ptr2[x];
-          difft *= difft;
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
+    // from YV12 to generic planar
+    const int xsubsampling = vi.GetPlaneWidthSubsampling(plane);
+    const int ysubsampling = vi.GetPlaneHeightSubsampling(plane);
+    // base: luma: 8x8, chroma: divided with subsampling
+    const int w_to_shift = 3 - xsubsampling;
+    const int h_to_shift = 3 - ysubsampling;
+    // whole blocks
+    heighta = (height >> h_to_shift) << h_to_shift; // mod16 for luma, mod8 or 16 for chroma
+    widtha = (width >> w_to_shift) << w_to_shift; // mod16 for luma, mod8 or 16 for chroma
+    height >>= h_to_shift;
+    width >>= w_to_shift;
+
+    using SAD_fn_t = decltype(calcSAD_SSE2_16xN<16>); // similar prototype for all X*Y
+    SAD_fn_t* SAD_fn = nullptr;
+    if constexpr (SAD) {
+      if (xsubsampling == 0 && ysubsampling == 0) // YV24 or luma
+        SAD_fn = calcSAD_SSE2_8xN<8>;
+      else if (xsubsampling == 1 && ysubsampling == 0) // YV16
+        SAD_fn = calcSAD_SSE2_4xN<8>;
+      else if (xsubsampling == 1 && ysubsampling == 1) // YV12
+        SAD_fn = calcSAD_SSE2_4xN<4>;
     }
-    else
-    {
-      // yv12 chroma 4x4
-      heighta = (height >> 2) << 2;
-      widtha = (width >> 2) << 2;
-      height >>= 2;
-      width >>= 2;
-      yshifta = yshiftS - 1;
-      yhalfa = yhalfS >> 1;
-      xshifta = xshiftS - 1;
-      xhalfa = xhalfS >> 1;
-      yshift = yshiftS - 3;
-      yhalf = yhalfS >> 3;
-      xshift = xshiftS - 3;
-      xhalf = xhalfS >> 3;
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          // fixme: 444 422 420 yv12 only
-          calcSSD_SSE2_4xN<4>(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
-          box1 = (x >> xshift) << 2;
-          box2 = ((x + xhalf) >> xshift) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 4; ++u)
-          {
-            difft += (ptr1T[x] - ptr2T[x])*(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 2;
-        ptr2 += pitch2 << 2;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = ptr1[x] - ptr2[x];
-          difft *= difft;
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
+    else {
+      if (xsubsampling == 0 && ysubsampling == 0) // YV24 or luma
+        SAD_fn = calcSSD_SSE2_8xN<8>;
+      else if (xsubsampling == 1 && ysubsampling == 0) // YV16
+        SAD_fn = calcSSD_SSE2_4xN<8>;
+      else if (xsubsampling == 1 && ysubsampling == 1) // YV12
+        SAD_fn = calcSSD_SSE2_4xN<4>;
     }
-  }
-  else // YUY2
-  {
-    heighta = (height >> 3) << 3;
-    widtha = (width >> 3) << 3;
-    height >>= 3;
-    width >>= 3;
-    yshifta = yshiftS;
-    yhalfa = yhalfS;
-    xshifta = xshiftS + 1;
-    xhalfa = xhalfS << 1;
+    // other formats are forbidden and were pre-checked
+
+    yshifta = yshiftS - ysubsampling; // yshiftS  or yshiftS - 1
+    yhalfa = yhalfS >> ysubsampling; // yhalfS  or yhalfS >> 1;
+    xshifta = xshiftS - xsubsampling; //  xshiftS or  xshiftS - 1;
+    xhalfa = xhalfS >> xsubsampling; // xhalfS  or xhalfS >> 1;
+    // these are the same for luma and chroma as well, 8x8
+    // FIXME: check, really?
     yshift = yshiftS - 3;
     yhalf = yhalfS >> 3;
-    xshift = xshiftS - 2;
-    xhalf = xhalfS >> 2;
-    if (chroma)
+    xshift = xshiftS - 3;
+    xhalf = xhalfS >> 3;
+    for (y = 0; y < height; ++y)
     {
-      for (y = 0; y < height; ++y)
+      temp1 = (y >> yshift) * xblocks4;
+      temp2 = ((y + yhalf) >> yshift) * xblocks4;
+      for (x = 0; x < width; ++x)
       {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSSD_SSE2_8xN<8>(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
-          box1 = (x >> xshift) << 2;
-          box2 = ((x + xhalf) >> xshift) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 8; ++u)
-          {
-            difft += (ptr1T[x] - ptr2T[x])*(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 3;
-        ptr2 += pitch2 << 3;
+        SAD_fn(ptr1 + (x << w_to_shift), ptr2 + (x << w_to_shift), pitch1, pitch2, difft);
+        box1 = (x >> xshift) << 2;
+        box2 = ((x + xhalf) >> xshift) << 2;
+        diff[temp1 + box1 + 0] += difft;
+        diff[temp1 + box2 + 1] += difft;
+        diff[temp2 + box1 + 2] += difft;
+        diff[temp2 + box2 + 3] += difft;
       }
-      for (y = heighta; y < heights; ++y)
+      for (x = widtha; x < widths; ++x)
       {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
-        for (x = 0; x < widths; ++x)
+        ptr1T = ptr1;
+        ptr2T = ptr2;
+        for (difft = 0, u = 0; u < (1 << w_to_shift); ++u) // u < 8 or 4
         {
+          if constexpr (SAD)
+            difft += abs(ptr1T[x] - ptr2T[x]);
+          else
+            difft += (ptr1T[x] - ptr2T[x]) * (ptr1T[x] - ptr2T[x]);
+          ptr1T += pitch1;
+          ptr2T += pitch2;
+        }
+        box1 = (x >> xshifta) << 2;
+        box2 = ((x + xhalfa) >> xshifta) << 2;
+        diff[temp1 + box1 + 0] += difft;
+        diff[temp1 + box2 + 1] += difft;
+        diff[temp2 + box1 + 2] += difft;
+        diff[temp2 + box2 + 3] += difft;
+      }
+      ptr1 += pitch1 << w_to_shift;
+      ptr2 += pitch2 << w_to_shift;
+    }
+    for (y = heighta; y < heights; ++y)
+    {
+      temp1 = (y >> yshifta) * xblocks4;
+      temp2 = ((y + yhalfa) >> yshifta) * xblocks4;
+      for (x = 0; x < widths; ++x)
+      {
+        if constexpr (SAD)
+          difft = abs(ptr1[x] - ptr2[x]);
+        else {
           difft = ptr1[x] - ptr2[x];
           difft *= difft;
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
         }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
+        box1 = (x >> xshifta) << 2;
+        box2 = ((x + xhalfa) >> xshifta) << 2;
+        diff[temp1 + box1 + 0] += difft;
+        diff[temp1 + box2 + 1] += difft;
+        diff[temp2 + box1 + 2] += difft;
+        diff[temp2 + box2 + 3] += difft;
       }
+      ptr1 += pitch1;
+      ptr2 += pitch2;
     }
-    else
-    {
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          calcSSD_SSE2_8x8_YUY2_lumaonly(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
-          box1 = (x >> xshift) << 2;
-          box2 = ((x + xhalf) >> xshift) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; x += 2)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 8; ++u)
-          {
-            difft += (ptr1T[x] - ptr2T[x])*(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 3;
-        ptr2 += pitch2 << 3;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
-        for (x = 0; x < widths; x += 2)
-        {
-          difft = ptr1[x] - ptr2[x];
-          difft *= difft;
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
-    }
-  }
-}
-
-void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS)
-{
-  int temp1, temp2, y, x, u, difft, box1, box2;
-  int yshift, yhalf, xshift, xhalf;
-  int heighta, heights = height, widtha, widths = width;
-  int yshifta, yhalfa, xshifta, xhalfa;
-  const unsigned char *ptr1T, *ptr2T;
-  if (np == 3) // YV12
-  {
-    // fixme: 444 422 420
-    if (plane == 0)
-    {
-      heighta = (height >> 3) << 3;
-      widtha = (width >> 3) << 3;
-      height >>= 3;
-      width >>= 3;
-      yshifta = yshiftS;
-      yhalfa = yhalfS;
-      xshifta = xshiftS;
-      xhalfa = xhalfS;
-      yshift = yshiftS - 3;
-      yhalf = yhalfS >> 3;
-      xshift = xshiftS - 3;
-      xhalf = xhalfS >> 3;
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          // fixme: common with chroma
-          calcSAD_SSE2_8xN<8>(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
-          box1 = (x >> xshift) << 2;
-          box2 = ((x + xhalf) >> xshift) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 8; ++u)
-          {
-            difft += abs(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 3;
-        ptr2 += pitch2 << 3;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = abs(ptr1[x] - ptr2[x]);
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
-    }
-    else
-    {
-      heighta = (height >> 2) << 2;
-      widtha = (width >> 2) << 2;
-      height >>= 2;
-      width >>= 2;
-      yshifta = yshiftS - 1;
-      yhalfa = yhalfS >> 1;
-      xshifta = xshiftS - 1;
-      xhalfa = xhalfS >> 1;
-      yshift = yshiftS - 3;
-      yhalf = yhalfS >> 3;
-      xshift = xshiftS - 3;
-      xhalf = xhalfS >> 3;
-      for (y = 0; y < height; ++y)
-      {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
-        for (x = 0; x < width; ++x)
-        {
-          // this is chroma
-          // fixme: common luma/chroma part, 444 (8x8) 422 (4x8) 420 (4x4) support 
-          calcSAD_SSE2_4xN<4>(ptr1 + (x << 2), ptr2 + (x << 2), pitch1, pitch2, difft);
-          box1 = (x >> xshift) << 2;
-          box2 = ((x + xhalf) >> xshift) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        for (x = widtha; x < widths; ++x)
-        {
-          ptr1T = ptr1;
-          ptr2T = ptr2;
-          for (difft = 0, u = 0; u < 4; ++u)
-          {
-            difft += abs(ptr1T[x] - ptr2T[x]);
-            ptr1T += pitch1;
-            ptr2T += pitch2;
-          }
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1 << 2;
-        ptr2 += pitch2 << 2;
-      }
-      for (y = heighta; y < heights; ++y)
-      {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
-        for (x = 0; x < widths; ++x)
-        {
-          difft = abs(ptr1[x] - ptr2[x]);
-          box1 = (x >> xshifta) << 2;
-          box2 = ((x + xhalfa) >> xshifta) << 2;
-          diff[temp1 + box1 + 0] += difft;
-          diff[temp1 + box2 + 1] += difft;
-          diff[temp2 + box1 + 2] += difft;
-          diff[temp2 + box2 + 3] += difft;
-        }
-        ptr1 += pitch1;
-        ptr2 += pitch2;
-      }
-    }
+    // end of YV12 / planar
   }
   else // YUY2
   {
@@ -1760,11 +1247,15 @@ void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *pt
     {
       for (y = 0; y < height; ++y)
       {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
+        temp1 = (y >> yshift) * xblocks4;
+        temp2 = ((y + yhalf) >> yshift) * xblocks4;
         for (x = 0; x < width; ++x)
         {
-          calcSAD_SSE2_8xN<8>(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          if constexpr (SAD)
+            calcSAD_SSE2_8xN<8>(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSSD_SSE2_8xN<8>(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1778,7 +1269,10 @@ void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *pt
           ptr2T = ptr2;
           for (difft = 0, u = 0; u < 8; ++u)
           {
-            difft += abs(ptr1T[x] - ptr2T[x]);
+            if constexpr (SAD)
+              difft += abs(ptr1T[x] - ptr2T[x]);
+            else
+              difft += (ptr1T[x] - ptr2T[x]) * (ptr1T[x] - ptr2T[x]);
             ptr1T += pitch1;
             ptr2T += pitch2;
           }
@@ -1794,11 +1288,16 @@ void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *pt
       }
       for (y = heighta; y < heights; ++y)
       {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
+        temp1 = (y >> yshifta) * xblocks4;
+        temp2 = ((y + yhalfa) >> yshifta) * xblocks4;
         for (x = 0; x < widths; ++x)
         {
-          difft = abs(ptr1[x] - ptr2[x]);
+          if constexpr (SAD)
+            difft = abs(ptr1[x] - ptr2[x]);
+          else {
+            difft = ptr1[x] - ptr2[x];
+            difft *= difft;
+          }
           box1 = (x >> xshifta) << 2;
           box2 = ((x + xhalfa) >> xshifta) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1815,11 +1314,16 @@ void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *pt
       // YUY2 luma only: chroma is masked out. Function names ending with _Luma do this.
       for (y = 0; y < height; ++y)
       {
-        temp1 = (y >> yshift)*xblocks4;
-        temp2 = ((y + yhalf) >> yshift)*xblocks4;
+        temp1 = (y >> yshift) * xblocks4;
+        temp2 = ((y + yhalf) >> yshift) * xblocks4;
         for (x = 0; x < width; ++x)
         {
-          calcSAD_SSE2_8x8_YUY2_lumaonly(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          if constexpr (SAD)
+            calcSAD_SSE2_8x8_YUY2_lumaonly(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+          else
+            calcSSD_SSE2_8x8_YUY2_lumaonly(ptr1 + (x << 3), ptr2 + (x << 3), pitch1, pitch2, difft);
+
+
           box1 = (x >> xshift) << 2;
           box2 = ((x + xhalf) >> xshift) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1833,7 +1337,11 @@ void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *pt
           ptr2T = ptr2;
           for (difft = 0, u = 0; u < 8; ++u)
           {
-            difft += abs(ptr1T[x] - ptr2T[x]);
+            if constexpr (SAD)
+              difft += abs(ptr1T[x] - ptr2T[x]);
+            else
+              difft += (ptr1T[x] - ptr2T[x]) * (ptr1T[x] - ptr2T[x]);
+
             ptr1T += pitch1;
             ptr2T += pitch2;
           }
@@ -1849,11 +1357,17 @@ void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *pt
       }
       for (y = heighta; y < heights; ++y)
       {
-        temp1 = (y >> yshifta)*xblocks4;
-        temp2 = ((y + yhalfa) >> yshifta)*xblocks4;
+        temp1 = (y >> yshifta) * xblocks4;
+        temp2 = ((y + yhalfa) >> yshifta) * xblocks4;
         for (x = 0; x < widths; x += 2)
         {
-          difft = abs(ptr1[x] - ptr2[x]);
+          if constexpr (SAD)
+            difft = abs(ptr1[x] - ptr2[x]);
+          else {
+            difft = ptr1[x] - ptr2[x];
+            difft *= difft;
+          }
+
           box1 = (x >> xshifta) << 2;
           box2 = ((x + xhalfa) >> xshifta) << 2;
           diff[temp1 + box1 + 0] += difft;
@@ -1868,3 +1382,14 @@ void calcDiffSAD_Generic_SSE2(const unsigned char *ptr1, const unsigned char *pt
   }
 }
 
+void calcDiffSAD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
+{
+  calcDiff_SADorSSD_Generic_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
+}
+
+void calcDiffSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
+{
+  calcDiff_SADorSSD_Generic_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
+}

@@ -1125,6 +1125,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
     }
 
     // similar to the core of CalcMetricsExtracted
+    // FIXME: make common with FrameDiff
     const unsigned char* prvp, * curp, * prvpT, * curpT;
     int prv_pitch, cur_pitch, width, height, y, x, difft;
 
@@ -1139,8 +1140,11 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
     long cpu = env->GetCPUFlags();
 
     memset(diff, 0, arraysize * sizeof(uint64_t));
-    stop = chroma ? np : 1; // chroma: planar is 3, YUY2 always 1 planes
-    inc = np == 3 ? 1 : chroma ? 1 : 2; // 2 is YUY2 luma only, otherwise 1
+
+    const bool IsYUY2 = (np == 1); // fixme: we have also vit here
+    const bool IsPlanar = (np == 3);
+    stop = chroma ? np : 1; // chroma: planar is 3, YUY2 always 1 planes. non chroma: planar is 1 (luma plane only)
+    inc = IsPlanar ? 1 : chroma ? 1 : 2; // 2 is YUY2 luma only, otherwise 1
     const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
     for (b = 0; b < stop; ++b)
     {
@@ -1152,42 +1156,42 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
       curp = next->GetReadPtr(plane);
       cur_pitch = next->GetPitch(plane);
 
-      if (vit.IsPlanar())
-      {
-        const int ysubsampling = vit.GetPlaneHeightSubsampling(plane);
-        const int xsubsampling = vit.GetPlaneWidthSubsampling(plane);
-        yshift = blocky_shift - ysubsampling; // generalized from yv12's 1
-        yhalf = blocky_half >> ysubsampling; // generalized from yv12's 1
-        xshift = blockx_shift - xsubsampling; // generalized from yv12's 1
-        xhalf = blockx_half >> xsubsampling; // generalized from yv12's 1
-      }
-      else {
-        // YUY2
-        yshift = blocky_shift;
-        yhalf = blocky_half;
-        xshift = blockx_shift + 1;
-        xhalf = blockx_half << 1;
-      }
-
       if (blockx == 32 && blocky == 32 && nt <= 0)
       {
         if (ssd && (cpu&CPUF_SSE2))
-          calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
+          calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, np, diff, chroma, vit);
         else if (!ssd && (cpu&CPUF_SSE2))
-          calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
+          calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, np, diff, chroma, vit);
         else { goto use_c; }
       }
-      else if (((np == 3 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
+      else if (((!IsYUY2 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
       {
         if (ssd && (cpu&CPUF_SSE2))
-          calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, blockx_shift, blocky_shift, blockx_half, blocky_half);
+          calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, np, diff, chroma, blockx_shift, blocky_shift, blockx_half, blocky_half, vit);
         else if (!ssd && (cpu&CPUF_SSE2))
-          calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, blockx_shift, blocky_shift, blockx_half, blocky_half);
+          calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, np, diff, chroma, blockx_shift, blocky_shift, blockx_half, blocky_half, vit);
         else { goto use_c; }
       }
       else
       {
       use_c:
+        if (vit.IsPlanar())
+        {
+          const int ysubsampling = vit.GetPlaneHeightSubsampling(plane);
+          const int xsubsampling = vit.GetPlaneWidthSubsampling(plane);
+          yshift = blocky_shift - ysubsampling; // generalized from yv12's 1
+          yhalf = blocky_half >> ysubsampling; // generalized from yv12's 1
+          xshift = blockx_shift - xsubsampling; // generalized from yv12's 1
+          xhalf = blockx_half >> xsubsampling; // generalized from yv12's 1
+        }
+        else {
+          // YUY2
+          yshift = blocky_shift;
+          yhalf = blocky_half;
+          xshift = blockx_shift + 1;
+          xhalf = blockx_half << 1;
+        }
+
         heighta = (height >> (yshift - 1)) << (yshift - 1);
         widtha = (width >> (xshift - 1)) << (xshift - 1);
         if (ssd)
@@ -1270,6 +1274,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
         }
         else
         {
+          // YUY2
           for (y = 0; y < heighta; y += yhalf)
           {
             temp1 = (y >> yshift)*xblocks4;
@@ -1344,14 +1349,17 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
           }
         }
       }
+
+      // luma plane
       if (b == 0)
       {
         current.diffMetricsUF[i] = 0;
         if (scene)
         {
-          if (np == 3 || !chroma)
+          if (np == 3 || !chroma) // planar, or YUY2 without chroma statistics
           {
-            for (x = 0; x < arraysize; x += 4) current.diffMetricsUF[i] += diff[x];
+            for (x = 0; x < arraysize; x += 4) 
+              current.diffMetricsUF[i] += diff[x];
           }
           else
           {
@@ -1368,7 +1376,8 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
     highestDiff = 0;
     for (x = 0; x < arraysize; ++x)
     {
-      if (diff[x] > highestDiff) highestDiff = diff[x];
+      if (diff[x] > highestDiff)
+        highestDiff = diff[x];
     }
     if (ssd)
     {
@@ -1404,7 +1413,7 @@ uint64_t TDecimate::calcLumaDiffYUY2SAD(const unsigned char* prvp, const unsigne
     {
       for (int x = widtha; x < width; x += 2)
       {
-        int temp = abs(prvp[x] - nxtp[x]);
+        int temp = abs(prvp[x] - nxtp[x]); // SAD
         if (temp > nt) diff += temp;
       }
       prvp += prv_pitch;
@@ -1438,7 +1447,7 @@ uint64_t TDecimate::calcLumaDiffYUY2SSD(const unsigned char* prvp, const unsigne
       for (int x = widtha; x < width; x += 2)
       {
         int temp = prvp[x] - nxtp[x];
-        temp *= temp;
+        temp *= temp; // SSD
         if (temp > nt) diff += temp;
       }
       prvp += prv_pitch;

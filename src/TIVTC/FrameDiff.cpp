@@ -430,47 +430,48 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
     height = prev->GetHeight(plane);
     curp = curr->GetReadPtr(plane);
     cur_pitch = curr->GetPitch(plane);
-    if (d.vi.IsPlanar())
-    {
-      const int ysubsampling = d.vi.GetPlaneHeightSubsampling(plane);
-      const int xsubsampling = d.vi.GetPlaneWidthSubsampling(plane);
-      yshift = d.blocky_shift - ysubsampling; // fixed yv12
-      yhalf = d.blocky_half >> ysubsampling; // fixed YV12
-      xshift = d.blockx_shift - xsubsampling; // fixme: why -1? YV12 specific?
-      xhalf = d.blockx_half >> xsubsampling; // fixed YV12
-    }
-    else {
-      // YUY2
-      yshift = d.blocky_shift;
-      yhalf = d.blocky_half;
-      xshift = d.blockx_shift + 1;
-      xhalf = d.blockx_half << 1;
-    }
 
-    // fixme: correct chroma diff for yv16 and yv24 to the yv12 metrics (div by 2 for yv16, div by 4 for yv24)
+    // fixme: correct chroma diff for yv16 and yv24 to the yv12 metrics (div by 2 for yv16, div by 4 for yv24)?
     // or use Chromaweight correction factor like in mvtools2
     // sum is gathered in uint64_t diff
 
     if (d.blockx == 32 && d.blocky == 32 && d.nt <= 0)
     {
       if (d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma);
+        calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.vi);
       else if (!d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma);
+        calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.vi);
       else { goto use_c; }
     }
     else if (((!IsYUY2 && d.blockx >= 16 && d.blocky >= 16) || (IsYUY2 && d.blockx >= 8 && d.blocky >= 8)) && d.nt <= 0)
     {
       // YUY2 block size 8 is really 16 in width because luma + chroma
       if (d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half);
+        calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.vi);
       else if (!d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half);
+        calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.vi);
       else { goto use_c; }
     }
     else
     {
     use_c:
+      if (d.vi.IsPlanar())
+      {
+        const int ysubsampling = d.vi.GetPlaneHeightSubsampling(plane);
+        const int xsubsampling = d.vi.GetPlaneWidthSubsampling(plane);
+        yshift = d.blocky_shift - ysubsampling;
+        yhalf = d.blocky_half >> ysubsampling;
+        xshift = d.blockx_shift - xsubsampling;
+        xhalf = d.blockx_half >> xsubsampling;
+      }
+      else {
+        // YUY2
+        yshift = d.blocky_shift;
+        yhalf = d.blocky_half;
+        xshift = d.blockx_shift + 1;
+        xhalf = d.blockx_half << 1;
+      }
+
       heighta = (height >> (yshift - 1)) << (yshift - 1);
       widtha = (width >> (xshift - 1)) << (xshift - 1);
       if (d.ssd)
