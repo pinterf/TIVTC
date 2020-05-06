@@ -411,7 +411,9 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
   int temp1, temp2, box1, box2;
   int yhalf, xhalf, yshift, xshift, b;
   int widtha, heighta, u, v, diffs;
+
   long cpu = env->GetCPUFlags();
+  if (d.opt == 0) cpu = 0;
 
   memset(d.diff, 0, arraysize * sizeof(uint64_t));
 
@@ -644,10 +646,10 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
           {
             if (d.ssd)  // fixme: why is YUY2 the name?
               *d.metricF = TDecimate::calcLumaDiffYUY2SSD(prev->GetReadPtr(), curr->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.opt, env);
             else
               *d.metricF = TDecimate::calcLumaDiffYUY2SAD(prev->GetReadPtr(), curr->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.opt, env);
           }
         }
       }

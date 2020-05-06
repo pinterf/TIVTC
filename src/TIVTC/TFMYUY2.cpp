@@ -51,7 +51,10 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     }
     return false;
   }
-  bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   const unsigned char *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();

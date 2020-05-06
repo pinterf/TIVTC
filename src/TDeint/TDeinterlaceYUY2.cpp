@@ -416,6 +416,7 @@ void TDeinterlace::linkUVtoY_YUY2(PVideoFrame &mask)
   }
 }
 
+// not the same as in TFMPP. Here 0x3C instead of 0xFF
 void TDeinterlace::denoiseYUY2(PVideoFrame &mask)
 {
   unsigned char *maskp = mask->GetWritePtr();
@@ -467,8 +468,10 @@ void TDeinterlace::denoiseYUY2(PVideoFrame &mask)
 
 bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironment *env)
 {
-  bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
-  if (opt == 0) use_sse2 = false;
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu&CPUF_SSE2) ? true : false;
+
   const unsigned char *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();

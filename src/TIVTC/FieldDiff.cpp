@@ -125,7 +125,8 @@ int64_t FieldDiff::getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn
   const int nt6 = ntIn * 6;
   
   long cpu = env->GetCPUFlags();
-  
+  // if (opt == 0) cpu = 0; // no opt parameter for this conditional function
+
   __m128i nt6_si128 = _mm_set1_epi16(nt6);
 
   for (b = 0; b < stop; ++b)
@@ -251,6 +252,7 @@ int64_t FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
   const int nt6 = ntIn * 6;
 
   long cpu = env->GetCPUFlags();
+  // if (opt == 0) cpu = 0; // no opt parameter for this conditional function
 
   __m128i nt6_si128 = _mm_set1_epi16(nt6);
 

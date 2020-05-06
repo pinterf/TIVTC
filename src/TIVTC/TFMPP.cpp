@@ -145,6 +145,9 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   PlanarFrame *mask, int use, int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   for (int b = 0; b < np; ++b)
   {
     int plane;
@@ -554,13 +557,9 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   for (int b = 0; b < np; ++b)
   {
     int plane;
@@ -587,7 +586,7 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     maskp += msk_pitch;
     if (nomask)
     {
-      if (cpu&CPUF_SSE2)
+      if (use_sse2)
       {
         blendDeint_SSE2(srcp, dstp, src_pitch, dst_pitch, widtha, height - 2);
         srcpp += src_pitch*(height - 2);
@@ -612,7 +611,7 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     }
     else
     {
-      if (cpu&CPUF_SSE2)
+      if (use_sse2)
       {
         blendDeintMask_SSE2(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, widtha, height - 2);
         srcpp += src_pitch*(height - 2);
@@ -721,13 +720,9 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   int field, int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   for (int b = 0; b < np; ++b)
   {
     int plane;
@@ -761,7 +756,7 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
       srcp += src_pitch;
       srcpn += src_pitch;
       dstp += dst_pitch;
-      if (cpu&CPUF_SSE2)
+      if (use_sse2)
       {
         cubicDeint_SSE2(srcp, dstp, src_pitch, dst_pitch, width, height / 2 - 3);
         srcppp += src_pitch*(height / 2 - 3);
@@ -806,7 +801,7 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
       srcpn += src_pitch;
       maskp += msk_pitch;
       dstp += dst_pitch;
-      if (cpu&CPUF_SSE2)
+      if (use_sse2)
       {
         cubicDeintMask_SSE2(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, height / 2 - 3);
         srcppp += src_pitch*(height / 2 - 3);
@@ -1621,13 +1616,9 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
   PVideoFrame &dst, int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   const unsigned char *srcp, *maskp, *dntp;
   unsigned char *dstp;
   int b, plane, x, y, width, height;
@@ -1647,7 +1638,7 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
     dnt_pitch = deint->GetPitch(plane);
     dstp = dst->GetWritePtr(plane);
     dst_pitch = dst->GetPitch(plane);
-    if (cpu&CPUF_SSE2)
+    if (use_sse2)
     {
       maskClip2_SSE2(srcp, dntp, maskp, dstp, src_pitch, dnt_pitch, msk_pitch, dst_pitch, width, height);
     }
@@ -1724,13 +1715,15 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
       env->ThrowError("TFMPP:  clip2 does not have the same number of frames as input clip!");
     clip2->SetCacheHints(CACHE_NOTHING, 0);
   }
-  else uC2 = false;
-#ifdef AVISYNTH_2_5
-  child->SetCacheHints(CACHE_RANGE, 3); // fixed to diameter (07/30/2005)
-#else
+  else 
+    uC2 = false;
+
   child->SetCacheHints(CACHE_GENERIC, 3); // fixed to diameter (07/30/2005)
-#endif
-  mmask = new PlanarFrame(vi, true);
+
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+
+  mmask = new PlanarFrame(vi, true, cpu);
   nfrms = vi.num_frames - 1;
   PPS = PP;
   mthreshS = mthresh;

@@ -80,7 +80,7 @@ void calcLumaDiffYUY2SAD_SSE2_16(const unsigned char *prvp, const unsigned char 
   int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
 {
   sad = 0; 
-  __m128i sum = _mm_setzero_si128(); // pxor xmm6, xmm6
+  __m128i sum = _mm_setzero_si128();
   const __m128i lumaMask = _mm_set1_epi16(0x00FF);
   while (height--) {
     for (int x = 0; x < width; x += 16)

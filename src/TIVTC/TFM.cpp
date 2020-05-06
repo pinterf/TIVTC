@@ -2198,9 +2198,12 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   prvp += (1 - field)*(prv_pitch >> 1);
   srcp += (1 - field)*(src_pitch >> 1);
   nxtp += (1 - field)*(nxt_pitch >> 1);
-  long cpu = env->GetCPUFlags();
 
-  if (cpu&CPUF_SSE2)
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
+  if (use_sse2)
   {
     if (sclast.frame == n)
     {
@@ -2491,6 +2494,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   char linein[1024];
   char *linep, *linet;
   FILE *f = NULL;
+
   if (!vi.IsYUV())
     env->ThrowError("TFM:  YUV data only!");
   if (vi.height & 1 || vi.width & 1)
@@ -2534,11 +2538,9 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     sprintf(buf, "TFM:  %s by tritical\n", VERSION);
     OutputDebugString(buf);
   }
-#ifdef AVISYNTH_2_5
-  child->SetCacheHints(CACHE_RANGE, 3); // fixed to diameter (07/30/2005)
-#else
+
   child->SetCacheHints(CACHE_GENERIC, 3);  // fixed to diameter (07/30/2005)
-#endif
+
   lastMatch.frame = lastMatch.field = lastMatch.combed = lastMatch.match = -20;
   nfrms = vi.num_frames - 1;
   f = NULL;
@@ -2558,14 +2560,20 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   diffmaxsc = int((double(((vi.width >> 4) << 4)*vi.height * 219)*scthresh*0.5) / 100.0);
   sclast.frame = -20;
   sclast.sc = true;
+
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+
   if (mode == 1 || mode == 2 || mode == 3 || mode == 5 || mode == 6 || mode == 7 ||
     PP > 0 || micout > 0 || micmatching > 0)
   {
     cArray = (int *)_aligned_malloc((((vi.width + xhalf) >> xshift) + 1)*(((vi.height + yhalf) >> yshift) + 1) * 4 * sizeof(int), 16);
     if (!cArray) env->ThrowError("TFM:  malloc failure (cArray)!");
-    cmask = new PlanarFrame(vi, true);
+    cmask = new PlanarFrame(vi, true, cpu);
   }
-  map = new PlanarFrame(vi, true);
+  
+  map = new PlanarFrame(vi, true, cpu);
+
   if (vi.IsYUY2())
   {
     xhalf *= 2;

@@ -1365,10 +1365,10 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
           {
             if (ssd)
               current.diffMetricsUF[i] = calcLumaDiffYUY2SSD(prev->GetReadPtr(), next->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), nt, env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), nt, opt, env);
             else
               current.diffMetricsUF[i] = calcLumaDiffYUY2SAD(prev->GetReadPtr(), next->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), nt, env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), nt, opt, env);
           }
         }
       }
@@ -1392,14 +1392,17 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
 }
 
 uint64_t TDecimate::calcLumaDiffYUY2SAD(const unsigned char* prvp, const unsigned char* nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env)
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
 {
   uint64_t diff = 0;
+
   long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
   int widtha;
 
-  if (cpu & CPUF_SSE2 && (nt == 0) && width >= 16) {
+  if (use_sse2 && (nt == 0) && width >= 16) {
     widtha = (width / 16) * 16;
     calcLumaDiffYUY2SAD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
   }
@@ -1425,14 +1428,17 @@ uint64_t TDecimate::calcLumaDiffYUY2SAD(const unsigned char* prvp, const unsigne
 }
 
 uint64_t TDecimate::calcLumaDiffYUY2SSD(const unsigned char* prvp, const unsigned char* nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env)
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
 {
   uint64_t diff = 0;
+
   long cpu = env->GetCPUFlags();
- 
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   int widtha;
 
-  if (cpu & CPUF_SSE2 && (nt == 0) && width >= 16)
+  if (use_sse2 && (nt == 0) && width >= 16)
   {
     widtha = (width / 16) * 16;
     calcLumaDiffYUY2SSD_SSE2_16(prvp, nxtp, widtha, height, prv_pitch, nxt_pitch, diff);
@@ -2358,7 +2364,11 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
   unsigned char *dstp;
   int b, x, y, width, height;
   int s1_pitch, dst_pitch, s2_pitch, widthM;
-  const bool useSSE2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
+
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (b = 0; b < np; ++b)
   {
@@ -2371,12 +2381,12 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
     s2_pitch = src2->GetPitch(plane);
     dstp = dst->GetWritePtr(plane);
     dst_pitch = dst->GetPitch(plane);
-    if (useSSE2 && amount1 == 0.5 && amount2 == 0.5)
+    if (use_sse2 && amount1 == 0.5 && amount2 == 0.5)
     {
       widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
       blend_SSE2_5050(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch); // quick special average
     }
-    else if (useSSE2)
+    else if (use_sse2)
     {
       widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
       blend_SSE2_16(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch, amount1, amount2);

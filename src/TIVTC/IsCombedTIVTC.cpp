@@ -129,7 +129,11 @@ ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _
   cArray = (int *)_aligned_malloc((((vi.width + xhalf) >> xshift) + 1)*(((vi.height + yhalf) >> yshift) + 1) * 4 * sizeof(int), 16);
   if (!cArray)
     env->ThrowError("ShowCombedTIVTC:  malloc failure (cArray)!");
-  cmask = new PlanarFrame(vi, true);
+
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+
+  cmask = new PlanarFrame(vi, true, cpu);
   if (vi.IsYUY2())
   {
     xhalf *= 2;
@@ -194,7 +198,10 @@ PVideoFrame __stdcall ShowCombedTIVTC::GetFrame(int n, IScriptEnvironment *env)
 void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   int &b_over, int &c_over, IScriptEnvironment *env)
 {
-  bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu&CPUF_SSE2) ? true : false;
+
   const unsigned char *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();
@@ -463,7 +470,11 @@ cjump:
 void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame &src, int &MICount,
   int &b_over, int &c_over, IScriptEnvironment *env)
 {
-  bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   const int cthresh6 = cthresh * 6;
   __m128i cthreshb_m128i;
   __m128i cthresh6w_m128i;

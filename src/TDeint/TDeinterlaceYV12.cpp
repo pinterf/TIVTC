@@ -1030,8 +1030,9 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
 {
   PVideoFrame cmask = env->NewVideoFrame(vi_saved);
   
-  bool use_sse2 = (env->GetCPUFlags() & CPUF_SSE2) ? true : false;
-  if (opt == 0) use_sse2 = false;
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
   // cthresh: Area combing threshold used for combed frame detection.
   // This essentially controls how "strong" or "visible" combing must be to be detected.

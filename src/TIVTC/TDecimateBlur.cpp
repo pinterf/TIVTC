@@ -44,14 +44,11 @@ void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   if (vi_t.IsPlanar() && !bchroma) np = 1; // luma only
+
   long cpu = env->GetCPUFlags();
-  if (opti != 4)
-  {
-    if (opti == 0) cpu &= ~0x2C;
-    else if (opti == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opti == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opti == 3) cpu |= 0x2C;
-  }
+  if (opti == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
@@ -187,14 +184,11 @@ void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   if (vi_t.IsPlanar() && !bchroma) np = 1; // luma only
+
   long cpu = env->GetCPUFlags();
-  if (opti != 4)
-  {
-    if (opti == 0) cpu &= ~0x2C;
-    else if (opti == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opti == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opti == 3) cpu |= 0x2C;
-  }
+  if (opti == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];

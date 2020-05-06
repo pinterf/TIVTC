@@ -197,9 +197,9 @@ public:
   }
 
   static uint64_t calcLumaDiffYUY2SSD(const unsigned char* prvp, const unsigned char* nxtp,
-    int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env);
+    int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
   static uint64_t calcLumaDiffYUY2SAD(const unsigned char* prvp, const unsigned char* nxtp,
-    int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env);
+    int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
 
 
 };

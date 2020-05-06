@@ -50,7 +50,11 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     }
     return false;
   }
-  bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
+
+  long cpu = env->GetCPUFlags();
+  if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
   const int cthresh6 = cthresh * 6;
   __m128i cthreshb_m128i;
   __m128i cthresh6w_m128i;

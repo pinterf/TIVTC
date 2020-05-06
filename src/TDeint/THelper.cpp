@@ -179,10 +179,12 @@ unsigned long TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, ISc
   const unsigned char *srcp2 = src2->GetReadPtr();
   const int src2_pitch = src2->GetPitch();
   const int inc = vi.IsPlanar() ? 1 : 2;
+
   long cpu = env->GetCPUFlags();
   if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
-  if (cpu&CPUF_SSE2)
+  if (use_sse2)
     subtractFrames_SSE2(srcp1, src1_pitch, srcp2, src2_pitch, height, width, inc, diff);
   else
   {
@@ -201,8 +203,10 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   const int stop = vi.IsYUY2() ? 1 : 3;
+
   long cpu = env->GetCPUFlags();
   if (opt == 0) cpu = 0;
+  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
   for (int b = 0; b < stop; ++b)
   {
@@ -215,7 +219,7 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
     const int src2_pitch = src2->GetPitch(plane);
     unsigned char *dstp = dst->GetWritePtr(plane);
     const int dst_pitch = dst->GetPitch(plane);
-    if (cpu&CPUF_SSE2)
+    if (use_sse2)
       blendFrames_SSE2(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, width);
     else
     {
@@ -235,7 +239,7 @@ void subtractFrames_SSE2(const unsigned char *srcp1, int src1_pitch,
   const unsigned char *srcp2, int src2_pitch, int height, int width, int inc,
   unsigned long &diff)
 {
-  // inc: 2 (YUY2) or 1 (YV12)
+  // inc: 2 (YUY2 lumaonly chroma skip) or 1 (YV12)
 /*
   for (int y = 0; y < height; ++y)
   {
