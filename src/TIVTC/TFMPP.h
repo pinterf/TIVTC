@@ -91,27 +91,6 @@ private:
     const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
     int s3_pitch, int dst_pitch, int width, int height, long cpu);
 
-#ifdef ALLOW_MMX
-  void maskClip2_MMX(const unsigned char *srcp, const unsigned char *dntp,
-    const unsigned char *maskp, unsigned char *dstp, int src_pitch, int dnt_pitch,
-    int msk_pitch, int dst_pitch, int width, int height);
-  void blendDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-    int dst_pitch, int width, int height);
-  void blendDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
-    const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
-    int width, int height);
-  void cubicDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-    int dst_pitch, int width, int height);
-  void cubicDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
-    const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
-    int width, int height);
-  void buildMotionMask1_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
-    unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width, int height, long cpu);
-  void buildMotionMask2_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
-    const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
-    int s3_pitch, int dst_pitch, int width, int height, long cpu);
-#endif
-
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
   TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _display, PClip _clip2,

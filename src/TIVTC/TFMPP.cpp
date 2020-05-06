@@ -26,19 +26,6 @@
 #include "TFMPP.h"
 #include "emmintrin.h"
 
-#if !defined(USE_INTR) || defined(ALLOW_MMX)
-__declspec(align(16)) const int64_t onesMask[2] = { 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF };
-__declspec(align(16)) const int64_t onesByte[2] = { 0x0101010101010101, 0x0101010101010101 };
-__declspec(align(16)) const int64_t twosByte[2] = { 0x0202020202020202, 0x0202020202020202 };
-__declspec(align(16)) const int64_t twosWord[2] = { 0x0002000200020002, 0x0002000200020002 };
-__declspec(align(16)) const int64_t foursByte[2] = { 0x0404040404040404, 0x0404040404040404 };
-__declspec(align(16)) const int64_t eightsByte[2] = { 0x0808080808080808, 0x0808080808080808 };
-__declspec(align(16)) const int64_t sixteensByte[2] = { 0x1010101010101010, 0x1010101010101010 };
-__declspec(align(16)) const int64_t thirtytwosByte[2] = { 0x2020202020202020, 0x2020202020202020 };
-__declspec(align(16)) const int64_t threeWord[2] = { 0x0003000300030003, 0x0003000300030003 };
-__declspec(align(16)) const int64_t sixteenWord[2] = { 0x0010001000100010, 0x0010001000100010 };
-__declspec(align(16)) const int64_t nineteenWord[2] = { 0x0013001300130013, 0x0013001300130013 };
-#endif
 
 PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
 {
@@ -598,7 +585,7 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     maskp += msk_pitch;
     if (nomask)
     {
-      if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(dstp) | src_pitch | dst_pitch) & 15))
+      if (cpu&CPUF_SSE2)
       {
         blendDeint_SSE2(srcp, dstp, src_pitch, dst_pitch, widtha, height - 2);
         srcpp += src_pitch*(height - 2);
@@ -607,17 +594,6 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
         dstp += dst_pitch*(height - 2);
         maskp += msk_pitch*(height - 2);
       }
-#ifdef ALLOW_MMX
-      else if (cpu&CPUF_MMX)
-      {
-        blendDeint_MMX(srcp, dstp, src_pitch, dst_pitch, widtha, height - 2);
-        srcpp += src_pitch*(height - 2);
-        srcp += src_pitch*(height - 2);
-        srcpn += src_pitch*(height - 2);
-        dstp += dst_pitch*(height - 2);
-        maskp += msk_pitch*(height - 2);
-      }
-#endif
       else
       {
         for (int y = 1; y < height - 1; ++y)
@@ -634,7 +610,7 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     }
     else
     {
-      if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(dstp) | intptr_t(maskp) | src_pitch | dst_pitch | msk_pitch) & 15))
+      if (cpu&CPUF_SSE2)
       {
         blendDeintMask_SSE2(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, widtha, height - 2);
         srcpp += src_pitch*(height - 2);
@@ -643,17 +619,6 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
         dstp += dst_pitch*(height - 2);
         maskp += msk_pitch*(height - 2);
       }
-#ifdef ALLOW_MMX
-      else if (cpu&CPUF_MMX)
-      {
-        blendDeintMask_MMX(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, widtha, height - 2);
-        srcpp += src_pitch*(height - 2);
-        srcp += src_pitch*(height - 2);
-        srcpn += src_pitch*(height - 2);
-        dstp += dst_pitch*(height - 2);
-        maskp += msk_pitch*(height - 2);
-      }
-#endif
       else
       {
         for (int y = 1; y < height - 1; ++y)
@@ -680,7 +645,6 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
 void TFMPP::blendDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
-#ifdef USE_INTR
   auto zero = _mm_setzero_si128();
   auto twosWord = _mm_set1_epi16(2);
   while (height--) {
@@ -706,123 +670,13 @@ void TFMPP::blendDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int 
     srcp += src_pitch;
     dstp += dst_pitch;
   }
-#else
-  __asm
-  {
-    mov ebx, srcp
-    mov eax, src_pitch
-    mov edx, ebx // ebx: srcp
-    mov edi, ebx 
-    sub edx, eax // edx: srcp-src_pitch
-    add edi, eax // edi: srcp+src_pitch
-    mov esi, dstp
-    mov ecx, width
-    movdqa xmm6, twosWord
-    pxor xmm7, xmm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [edx + eax] // srcp-src_pitch
-      movdqa xmm1, [ebx + eax] // srcp
-      movdqa xmm2, [edi + eax] // srcp+src_pitch
-      movdqa xmm3, xmm0
-      movdqa xmm4, xmm1
-      movdqa xmm5, xmm2
-      punpcklbw xmm0, xmm7 // prev_lo
-      punpcklbw xmm1, xmm7 // curr_lo
-      punpcklbw xmm2, xmm7 // next_lo
-      punpckhbw xmm3, xmm7 // prev_hi
-      punpckhbw xmm4, xmm7 // curr_hi
-      punpckhbw xmm5, xmm7 // next_hi
-      psllw xmm1, 1        // curr_lo * 2
-      psllw xmm4, 1        // curr_hi * 2
-      paddw xmm1, xmm0
-      paddw xmm4, xmm3
-      paddw xmm1, xmm2     // p + c*2 + n
-      paddw xmm4, xmm5     // p + c*2 + n
-      paddw xmm1, xmm6     // p + c*2 + n + 2
-      paddw xmm4, xmm6     // p + c*2 + n + 2
-      psrlw xmm1, 2        // (p + c*2 + n) >> 2
-      psrlw xmm4, 2        // (p + c*2 + n) >> 2
-      packuswb xmm1, xmm4
-      movdqa[esi + eax], xmm1
-      add eax, 16
-      cmp eax, ecx
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void TFMPP::blendDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-  int dst_pitch, int width, int height)
-{
-  __asm
-  {
-    mov ebx, srcp
-    mov eax, src_pitch
-    mov edx, ebx
-    mov edi, ebx
-    sub edx, eax
-    add edi, eax
-    mov esi, dstp
-    mov ecx, width
-    movq mm6, twosWord
-    pxor mm7, mm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [edx + eax]
-      movq mm1, [ebx + eax]
-      movq mm2, [edi + eax]
-      movq mm3, mm0
-      movq mm4, mm1
-      movq mm5, mm2
-      punpcklbw mm0, mm7
-      punpcklbw mm1, mm7
-      punpcklbw mm2, mm7
-      punpckhbw mm3, mm7
-      punpckhbw mm4, mm7
-      punpckhbw mm5, mm7
-      psllw mm1, 1
-      psllw mm4, 1
-      paddw mm1, mm0
-      paddw mm4, mm3
-      paddw mm1, mm2
-      paddw mm4, mm5
-      paddw mm1, mm6
-      paddw mm4, mm6
-      psrlw mm1, 2
-      psrlw mm4, 2
-      packuswb mm1, mm4
-      movq[esi + eax], mm1
-      add eax, 8
-      cmp eax, ecx
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
 
 void TFMPP::blendDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
   const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
 {
-#ifdef USE_INTR
   auto zero = _mm_setzero_si128();
   auto twosWord = _mm_set1_epi16(2);
   auto onesMask = _mm_set1_epi8(-1);
@@ -858,133 +712,8 @@ void TFMPP::blendDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
     dstp += dst_pitch;
     maskp += msk_pitch;
   }
-#else
-  __asm
-  {
-    mov ebx, srcp
-    mov eax, src_pitch
-    mov edx, ebx
-    mov edi, ebx
-    sub edx, eax
-    add edi, eax
-    mov esi, dstp
-    mov ecx, maskp
-    movdqa xmm6, twosWord
-    pxor xmm7, xmm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [edx + eax]
-      movdqa xmm1, [ebx + eax]
-      movdqa xmm2, [edi + eax]
-      movdqa xmm3, xmm0
-      movdqa xmm4, xmm1
-      movdqa xmm5, xmm2
-      punpcklbw xmm0, xmm7
-      punpcklbw xmm1, xmm7
-      punpcklbw xmm2, xmm7
-      punpckhbw xmm3, xmm7
-      punpckhbw xmm4, xmm7
-      punpckhbw xmm5, xmm7
-      psllw xmm1, 1
-      psllw xmm4, 1
-      paddw xmm1, xmm0
-      paddw xmm4, xmm3
-      paddw xmm1, xmm2
-      paddw xmm4, xmm5
-      paddw xmm1, xmm6
-      paddw xmm4, xmm6
-      movdqa xmm0, [ecx + eax]
-      psrlw xmm1, 2
-      psrlw xmm4, 2
-
-      movdqa xmm2, xmm0
-      packuswb xmm1, xmm4
-      pxor xmm2, onesMask
-      pand xmm0, xmm1
-      pand xmm2, [ebx + eax]
-      por xmm0, xmm2
-      movdqa[esi + eax], xmm0
-      add eax, 16
-      cmp eax, width
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add esi, dst_pitch
-      add ecx, msk_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void TFMPP::blendDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
-  const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
-  int width, int height)
-{
-  __asm
-  {
-    mov ebx, srcp
-    mov eax, src_pitch
-    mov edx, ebx
-    mov edi, ebx
-    sub edx, eax
-    add edi, eax
-    mov esi, dstp
-    mov ecx, maskp
-    movq mm6, twosWord
-    pxor mm7, mm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [edx + eax]
-      movq mm1, [ebx + eax]
-      movq mm2, [edi + eax]
-      movq mm3, mm0
-      movq mm4, mm1
-      movq mm5, mm2
-      punpcklbw mm0, mm7
-      punpcklbw mm1, mm7
-      punpcklbw mm2, mm7
-      punpckhbw mm3, mm7
-      punpckhbw mm4, mm7
-      punpckhbw mm5, mm7
-      psllw mm1, 1
-      psllw mm4, 1
-      paddw mm1, mm0
-      paddw mm4, mm3
-      paddw mm1, mm2
-      paddw mm4, mm5
-      paddw mm1, mm6
-      paddw mm4, mm6
-      movq mm0, [ecx + eax]
-      psrlw mm1, 2
-      psrlw mm4, 2
-      movq mm2, mm0
-      packuswb mm1, mm4
-      pxor mm2, onesMask
-      pand mm0, mm1
-      pand mm2, [ebx + eax]
-      por mm0, mm2
-      movq[esi + eax], mm0
-      add eax, 8
-      cmp eax, width
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add esi, dst_pitch
-      add ecx, msk_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
 
 void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
   int field, int np, IScriptEnvironment *env)
@@ -1030,7 +759,7 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
       srcp += src_pitch;
       srcpn += src_pitch;
       dstp += dst_pitch;
-      if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(dstp) | src_pitch | dst_pitch) & 15))
+      if (cpu&CPUF_SSE2)
       {
         cubicDeint_SSE2(srcp, dstp, src_pitch, dst_pitch, width, height / 2 - 3);
         srcppp += src_pitch*(height / 2 - 3);
@@ -1039,17 +768,6 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
         srcpn += src_pitch*(height / 2 - 3);
         dstp += dst_pitch*(height / 2 - 3);
       }
-#ifdef ALLOW_MMX
-      else if (cpu&CPUF_MMX)
-      {
-        cubicDeint_MMX(srcp, dstp, src_pitch, dst_pitch, width, height / 2 - 3);
-        srcppp += src_pitch*(height / 2 - 3);
-        srcpp += src_pitch*(height / 2 - 3);
-        srcp += src_pitch*(height / 2 - 3);
-        srcpn += src_pitch*(height / 2 - 3);
-        dstp += dst_pitch*(height / 2 - 3);
-      }
-#endif
       else
       {
         for (int y = 4 - field; y < height - 3; y += 2)
@@ -1086,7 +804,7 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
       srcpn += src_pitch;
       maskp += msk_pitch;
       dstp += dst_pitch;
-      if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(dstp) | intptr_t(maskp) | src_pitch | dst_pitch | msk_pitch) & 15))
+      if (cpu&CPUF_SSE2)
       {
         cubicDeintMask_SSE2(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, height / 2 - 3);
         srcppp += src_pitch*(height / 2 - 3);
@@ -1097,19 +815,6 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
         maskp += msk_pitch*(height / 2 - 3);
         dstp += dst_pitch*(height / 2 - 3);
       }
-#ifdef ALLOW_MMX
-      else if (cpu&CPUF_MMX)
-      {
-        cubicDeintMask_MMX(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, height / 2 - 3);
-        srcppp += src_pitch*(height / 2 - 3);
-        srcpp += src_pitch*(height / 2 - 3);
-        srcr += src_pitch*(height / 2 - 3);
-        srcp += src_pitch*(height / 2 - 3);
-        srcpn += src_pitch*(height / 2 - 3);
-        maskp += msk_pitch*(height / 2 - 3);
-        dstp += dst_pitch*(height / 2 - 3);
-      }
-#endif
       else
       {
         for (int y = 4 - field; y < height - 3; y += 2)
@@ -1156,7 +861,6 @@ void TFMPP::cubicDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int 
   else if (temp < 0) dstp[x] = 0;
   else dstp[x] = temp;
   */
-#ifdef USE_INTR
   auto zero = _mm_setzero_si128();
   auto threeWord = _mm_set1_epi16(3);
   auto sixteenWord = _mm_set1_epi16(16);
@@ -1198,138 +902,8 @@ void TFMPP::cubicDeint_SSE2(const unsigned char *srcp, unsigned char *dstp, int 
     srcp += src_pitch;
     dstp += dst_pitch;
   }
-#else
-
-  __asm
-  {
-    mov edi, srcp // edi: srcp
-    mov eax, src_pitch
-    mov ebx, edi 
-    mov ecx, edi
-    sub ebx, eax // ebx: srcp - src_pitch
-    add ecx, eax // ecx: srcp + src_pitch
-    mov edx, ebx
-    sub edx, eax // edx: srcp - 2*src_pitch
-    mov esi, dstp
-    movdqa xmm6, sixteenWord
-    pxor xmm7, xmm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [edx + eax] // pp
-      movdqa xmm1, [ebx + eax] // p
-      movdqa xmm2, [edi + eax] // c
-      movdqa xmm3, [ecx + eax] // n
-      movdqa xmm4, xmm0
-      movdqa xmm5, xmm3
-      punpcklbw xmm0, xmm7
-      punpcklbw xmm3, xmm7
-      punpckhbw xmm4, xmm7
-      punpckhbw xmm5, xmm7
-      paddw xmm0, xmm3 // pp_lo + n_lo
-      paddw xmm4, xmm5 // pp_hi + n_hi
-      movdqa xmm3, xmm1
-      movdqa xmm5, xmm2
-      punpcklbw xmm1, xmm7
-      punpcklbw xmm2, xmm7
-      punpckhbw xmm3, xmm7
-      punpckhbw xmm5, xmm7
-      paddw xmm1, xmm2 // p_lo + c_lo
-      paddw xmm3, xmm5 // p_hi + c_hi
-      pmullw xmm0, threeWord // (pp_lo + n_lo)*3
-      pmullw xmm4, threeWord
-      pmullw xmm1, nineteenWord // (p_lo + c_lo) * 19
-      pmullw xmm3, nineteenWord
-      psubusw xmm1, xmm0 // *19 - *3
-      psubusw xmm3, xmm4
-      paddusw xmm1, xmm6 // +16
-      paddusw xmm3, xmm6
-      psrlw xmm1, 5
-      psrlw xmm3, 5
-      packuswb xmm1, xmm3
-      movdqa[esi + eax], xmm1
-      add eax, 16
-      cmp eax, width
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add ecx, src_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void TFMPP::cubicDeint_MMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-  int dst_pitch, int width, int height)
-{
-  __asm
-  {
-    mov edi, srcp
-    mov eax, src_pitch
-    mov ebx, edi
-    mov ecx, edi
-    sub ebx, eax
-    add ecx, eax
-    mov edx, ebx
-    sub edx, eax
-    mov esi, dstp
-    movq mm6, sixteenWord
-    pxor mm7, mm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [edx + eax]
-      movq mm1, [ebx + eax]
-      movq mm2, [edi + eax]
-      movq mm3, [ecx + eax]
-      movq mm4, mm0
-      movq mm5, mm3
-      punpcklbw mm0, mm7
-      punpcklbw mm3, mm7
-      punpckhbw mm4, mm7
-      punpckhbw mm5, mm7
-      paddw mm0, mm3
-      paddw mm4, mm5
-      movq mm3, mm1
-      movq mm5, mm2
-      punpcklbw mm1, mm7
-      punpcklbw mm2, mm7
-      punpckhbw mm3, mm7
-      punpckhbw mm5, mm7
-      paddw mm1, mm2
-      paddw mm3, mm5
-      pmullw mm0, threeWord
-      pmullw mm4, threeWord
-      pmullw mm1, nineteenWord
-      pmullw mm3, nineteenWord
-      psubusw mm1, mm0
-      psubusw mm3, mm4
-      paddusw mm1, mm6
-      paddusw mm3, mm6
-      psrlw mm1, 5
-      psrlw mm3, 5
-      packuswb mm1, mm3
-      movq[esi + eax], mm1
-      add eax, 8
-      cmp eax, width
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add ecx, src_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
 
 void TFMPP::cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
   const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
@@ -1346,7 +920,7 @@ void TFMPP::cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
   else dstp[x] = srcr[x];
   */
   const int s1 = src_pitch >> 1; // pitch was multiplied *2 before the call
-#ifdef USE_INTR
+
   auto zero = _mm_setzero_si128();
   auto threeWord = _mm_set1_epi16(3);
   auto sixteenWord = _mm_set1_epi16(16);
@@ -1400,157 +974,8 @@ void TFMPP::cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
     dstp += dst_pitch;
     maskp += msk_pitch;
   }
-#else
-  __asm
-  {
-    mov edi, srcp // edi: srcp
-    mov eax, src_pitch
-    mov ebx, edi
-    sub ebx, eax // ebx: srcp - src_pitch
-    mov edx, ebx 
-    sub edx, eax // edx: srcp - src_pitch*2
-    mov ecx, maskp
-    mov esi, dstp
-    movdqa xmm6, sixteenWord
-    pxor xmm7, xmm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [edx + eax] // srcp - src_pitch*2
-      movdqa xmm1, [ebx + eax] // srcp - src_pitch
-      movdqa xmm2, [edi + eax] // srcp
-      add edi, src_pitch
-      movdqa xmm4, xmm0
-      movdqa xmm3, [edi + eax]
-      movdqa xmm5, xmm3
-      punpcklbw xmm0, xmm7
-      punpcklbw xmm3, xmm7
-      punpckhbw xmm4, xmm7
-      punpckhbw xmm5, xmm7
-      paddw xmm0, xmm3
-      paddw xmm4, xmm5
-      movdqa xmm3, xmm1
-      movdqa xmm5, xmm2
-      punpcklbw xmm1, xmm7
-      punpcklbw xmm2, xmm7
-      punpckhbw xmm3, xmm7
-      punpckhbw xmm5, xmm7
-      paddw xmm1, xmm2
-      paddw xmm3, xmm5
-      pmullw xmm0, threeWord
-      pmullw xmm4, threeWord
-      pmullw xmm1, nineteenWord
-      pmullw xmm3, nineteenWord
-      psubusw xmm1, xmm0
-      psubusw xmm3, xmm4
-      paddusw xmm1, xmm6
-      paddusw xmm3, xmm6
-      movdqa xmm0, [ecx + eax]
-      add ebx, s1 // + (src_pitch>>1)
-      psrlw xmm1, 5
-      psrlw xmm3, 5
-      movdqa xmm2, xmm0
-      packuswb xmm1, xmm3
-      pxor xmm2, onesMask
-      pand xmm0, xmm1
-      pand xmm2, [ebx + eax]
-      sub edi, src_pitch
-      por xmm0, xmm2
-      sub ebx, s1 // // - (src_pitch>>1)
-      movdqa[esi + eax], xmm0
-      add eax, 16
-      cmp eax, width
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add ecx, msk_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void TFMPP::cubicDeintMask_MMX(const unsigned char *srcp, unsigned char *dstp,
-  const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
-  int width, int height)
-{
-  const int s1 = src_pitch >> 1;
-  __asm
-  {
-    mov edi, srcp
-    mov eax, src_pitch
-    mov ebx, edi
-    sub ebx, eax
-    mov edx, ebx
-    sub edx, eax
-    mov ecx, maskp
-    mov esi, dstp
-    movq mm6, sixteenWord
-    pxor mm7, mm7
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [edx + eax]
-      movq mm1, [ebx + eax]
-      movq mm2, [edi + eax]
-      add edi, src_pitch
-      movq mm4, mm0
-      movq mm3, [edi + eax]
-      movq mm5, mm3
-      punpcklbw mm0, mm7
-      punpcklbw mm3, mm7
-      punpckhbw mm4, mm7
-      punpckhbw mm5, mm7
-      paddw mm0, mm3
-      paddw mm4, mm5
-      movq mm3, mm1
-      movq mm5, mm2
-      punpcklbw mm1, mm7
-      punpcklbw mm2, mm7
-      punpckhbw mm3, mm7
-      punpckhbw mm5, mm7
-      paddw mm1, mm2
-      paddw mm3, mm5
-      pmullw mm0, threeWord
-      pmullw mm4, threeWord
-      pmullw mm1, nineteenWord
-      pmullw mm3, nineteenWord
-      psubusw mm1, mm0
-      psubusw mm3, mm4
-      paddusw mm1, mm6
-      paddusw mm3, mm6
-      movq mm0, [ecx + eax]
-      add ebx, s1
-      psrlw mm1, 5
-      psrlw mm3, 5
-      movq mm2, mm0
-      packuswb mm1, mm3
-      pxor mm2, onesMask
-      pand mm0, mm1
-      pand mm2, [ebx + eax]
-      sub edi, src_pitch
-      por mm0, mm2
-      sub ebx, s1
-      movq[esi + eax], mm0
-      add eax, 8
-      cmp eax, width
-      jl xloop
-      add edx, src_pitch
-      add ebx, src_pitch
-      add edi, src_pitch
-      add ecx, msk_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
 
 void TFMPP::destroyHint(PVideoFrame &dst, unsigned int hint)
 {
@@ -2220,19 +1645,10 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
     dnt_pitch = deint->GetPitch(plane);
     dstp = dst->GetWritePtr(plane);
     dst_pitch = dst->GetPitch(plane);
-    if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(dntp) | intptr_t(maskp) | intptr_t(dstp) | src_pitch |
-      dnt_pitch | msk_pitch | dst_pitch) & 15))
+    if (cpu&CPUF_SSE2)
     {
-      maskClip2_SSE2(srcp, dntp, maskp, dstp, src_pitch, dnt_pitch, msk_pitch,
-        dst_pitch, width, height);
+      maskClip2_SSE2(srcp, dntp, maskp, dstp, src_pitch, dnt_pitch, msk_pitch, dst_pitch, width, height);
     }
-#ifdef ALLOW_MMX
-    else if (cpu&CPUF_MMX)
-    {
-      maskClip2_MMX(srcp, dntp, maskp, dstp, src_pitch, dnt_pitch, msk_pitch,
-        dst_pitch, width, height);
-    }
-#endif
     else
     {
       for (y = 0; y < height; ++y)
@@ -2251,92 +1667,11 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
   }
 }
 
-#ifdef ALLOW_MMX
-void TFMPP::maskClip2_MMX(const unsigned char *srcp, const unsigned char *dntp,
-  const unsigned char *maskp, unsigned char *dstp, int src_pitch, int dnt_pitch,
-  int msk_pitch, int dst_pitch, int width, int height)
-{
-  if ((src_pitch | dnt_pitch | msk_pitch | dst_pitch) & 15)
-  {
-    __asm
-    {
-      mov eax, srcp
-      mov ebx, dntp
-      mov esi, maskp
-      mov edx, dstp
-      mov edi, width
-      movq mm7, onesMask
-      yloop8 :
-      xor ecx, ecx
-        align 16
-        xloop8 :
-        movq mm0, [esi + ecx]
-        movq mm1, mm0
-        pand mm0, [ebx + ecx]
-        pxor mm1, mm7
-        pand mm1, [eax + ecx]
-        por mm0, mm1
-        movq[edx + ecx], mm0
-        add ecx, 8
-        cmp ecx, edi
-        jl xloop8
-        add eax, src_pitch
-        add ebx, dnt_pitch
-        add edx, dst_pitch
-        add esi, msk_pitch
-        dec height
-        jnz yloop8
-        emms
-    }
-  }
-  else
-  {
-    __asm
-    {
-      mov eax, srcp
-      mov ebx, dntp
-      mov esi, maskp
-      mov edx, dstp
-      mov edi, width
-      movq mm7, onesMask
-      yloop16 :
-      xor ecx, ecx
-        align 16
-        xloop16 :
-        movq mm0, [esi + ecx]
-        movq mm1, [esi + ecx + 8]
-        movq mm2, mm0
-        movq mm3, mm1
-        pand mm0, [ebx + ecx]
-        pand mm1, [ebx + ecx + 8]
-        pxor mm2, mm7
-        pxor mm3, mm7
-        pand mm2, [eax + ecx]
-        pand mm3, [eax + ecx + 8]
-        por mm0, mm2
-        por mm1, mm3
-        movq[edx + ecx], mm0
-        movq[edx + ecx + 8], mm1
-        add ecx, 16
-        cmp ecx, edi
-        jl xloop16
-        add eax, src_pitch
-        add ebx, dnt_pitch
-        add edx, dst_pitch
-        add esi, msk_pitch
-        dec height
-        jnz yloop16
-        emms
-    }
-  }
-}
-#endif
 
 void TFMPP::maskClip2_SSE2(const unsigned char *srcp, const unsigned char *dntp,
   const unsigned char *maskp, unsigned char *dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height)
 {
-#ifdef USE_INTR
   __m128i onesMask = _mm_set1_epi8(-1);
   while (height--) {
     for (int x = 0; x < width; x += 16) {
@@ -2352,38 +1687,8 @@ void TFMPP::maskClip2_SSE2(const unsigned char *srcp, const unsigned char *dntp,
     dstp += dst_pitch;
     maskp += msk_pitch;
   }
-#else
-  __asm
-  {
-    mov eax, srcp
-    mov ebx, dntp
-    mov esi, maskp
-    mov edx, dstp
-    mov edi, width
-    movdqa xmm7, onesMask
-    yloop :
-    xor ecx, ecx
-      align 16
-      xloop :
-      movdqa xmm0, [esi + ecx]
-      movdqa xmm1, xmm0
-      pand xmm0, [ebx + ecx] // dnt_masked
-      pxor xmm1, xmm7
-      pand xmm1, [eax + ecx] // src_masked (with inv mask)
-      por xmm0, xmm1
-      movdqa[edx + ecx], xmm0
-      add ecx, 16
-      cmp ecx, edi
-      jl xloop
-      add eax, src_pitch
-      add ebx, dnt_pitch
-      add edx, dst_pitch
-      add esi, msk_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
+
 
 TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _display,
   PClip _clip2, bool _usehints, int _opt, IScriptEnvironment* env) : GenericVideoFilter(_child),
