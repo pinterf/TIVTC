@@ -25,12 +25,13 @@
 
 #include "TFM.h"
 #include "TFMasm.h"
+#include "TCommonASM.h"
 
 AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
-  int np = vi.IsYV12() ? 3 : 1;
+  int np = vi.IsPlanar() ? 3 : 1;
   int xblocks;
   int mics[5] = { -20, -20, -20, -20, -20 };
   int blockN[5] = { -20, -20, -20, -20, -20 };
@@ -69,7 +70,7 @@ private:
   PlanarFrame *cmask;
   void fillCombedYUY2(PVideoFrame &src, int &MICount,
     int &b_over, int &c_over, IScriptEnvironment *env);
-  void fillCombedYV12(PVideoFrame &src, int &MICount,
+  void fillCombedPlanar(PVideoFrame &src, int &MICount,
     int &b_over, int &c_over, IScriptEnvironment *env);
   void fillBox(PVideoFrame &dst, int blockN, int xblocks);
   void drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
@@ -77,7 +78,7 @@ private:
   void fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
   void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
   void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-  void fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
+  void fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks);
   void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
   void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
 
@@ -97,8 +98,8 @@ ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _
 {
   cArray = NULL;
   cmask = NULL;
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("ShowCombedTIVTC:  only YV12 and YUY2 input supported!");
+  if (!vi.IsYUV())
+    env->ThrowError("ShowCombedTIVTC:  only YUV input supported!");
   if (vi.height & 1)
     env->ThrowError("ShowCombedTIVTC:  height must be mod 2!");
   if (display < 0 || display > 5)
@@ -157,9 +158,11 @@ PVideoFrame __stdcall ShowCombedTIVTC::GetFrame(int n, IScriptEnvironment *env)
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
   PVideoFrame src = child->GetFrame(n, env);
-  int MICount, b_over, c_over, np = vi.IsYV12() ? 3 : 1;
-  if (vi.IsYV12()) fillCombedYV12(src, MICount, b_over, c_over, env);
-  else fillCombedYUY2(src, MICount, b_over, c_over, env);
+  int MICount, b_over, c_over, np = vi.IsPlanar() ? 3 : 1;
+  if (vi.IsPlanar()) 
+    fillCombedPlanar(src, MICount, b_over, c_over, env);
+  else 
+    fillCombedYUY2(src, MICount, b_over, c_over, env);
   if (debug)
   {
     sprintf(buf, "ShowCombedTIVTC:  frame %d -  MIC = %d  b_above = %d  c_above = %d", n,
@@ -191,16 +194,7 @@ PVideoFrame __stdcall ShowCombedTIVTC::GetFrame(int n, IScriptEnvironment *env)
 void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   int &b_over, int &c_over, IScriptEnvironment *env)
 {
-  bool use_mmx = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
-  bool use_isse = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
   bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
-  if (opt != 4)
-  {
-    if (opt == 0) use_mmx = use_isse = use_sse2 = false;
-    else if (opt == 1) { use_mmx = true; use_isse = use_sse2 = false; }
-    else if (opt == 2) { use_mmx = use_isse = true; use_sse2 = false; }
-    else if (opt == 3) use_mmx = use_isse = use_sse2 = true;
-  }
   const unsigned char *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();
@@ -221,27 +215,14 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;
-#ifdef ALLOW_MMX
-    int64_t cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
-#endif
     __m128i cthreshb_m128i;
     __m128i cthresh6w_m128i;
-    if (use_mmx || use_isse || use_sse2)
+    if (use_sse2)
     {
       unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
       cthreshb_m128i = _mm_set1_epi8(cthresht);
-#ifdef ALLOW_MMX
-      cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
-      cthreshb[0] += (cthreshb[0] << 32);
-      cthreshb[1] = cthreshb[0];
-#endif
       unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
       cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
-#ifdef ALLOW_MMX
-      cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
-      cthresh6w[0] += (cthresh6w[0] << 32);
-      cthresh6w[1] = cthresh6w[0];
-#endif
     }
     for (int x = 0; x < Width; x += inc)
     {
@@ -274,89 +255,27 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
     srcpn += src_pitch;
     srcpnn += src_pitch;
     cmkw += cmk_pitch;
-    if (use_mmx || use_isse || use_sse2)
+    if (use_sse2)
     {
       if (chroma)
       {
-#ifndef ALLOW_MMX
-        if (use_sse2)
-        {
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-          else
-            check_combing_SSE2<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-        }
-#else
-        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          __m128i cthreshb128, cthresh6w128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movups xmm2, xmmword ptr[cthresh6w]
-            movaps cthreshb128, xmm1
-            movaps cthresh6w128, xmm2
-          }
-          check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb128, cthresh6w128);
-        }
-        else if (use_isse)
-          check_combing_iSSE(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-        else if (use_mmx)
-          check_combing_MMX(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (0)!");
-        srcppp += src_pitch*(Height - 4);
-        srcpp += src_pitch*(Height - 4);
-        srcp += src_pitch*(Height - 4);
-        srcpn += src_pitch*(Height - 4);
-        srcpnn += src_pitch*(Height - 4);
-        cmkw += cmk_pitch*(Height - 4);
+        check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        srcppp += src_pitch * (Height - 4);
+        srcpp += src_pitch * (Height - 4);
+        srcp += src_pitch * (Height - 4);
+        srcpn += src_pitch * (Height - 4);
+        srcpnn += src_pitch * (Height - 4);
+        cmkw += cmk_pitch * (Height - 4);
       }
       else
       {
-#ifndef ALLOW_MMX
-        if (use_sse2)
-        {
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-          else
-            check_combing_SSE2_Luma<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-        }
-#else
-        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          __m128i cthreshb128, cthresh6w128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movups xmm2, xmmword ptr[cthresh6w]
-            movaps cthreshb128, xmm1
-            movaps cthresh6w128, xmm2
-          }
-          check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb128, cthresh6w128);
-        }
-        else if (use_isse)
-          check_combing_iSSE_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-        else if (use_mmx)
-          check_combing_MMX_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (1)!");
-        srcppp += src_pitch*(Height - 4);
-        srcpp += src_pitch*(Height - 4);
-        srcp += src_pitch*(Height - 4);
-        srcpn += src_pitch*(Height - 4);
-        srcpnn += src_pitch*(Height - 4);
-        cmkw += cmk_pitch*(Height - 4);
+        check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        srcppp += src_pitch * (Height - 4);
+        srcpp += src_pitch * (Height - 4);
+        srcp += src_pitch * (Height - 4);
+        srcpn += src_pitch * (Height - 4);
+        srcpnn += src_pitch * (Height - 4);
+        cmkw += cmk_pitch * (Height - 4);
       }
     }
     else
@@ -410,19 +329,8 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
   else
   {
     const int cthreshsq = cthresh*cthresh;
-#ifdef ALLOW_MMX
-    int64_t cthreshb[2] = { 0, 0 };
-#endif
-    __m128i cthreshb_m128i;
-    if (use_mmx || use_isse || use_sse2)
-    {
-      cthreshb_m128i = _mm_set1_epi32(cthreshsq);
-#ifdef ALLOW_MMX
-      cthreshb[0] = cthreshsq;
-      cthreshb[0] += (cthreshb[0] << 32);
-      cthreshb[1] = cthreshb[0];
-#endif
-    }
+    __m128i cthreshb_m128i = _mm_set1_epi32(cthreshsq);
+
     for (int x = 0; x < Width; x += inc)
     {
       if ((srcp[x] - srcpn[x])*(srcp[x] - srcpn[x]) > cthreshsq)
@@ -432,73 +340,23 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
     srcp += src_pitch;
     srcpn += src_pitch;
     cmkw += cmk_pitch;
-    if (use_mmx || use_isse || use_sse2)
+    if (use_sse2)
     {
       if (chroma)
       {
-#ifndef ALLOW_MMX
-        if (use_sse2) {
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-          else
-            check_combing_SSE2_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-        }
-#else
-        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          __m128i cthreshb128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movaps cthreshb128, xmm1
-          }
-          check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb128);
-        }
-        else if (use_mmx)
-          check_combing_MMX_M1(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (6)!");
-        srcpp += src_pitch*(Height - 2);
-        srcp += src_pitch*(Height - 2);
-        srcpn += src_pitch*(Height - 2);
-        cmkw += cmk_pitch*(Height - 2);
+        check_combing_SSE2_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
+        srcpp += src_pitch * (Height - 2);
+        srcp += src_pitch * (Height - 2);
+        srcpn += src_pitch * (Height - 2);
+        cmkw += cmk_pitch * (Height - 2);
       }
       else
       {
-#ifndef ALLOW_MMX
-        if (use_sse2) {
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-          else
-            check_combing_SSE2_Luma_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-        }
-#else
-        if (use_sse2 && !((int(srcp) | int(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          __m128i cthreshb128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movaps cthreshb128, xmm1
-          }
-          check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb128);
-        }
-        else if (use_mmx)
-          check_combing_MMX_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (5)!");
-        srcpp += src_pitch*(Height - 2);
-        srcp += src_pitch*(Height - 2);
-        srcpn += src_pitch*(Height - 2);
-        cmkw += cmk_pitch*(Height - 2);
+        check_combing_SSE2_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
+        srcpp += src_pitch * (Height - 2);
+        srcp += src_pitch * (Height - 2);
+        srcpn += src_pitch * (Height - 2);
+        cmkw += cmk_pitch * (Height - 2);
       }
     }
     else
@@ -591,61 +449,34 @@ cjump:
       if (display == 2 || display == 4)
       {
         if (fill) fillBox(src, x, xblocks4);
-        else drawBox(src, x, xblocks4, vi.IsYV12() ? 3 : 1);
+        else drawBox(src, x, xblocks4, vi.IsPlanar() ? 3 : 1);
       }
     }
   }
   if (display == 1 || display == 3)
   {
     if (fill) fillBox(src, high_block, xblocks4);
-    else drawBox(src, high_block, xblocks4, vi.IsYV12() ? 3 : 1);
+    else drawBox(src, high_block, xblocks4, vi.IsPlanar() ? 3 : 1);
   }
 }
 
-void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
+void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame &src, int &MICount,
   int &b_over, int &c_over, IScriptEnvironment *env)
 {
-  bool use_mmx = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
-  bool use_isse = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
   bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
-  if (opt != 4)
-  {
-    if (opt == 0) use_mmx = use_isse = use_sse2 = false;
-    else if (opt == 1) { use_mmx = true; use_isse = use_sse2 = false; }
-    else if (opt == 2) { use_mmx = use_isse = true; use_sse2 = false; }
-    else if (opt == 3) use_mmx = use_isse = use_sse2 = true;
-  }
   const int cthresh6 = cthresh * 6;
-#ifdef ALLOW_MMX
-  int64_t cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
-#endif
   __m128i cthreshb_m128i;
   __m128i cthresh6w_m128i;
-  if (metric == 0 && (use_mmx || use_isse || use_sse2))
+  if (metric == 0 && use_sse2)
   {
     unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
     cthreshb_m128i = _mm_set1_epi8(cthresht);
-#ifdef ALLOW_MMX
-    cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
-    cthreshb[0] += (cthreshb[0] << 32);
-    cthreshb[1] = cthreshb[0];
-#endif
     unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
     cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
-#ifdef ALLOW_MMX
-    cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
-    cthresh6w[0] += (cthresh6w[0] << 32);
-    cthresh6w[1] = cthresh6w[0];
-#endif
   }
-  else if (metric == 1 && (use_mmx || use_isse || use_sse2))
+  else if (metric == 1 && use_sse2)
   {
     cthreshb_m128i = _mm_set1_epi32(cthresh*cthresh);
-#ifdef ALLOW_MMX
-    cthreshb[0] = cthresh*cthresh;
-    cthreshb[0] += (cthreshb[0] << 32);
-    cthreshb[1] = cthreshb[0];
-#endif
   }
   for (int b = chroma ? 3 : 1; b > 0; --b)
   {
@@ -698,45 +529,15 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
       srcpn += src_pitch;
       srcpnn += src_pitch;
       cmkp += cmk_pitch;
-      if (use_mmx || use_isse || use_sse2)
+      if (use_sse2)
       {
-#ifndef ALLOW_MMX
-        if (use_sse2) {
-          if (!((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
-            check_combing_SSE2<true>(srcp, cmkp, Width, Height - 4, src_pitch,
-              src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-          else
-            check_combing_SSE2<false>(srcp, cmkp, Width, Height - 4, src_pitch,
-              src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-        }
-#else
-        if (use_sse2 && !((int(srcp) | int(cmkp) | cmk_pitch | src_pitch) & 15))
-        {
-          __m128i cthreshb128, cthresh6w128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movups xmm2, xmmword ptr[cthresh6w]
-            movaps cthreshb128, xmm1
-            movaps cthresh6w128, xmm2
-          }
-          check_combing_SSE2<true>(srcp, cmkp, Width, Height - 4, src_pitch,
-            src_pitch * 2, cmk_pitch, cthreshb128, cthresh6w128);
-        }
-        else if (use_isse)
-          check_combing_iSSE(srcp, cmkp, Width, Height - 4, src_pitch,
-            src_pitch * 2, cmk_pitch, cthreshb[0], cthresh6w[0]);
-        else if (use_mmx)
-          check_combing_MMX(srcp, cmkp, Width, Height - 4, src_pitch,
-            src_pitch * 2, cmk_pitch, cthreshb[0], cthresh6w[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (3)!");
-        srcppp += src_pitch*(Height - 4);
-        srcpp += src_pitch*(Height - 4);
-        srcp += src_pitch*(Height - 4);
-        srcpn += src_pitch*(Height - 4);
-        srcpnn += src_pitch*(Height - 4);
-        cmkp += cmk_pitch*(Height - 4);
+        check_combing_SSE2(srcp, cmkp, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        srcppp += src_pitch * (Height - 4);
+        srcpp += src_pitch * (Height - 4);
+        srcp += src_pitch * (Height - 4);
+        srcpn += src_pitch * (Height - 4);
+        srcpnn += src_pitch * (Height - 4);
+        cmkp += cmk_pitch * (Height - 4);
       }
       else
       {
@@ -798,38 +599,13 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
       srcp += src_pitch;
       srcpn += src_pitch;
       cmkp += cmk_pitch;
-      if (use_mmx || use_isse || use_sse2)
+      if (use_sse2)
       {
-#ifndef ALLOW_MMX
-        if (use_sse2) {
-          if (!((intptr_t(srcp) | intptr_t(cmkp) | cmk_pitch | src_pitch) & 15))
-            check_combing_SSE2_M1<true>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
-              cthreshb_m128i);
-          else
-            check_combing_SSE2_M1<false>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
-              cthreshb_m128i);
-        }
-#else
-        if (use_sse2 && !((int(srcp) | int(cmkp) | cmk_pitch | src_pitch) & 15))
-        {
-          __m128i cthreshb128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movaps cthreshb128, xmm1
-          }
-          check_combing_SSE2_M1<true>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
-            cthreshb128);
-        }
-        else if (use_mmx)
-          check_combing_MMX_M1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch,
-            cthreshb[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (4)!");
-        srcpp += src_pitch*(Height - 2);
-        srcp += src_pitch*(Height - 2);
-        srcpn += src_pitch*(Height - 2);
-        cmkp += cmk_pitch*(Height - 2);
+        check_combing_SSE2_M1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
+        srcpp += src_pitch * (Height - 2);
+        srcp += src_pitch * (Height - 2);
+        srcpn += src_pitch * (Height - 2);
+        cmkp += cmk_pitch * (Height - 2);
       }
       else
       {
@@ -953,20 +729,20 @@ void ShowCombedTIVTC::fillCombedYV12(PVideoFrame &src, int &MICount,
       if (display == 2 || display == 4)
       {
         if (fill) fillBox(src, x, xblocks4);
-        else drawBox(src, x, xblocks4, vi.IsYV12() ? 3 : 1);
+        else drawBox(src, x, xblocks4, vi.IsPlanar() ? 3 : 1);
       }
     }
   }
   if (display == 1 || display == 3)
   {
     if (fill) fillBox(src, high_block, xblocks4);
-    else drawBox(src, high_block, xblocks4, vi.IsYV12() ? 3 : 1);
+    else drawBox(src, high_block, xblocks4, vi.IsPlanar() ? 3 : 1);
   }
 }
 
 void ShowCombedTIVTC::fillBox(PVideoFrame &dst, int blockN, int xblocks)
 {
-  if (vi.IsYV12()) return fillBoxYV12(dst, blockN, xblocks);
+  if (vi.IsPlanar()) return fillBoxPlanar(dst, blockN, xblocks);
   else return fillBoxYUY2(dst, blockN, xblocks);
 }
 
@@ -1130,7 +906,7 @@ void ShowCombedTIVTC::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
   }
 }
 
-void ShowCombedTIVTC::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
+void ShowCombedTIVTC::fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks)
 {
   unsigned char *dstp = dst->GetWritePtr(PLANAR_Y);
   int width = dst->GetRowSize(PLANAR_Y);

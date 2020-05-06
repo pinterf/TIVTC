@@ -56,7 +56,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     destroyHint(src, hint);
     return src;
   }
-  int np = vi.IsYV12() ? 3 : 1;
+  int np = vi.IsPlanar() ? 3 : 1;
   getSetOvr(n);
   PVideoFrame dst;
   if (PP > 4)
@@ -156,13 +156,6 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   PlanarFrame *mask, int use, int np, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
   for (int b = 0; b < np; ++b)
   {
     int plane;
@@ -188,12 +181,8 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     maskw += msk_pitch;
     if (use == 1)
     {
-      if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(prvp) | intptr_t(maskw) | src_pitch | prv_pitch | msk_pitch) & 15))
+      if (cpu&CPUF_SSE2)
         buildMotionMask1_SSE2(srcp, prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpu);
-#ifdef ALLOW_MMX
-      else if (cpu&CPUF_MMX)
-        buildMotionMask1_MMX(srcp, prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpu);
-#endif
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -216,12 +205,8 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     }
     else if (use == 2)
     {
-      if ((cpu&CPUF_SSE2) && !((intptr_t(srcp) | intptr_t(nxtp) | intptr_t(maskw) | src_pitch | nxt_pitch | msk_pitch) & 15))
+      if (cpu&CPUF_SSE2)
         buildMotionMask1_SSE2(srcp, nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
-#ifdef ALLOW_MMX
-      else if (cpu&CPUF_MMX)
-        buildMotionMask1_MMX(srcp, nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
-#endif
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -244,7 +229,7 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     }
     else
     {
-      if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(srcp) | intptr_t(nxtp) | intptr_t(maskw) | prv_pitch | src_pitch | nxt_pitch | msk_pitch) & 15))
+      if (cpu&CPUF_SSE2)
       {
         buildMotionMask2_SSE2(prvp, srcp, nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
         for (int y = 1; y < height; ++y)
@@ -262,26 +247,6 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
           maskw += msk_pitch;
         }
       }
-#ifdef ALLOW_MMX
-      else if (cpu&CPUF_MMX)
-      {
-        buildMotionMask2_MMX(prvp, srcp, nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
-        for (int y = 1; y < height; ++y)
-        {
-          for (int x = 0; x < width; ++x)
-          {
-            if (!maskw[x]) continue;
-            if (((maskw[x] & 0x8) && (maskw[x] & 0x15)) ||
-              ((maskw[x] & 0x4) && (maskw[x] & 0x2A)) ||
-              ((maskw[x] & 0x22) && ((maskw[x] & 0x11) == 0x11)) ||
-              ((maskw[x] & 0x11) && ((maskw[x] & 0x22) == 0x22)))
-              maskw[x] = 0xFF;
-            else maskw[x] = 0;
-          }
-          maskw += msk_pitch;
-        }
-      }
-#endif
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -315,8 +280,13 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   }
   if (np == 3)
   {
-    denoiseYV12(mask);
-    linkYV12(mask);
+    denoisePlanar(mask);
+    if (vi.Is420())
+      linkPlanar<420>(mask);
+    else if (vi.Is422())
+      linkPlanar<422>(mask);
+    else if (vi.Is444())
+      linkPlanar<444>(mask);
   }
   else
   {
@@ -331,7 +301,6 @@ void TFMPP::buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned cha
 {
   memset(dstp - dst_pitch, 0xFF, dst_pitch);
   memset(dstp + dst_pitch*height, 0xFF, dst_pitch);
-#ifdef USE_INTR
   __m128i thresh = _mm_set1_epi8((char)(max(min(255 - mthresh - 1, 255), 0)));
   __m128i full_ff = _mm_set1_epi8(-1);
   while (height--) {
@@ -364,153 +333,13 @@ void TFMPP::buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned cha
     srcp2 += s2_pitch;
     dstp += dst_pitch;
   }
-#else
-  int64_t thresh[2];
-  thresh[0] = max(min(255 - mthresh - 1, 255), 0);
-  thresh[0] += (thresh[0] << 8);
-  thresh[0] += (thresh[0] << 48) + (thresh[0] << 32) + (thresh[0] << 16);
-  thresh[1] = thresh[0];
-  __asm
-  {
-    mov ebx, srcp1
-    mov edx, srcp2
-    add ebx, s1_pitch // ebx: srcp1 + s1_pitch
-    add edx, s2_pitch // efx: srcp2 + s2_pitch
-    mov esi, dstp
-    mov ecx, width
-    mov edi, s1_pitch
-    movdqu xmm5, thresh
-    pcmpeqb xmm6, xmm6 // full ff
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [ebx + eax] // srcp1 + s1_pitch
-      movdqa xmm1, [edx + eax] // srcp2 + s2_pitch
-      sub ebx, edi
-      movdqa xmm2, xmm0
-      sub edx, s2_pitch
-      psubusb xmm0, xmm1
-      psubusb xmm1, xmm2
-      movdqa xmm2, [ebx + eax] // srcp1
-      movdqa xmm3, [edx + eax] // srcp2
-      por xmm0, xmm1
-      movdqa xmm4, xmm2
-      sub ebx, edi
-      psubusb xmm2, xmm3
-      sub edx, s2_pitch
-      psubusb xmm3, xmm4
-      por xmm2, xmm3
-      movdqa xmm1, [ebx + eax] // srcp1 - s1_pitch
-      movdqa xmm3, [edx + eax] // srcp2 - s2_pitch
-      movdqa xmm4, xmm1
-      psubusb xmm1, xmm3
-      psubusb xmm3, xmm4
-      lea ebx, [ebx + edi * 2]
-      por xmm1, xmm3
-      paddusb xmm0, xmm5
-      paddusb xmm1, xmm5
-      paddusb xmm2, xmm5
-      pcmpeqb xmm0, xmm6
-      pcmpeqb xmm1, xmm6
-      pcmpeqb xmm2, xmm6
-      por xmm0, xmm1
-      mov edi, s2_pitch
-      por xmm0, xmm2
-      lea edx, [edx + edi * 2]
-      movdqa[esi + eax], xmm0 // dstp
-      add eax, 16
-      mov edi, s1_pitch
-      cmp eax, ecx
-      jl xloop
-      add ebx, s1_pitch
-      add edx, s2_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void TFMPP::buildMotionMask1_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
-  unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width,
-  int height, long cpu)
-{
-  int64_t thresh;
-  thresh = max(min(255 - mthresh - 1, 255), 0);
-  thresh += (thresh << 8);
-  thresh += (thresh << 48) + (thresh << 32) + (thresh << 16);
-  fmemset(cpu, dstp - dst_pitch, dst_pitch, opt, 0xFF);
-  fmemset(cpu, dstp + dst_pitch*height, dst_pitch, opt, 0xFF);
-  __asm
-  {
-    mov ebx, srcp1
-    mov edx, srcp2
-    add ebx, s1_pitch
-    add edx, s2_pitch
-    mov esi, dstp
-    mov ecx, width
-    mov edi, s1_pitch
-    movq mm5, thresh
-    pcmpeqb mm6, mm6
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [ebx + eax]
-      movq mm1, [edx + eax]
-      sub ebx, edi
-      movq mm2, mm0
-      sub edx, s2_pitch
-      psubusb mm0, mm1
-      psubusb mm1, mm2
-      movq mm2, [ebx + eax]
-      movq mm3, [edx + eax]
-      por mm0, mm1
-      movq mm4, mm2
-      sub ebx, edi
-      psubusb mm2, mm3
-      sub edx, s2_pitch
-      psubusb mm3, mm4
-      por mm2, mm3
-      movq mm1, [ebx + eax]
-      movq mm3, [edx + eax]
-      movq mm4, mm1
-      psubusb mm1, mm3
-      psubusb mm3, mm4
-      lea ebx, [ebx + edi * 2]
-      por mm1, mm3
-      paddusb mm0, mm5
-      paddusb mm1, mm5
-      paddusb mm2, mm5
-      pcmpeqb mm0, mm6
-      pcmpeqb mm1, mm6
-      pcmpeqb mm2, mm6
-      por mm0, mm1
-      mov edi, s2_pitch
-      por mm0, mm2
-      lea edx, [edx + edi * 2]
-      movq[esi + eax], mm0
-      add eax, 8
-      mov edi, s1_pitch
-      cmp eax, ecx
-      jl xloop
-      add ebx, s1_pitch
-      add edx, s2_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
 
 void TFMPP::buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
   const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
   int s3_pitch, int dst_pitch, int width, int height, long cpu)
 {
-#ifdef USE_INTR
   __m128i thresh = _mm_set1_epi8((char)(max(min(255 - mthresh - 1, 255), 0)));
   __m128i all_ff = _mm_set1_epi8(-1);
   __m128i onesByte = _mm_set1_epi8(0x01);
@@ -565,234 +394,9 @@ void TFMPP::buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned cha
     srcp3 += s3_pitch;
     dstp += dst_pitch;
   }
-#else
-  int64_t thresh[2];
-  thresh[0] = max(min(255 - mthresh - 1, 255), 0);
-  thresh[0] += (thresh[0] << 8);
-  thresh[0] += (thresh[0] << 48) + (thresh[0] << 32) + (thresh[0] << 16);
-  thresh[1] = thresh[0];
-  fmemset(cpu, dstp - dst_pitch, dst_pitch, opt, 0xFF);
-  fmemset(cpu, dstp + dst_pitch*height, dst_pitch, opt, 0xFF);
-  __asm
-  {
-    mov ebx, srcp1
-    mov edx, srcp2
-    mov edi, srcp3
-    add ebx, s1_pitch
-    add edx, s2_pitch
-    add edi, s3_pitch
-    mov esi, dstp
-    movdqu xmm7, thresh
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [ebx + eax] // next1
-      movdqa xmm1, [edx + eax] // next2
-      movdqa xmm2, [edi + eax] // next3
-      movdqa xmm3, xmm0
-      movdqa xmm4, xmm1
-      movdqa xmm5, xmm2
-      psubusb xmm3, xmm1 // prv-src diff1-2
-      psubusb xmm5, xmm4 // nxt-src diff3-2
-      psubusb xmm1, xmm0 // src-prv diff2-1
-      psubusb xmm4, xmm2 // src-nxt diff2-3
-      por xmm1, xmm3 // diff21 or diff12
-      por xmm4, xmm5 // diff32 or diff23
-      pcmpeqb xmm0, xmm0 // all_ff
-      sub ebx, s1_pitch
-      paddusb xmm1, xmm7 // absdiff12 + thresh
-      paddusb xmm4, xmm7 // absdiff23 + thresh
-      pcmpeqb xmm1, xmm0 // (absdiff12 + thresh) cmp with all_ff
-      pcmpeqb xmm4, xmm0 // (absdiff23 + thresh) cmp with all_ff
-      sub edx, s2_pitch
-      pand xmm1, onesByte // masked_by_01 = ((absdiff12 + thresh) cmp with all_ff) and 01
-      pand xmm4, twosByte // masked_by_02 = ((absdiff23 + thresh) cmp with all_ff) and 02
-      sub edi, s3_pitch
-      por xmm1, xmm4     // masked_by_01_02
-
-      movdqa xmm0, [ebx + eax] // curr1
-      movdqa xmm2, [edx + eax] // curr2
-      movdqa xmm3, [edi + eax] // curr3
-      movdqa xmm4, xmm0
-      movdqa xmm5, xmm2
-      movdqa xmm6, xmm3
-      psubusb xmm4, xmm2 // prv-src
-      psubusb xmm6, xmm5 // nxt-src
-      psubusb xmm2, xmm0 // src-prv
-      psubusb xmm5, xmm3 // src-nxt
-      por xmm2, xmm4
-      por xmm5, xmm6
-      pcmpeqb xmm0, xmm0
-      sub ebx, s1_pitch
-      paddusb xmm2, xmm7
-      paddusb xmm5, xmm7
-      pcmpeqb xmm2, xmm0
-      pcmpeqb xmm5, xmm0
-      pand xmm2, foursByte
-      pand xmm5, eightsByte
-      sub edx, s2_pitch
-      por xmm1, xmm2 // masked_by_01_02_04
-      sub edi, s3_pitch
-      por xmm1, xmm5 // masked_by_01_02_04_08
-
-      movdqa xmm0, [ebx + eax] // prev1
-      movdqa xmm2, [edx + eax] // prev2
-      movdqa xmm3, [edi + eax] // prev3
-      movdqa xmm4, xmm0
-      movdqa xmm5, xmm2
-      movdqa xmm6, xmm3
-      psubusb xmm4, xmm2 // prv-src
-      psubusb xmm6, xmm5 // nxt-src
-      psubusb xmm2, xmm0 // src-prv
-      psubusb xmm5, xmm3 // src-nxt
-      por xmm2, xmm4
-      por xmm5, xmm6
-      mov ecx, s1_pitch
-      pcmpeqb xmm0, xmm0
-      lea edx, [edx + ecx * 2]
-      paddusb xmm2, xmm7
-      paddusb xmm5, xmm7
-      pcmpeqb xmm2, xmm0
-      pcmpeqb xmm5, xmm0
-      mov ecx, s2_pitch
-      pand xmm2, sixteensByte
-      lea ebx, [ebx + ecx * 2]
-      pand xmm5, thirtytwosByte
-      por xmm1, xmm2 // masked_by_01_02_04_08_10
-      mov ecx, s3_pitch
-      por xmm1, xmm5 // masked_by_01_02_04_08_10_20
-      lea edi, [edi + ecx * 2]
-      movdqa[esi + eax], xmm1
-
-      add eax, 16
-      cmp eax, width
-      jl xloop
-
-      add ebx, s1_pitch
-      add edx, s2_pitch
-      add edi, s3_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
-#ifdef ALLOW_MMX
-void TFMPP::buildMotionMask2_MMX(const unsigned char *srcp1, const unsigned char *srcp2,
-  const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
-  int s3_pitch, int dst_pitch, int width, int height, long cpu)
-{
-  int64_t thresh;
-  thresh = max(min(255 - mthresh - 1, 255), 0);
-  thresh += (thresh << 8);
-  thresh += (thresh << 48) + (thresh << 32) + (thresh << 16);
-  fmemset(cpu, dstp - dst_pitch, dst_pitch, opt, 0xFF);
-  fmemset(cpu, dstp + dst_pitch*height, dst_pitch, opt, 0xFF);
-  __asm
-  {
-    mov ebx, srcp1
-    mov edx, srcp2
-    mov edi, srcp3
-    add ebx, s1_pitch
-    add edx, s2_pitch
-    add edi, s3_pitch
-    mov esi, dstp
-    movq mm7, thresh
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [ebx + eax]
-      movq mm1, [edx + eax]
-      movq mm2, [edi + eax]
-      movq mm3, mm0
-      movq mm4, mm1
-      movq mm5, mm2
-      psubusb mm3, mm1 // prv-src
-      psubusb mm5, mm4 // nxt-src
-      psubusb mm1, mm0 // src-prv
-      psubusb mm4, mm2 // src-nxt
-      por mm1, mm3
-      por mm4, mm5
-      pcmpeqb mm0, mm0
-      sub ebx, s1_pitch
-      paddusb mm1, mm7
-      paddusb mm4, mm7
-      pcmpeqb mm1, mm0
-      pcmpeqb mm4, mm0
-      sub edx, s2_pitch
-      pand mm1, onesByte
-      pand mm4, twosByte
-      sub edi, s3_pitch
-      por mm1, mm4
-      movq mm0, [ebx + eax]
-      movq mm2, [edx + eax]
-      movq mm3, [edi + eax]
-      movq mm4, mm0
-      movq mm5, mm2
-      movq mm6, mm3
-      psubusb mm4, mm2 // prv-src
-      psubusb mm6, mm5 // nxt-src
-      psubusb mm2, mm0 // src-prv
-      psubusb mm5, mm3 // src-nxt
-      por mm2, mm4
-      por mm5, mm6
-      pcmpeqb mm0, mm0
-      sub ebx, s1_pitch
-      paddusb mm2, mm7
-      paddusb mm5, mm7
-      pcmpeqb mm2, mm0
-      pcmpeqb mm5, mm0
-      pand mm2, foursByte
-      pand mm5, eightsByte
-      sub edx, s2_pitch
-      por mm1, mm2
-      sub edi, s3_pitch
-      por mm1, mm5
-      movq mm0, [ebx + eax]
-      movq mm2, [edx + eax]
-      movq mm3, [edi + eax]
-      movq mm4, mm0
-      movq mm5, mm2
-      movq mm6, mm3
-      psubusb mm4, mm2 // prv-src
-      psubusb mm6, mm5 // nxt-src
-      psubusb mm2, mm0 // src-prv
-      psubusb mm5, mm3 // src-nxt
-      por mm2, mm4
-      por mm5, mm6
-      mov ecx, s1_pitch
-      pcmpeqb mm0, mm0
-      lea edx, [edx + ecx * 2]
-      paddusb mm2, mm7
-      paddusb mm5, mm7
-      pcmpeqb mm2, mm0
-      pcmpeqb mm5, mm0
-      mov ecx, s2_pitch
-      pand mm2, sixteensByte
-      lea ebx, [ebx + ecx * 2]
-      pand mm5, thirtytwosByte
-      por mm1, mm2
-      mov ecx, s3_pitch
-      por mm1, mm5
-      lea edi, [edi + ecx * 2]
-      movq[esi + eax], mm1
-      add eax, 8
-      cmp eax, width
-      jl xloop
-      add ebx, s1_pitch
-      add edx, s2_pitch
-      add edi, s3_pitch
-      add esi, dst_pitch
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
-
+// not the same as in TDeint. Here 0xFF instead of 0x3C
 void TFMPP::denoiseYUY2(PlanarFrame *mask)
 {
   unsigned char *maskw = mask->GetPtr();
@@ -857,7 +461,7 @@ void TFMPP::linkYUY2(PlanarFrame *mask)
   }
 }
 
-void TFMPP::denoiseYV12(PlanarFrame *mask)
+void TFMPP::denoisePlanar(PlanarFrame *mask)
 {
   for (int b = 0; b < 3; ++b)
   {
@@ -895,34 +499,63 @@ void TFMPP::denoiseYV12(PlanarFrame *mask)
   }
 }
 
-void TFMPP::linkYV12(PlanarFrame *mask)
+template<int planarType>
+void TFMPP::linkPlanar(PlanarFrame* mask)
 {
-  unsigned char *maskpY = mask->GetPtr(0);
-  unsigned char *maskpV = mask->GetPtr(2);
-  unsigned char *maskpU = mask->GetPtr(1);
-  const int mask_pitchY = mask->GetPitch(0) << 1;
+  unsigned char* maskpY = mask->GetPtr(0);
+  unsigned char* maskpV = mask->GetPtr(2);
+  unsigned char* maskpU = mask->GetPtr(1);
+  const int mask_pitchY = mask->GetPitch(0) << 1; // *2
   const int mask_pitchUV = mask->GetPitch(2);
   const int HeightUV = mask->GetHeight(2);
   const int WidthUV = mask->GetWidth(2);
-  unsigned char *maskppY = maskpY - (mask_pitchY >> 1);
-  unsigned char *maskpnY = maskpY + (mask_pitchY >> 1);
-  unsigned char *maskpnnY = maskpnY + (mask_pitchY >> 1);
-  for (int y = 1; y < HeightUV - 1; ++y)
+  unsigned char* maskppY = maskpY - (mask_pitchY >> 1); // prev Y use at 420
+  unsigned char* maskpnY = maskpY + (mask_pitchY >> 1); // next Y
+  unsigned char* maskpnnY = maskpnY + (mask_pitchY >> 1); // nextnextY used at 420
+
+  if constexpr (planarType == 420) 
   {
-    maskppY = maskpnY;
-    maskpY = maskpnnY;
-    maskpnY += mask_pitchY;
-    maskpnnY += mask_pitchY;
-    maskpV += mask_pitchUV;
-    maskpU += mask_pitchUV;
-    for (int x = 0; x < WidthUV; ++x)
+    for (int y = 1; y < HeightUV - 1; ++y)
     {
-      if ((((unsigned short*)maskpY)[x] == (unsigned short)0xFFFF) &&
-        (((unsigned short*)maskpnY)[x] == (unsigned short)0xFFFF) &&
-        (((y & 1) && (((unsigned short*)maskppY)[x] == (unsigned short)0xFFFF)) ||
-        (!(y & 1) && (((unsigned short*)maskpnnY)[x] == (unsigned short)0xFFFF))))
+      maskppY = maskpnY; // prev = next
+      maskpY = maskpnnY; // current = nextnext
+      maskpnY += mask_pitchY;
+      maskpnnY += mask_pitchY;
+      maskpV += mask_pitchUV;
+      maskpU += mask_pitchUV;
+      for (int x = 0; x < WidthUV; ++x)
       {
-        maskpV[x] = maskpU[x] = 0xFF;
+        if ((((unsigned short*)maskpY)[x] == (unsigned short)0xFFFF) &&
+          (((unsigned short*)maskpnY)[x] == (unsigned short)0xFFFF) &&
+          (((y & 1) && (((unsigned short*)maskppY)[x] == (unsigned short)0xFFFF)) ||
+            (!(y & 1) && (((unsigned short*)maskpnnY)[x] == (unsigned short)0xFFFF))))
+        {
+          maskpV[x] = maskpU[x] = 0xFF;
+        }
+      }
+    }
+  }
+  else { // 422 444
+    for (int y = 1; y < HeightUV - 1; ++y)
+    {
+      maskpY = maskpnY; // current = next
+      maskpnY += mask_pitchY;
+      maskpV += mask_pitchUV;
+      maskpU += mask_pitchUV;
+      for (int x = 0; x < WidthUV; ++x)
+      {
+        if constexpr (planarType == 422) {
+          if (((unsigned short*)maskpY)[x] == (unsigned short)0xFFFF) // horizontal subsampling
+          {
+            maskpV[x] = maskpU[x] = 0xFF;
+          }
+        }
+        else if constexpr (planarType == 444) {
+          if (maskpY[x] == 0xFF)
+          {
+            maskpV[x] = maskpU[x] = 0xFF;
+          }
+        }
       }
     }
   }
@@ -2762,8 +2395,8 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   int w, i, z, b, q, countOvrS;
   char linein[1024], *linep, *linet;
   FILE *f = NULL;
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("TFMPP:  YV12 and YUY2 data only!");
+  if (!vi.IsYUV())
+    env->ThrowError("TFMPP:  YUV data only!");
   if (vi.height & 1 || vi.width & 1)
     env->ThrowError("TFMPP:  height and width must be divisible by 2!");
   if (PP < 2 || PP > 7)
@@ -2774,9 +2407,9 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   {
     uC2 = true;
     const VideoInfo &vi2 = clip2->GetVideoInfo();
-    if (!vi2.IsYV12() && !vi2.IsYUY2())
-      env->ThrowError("TFMPP:  clip2 must be in YUY2 or YV12 colorspace!");
-    if ((vi.IsYV12() && vi2.IsYUY2()) || (vi.IsYUY2() && vi2.IsYV12()))
+    if (!vi2.IsYUV())
+      env->ThrowError("TFMPP:  clip2 must be in YUV colorspace!");
+    if (vi.IsSameColorspace(vi2))
       env->ThrowError("TFMPP:  clip2 colorspace must be the same as input clip!");
     if (vi2.height != vi.height || vi2.width != vi.width)
       env->ThrowError("TFMPP:  clip2 frame dimensions do not match input clip!");

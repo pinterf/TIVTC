@@ -182,13 +182,13 @@ bool PlanarFrame::allocSpace(VideoInfo &viInfo)
   if (v != NULL) { _aligned_free(v); v = NULL; }
   int height = viInfo.height;
   int width = viInfo.width;
-  if (viInfo.IsYV12())
+  if (viInfo.IsPlanar())
   {
     ypitch = width + ((width%MIN_ALIGNMENT) == 0 ? 0 : MIN_ALIGNMENT - (width%MIN_ALIGNMENT));
     ywidth = width;
     yheight = height;
-    width >>= 1;
-    height >>= 1;
+    width >>= viInfo.GetPlaneWidthSubsampling(PLANAR_U);
+    height >>= viInfo.GetPlaneHeightSubsampling(PLANAR_U);
     uvpitch = width + ((width%MIN_ALIGNMENT) == 0 ? 0 : MIN_ALIGNMENT - (width%MIN_ALIGNMENT));
     uvwidth = width;
     uvheight = height;
@@ -274,17 +274,17 @@ void PlanarFrame::createPlanar(int yheight, int uvheight, int ywidth, int uvwidt
 void PlanarFrame::createPlanar(int height, int width, int chroma_format)
 {
   int specs[4];
-  if (chroma_format <= 1)
+  if (chroma_format <= 1) // 420
   {
     specs[0] = height; specs[1] = height >> 1;
     specs[2] = width; specs[3] = width >> 1;
   }
-  else if (chroma_format == 2)
+  else if (chroma_format == 2) // 422
   {
     specs[0] = height; specs[1] = height;
     specs[2] = width; specs[3] = width >> 1;
   }
-  else
+  else // 444
   {
     specs[0] = height; specs[1] = height;
     specs[2] = width; specs[3] = width;
@@ -374,7 +374,7 @@ void PlanarFrame::freePlanar()
 void PlanarFrame::copyInternalFrom(PVideoFrame &frame, VideoInfo &viInfo)
 {
   if (y == NULL || u == NULL || v == NULL) return;
-  if (viInfo.IsYV12())
+  if (viInfo.IsPlanar())
   {
     BitBlt(y, ypitch, frame->GetReadPtr(PLANAR_Y), frame->GetPitch(PLANAR_Y),
       frame->GetRowSize(PLANAR_Y), frame->GetHeight(PLANAR_Y));
@@ -401,7 +401,7 @@ void PlanarFrame::copyInternalFrom(PlanarFrame &frame)
 void PlanarFrame::copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo)
 {
   if (y == NULL || u == NULL || v == NULL) return;
-  if (viInfo.IsYV12())
+  if (viInfo.IsPlanar())
   {
     BitBlt(frame->GetWritePtr(PLANAR_Y), frame->GetPitch(PLANAR_Y), y, ypitch, ywidth, yheight);
     BitBlt(frame->GetWritePtr(PLANAR_U), frame->GetPitch(PLANAR_U), u, uvpitch, uvwidth, uvheight);
@@ -440,7 +440,7 @@ void PlanarFrame::copyChromaTo(PlanarFrame &dst)
 void PlanarFrame::copyToForBMP(PVideoFrame &dst, VideoInfo &viInfo)
 {
   unsigned char *dstp = dst->GetWritePtr(PLANAR_Y);
-  if (viInfo.IsYV12())
+  if (viInfo.IsPlanar())
   {
     int out_pitch = (ywidth + 3) & -4;
     BitBlt(dstp, out_pitch, y, ypitch, ywidth, yheight);
@@ -470,12 +470,8 @@ PlanarFrame& PlanarFrame::operator=(PlanarFrame &ob2)
 void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
   unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
 {
-  if ((cpu&CPUF_SSE2) && useSIMD && !((intptr_t(src) | pitch1) & 15))
+  if ((cpu&CPUF_SSE2) && useSIMD)
     convYUY2to422_SSE2(src, py, pu, pv, pitch1, pitch2Y, pitch2UV, width, height);
-#ifdef ALLOW_MMX
-  else if ((cpu&CPUF_MMX) && useSIMD)
-    convYUY2to422_MMX(src, py, pu, pv, pitch1, pitch2Y, pitch2UV, width, height);
-#endif
   else
   {
     width >>= 1;
@@ -496,59 +492,10 @@ void PlanarFrame::convYUY2to422(const unsigned char *src, unsigned char *py, uns
   }
 }
 
-#ifdef ALLOW_MMX
-void PlanarFrame::convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
-  unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
-{
-  __asm
-  {
-    mov edi, src
-    mov ebx, py
-    mov edx, pu
-    mov esi, pv
-    mov ecx, width
-    shr ecx, 1
-    movq mm5, Ymask
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [edi + eax * 4]; VYUYVYUY
-      movq mm1, [edi + eax * 4 + 8]; VYUYVYUY
-      movq mm2, mm0; VYUYVYUY
-      movq mm3, mm1; VYUYVYUY
-      pand mm0, mm5; 0Y0Y0Y0Y
-      psrlw mm2, 8; 0V0U0V0U
-      pand mm1, mm5; 0Y0Y0Y0Y
-      psrlw mm3, 8; 0V0U0V0U
-      packuswb mm0, mm1; YYYYYYYY
-      packuswb mm2, mm3; VUVUVUVU
-      movq mm4, mm2; VUVUVUVU
-      pand mm2, mm5; 0U0U0U0U
-      psrlw mm4, 8; 0V0V0V0V
-      packuswb mm2, mm2; xxxxUUUU
-      packuswb mm4, mm4; xxxxVVVV
-      movq[ebx + eax * 2], mm0; store y
-      movd[edx + eax], mm2; store u
-      movd[esi + eax], mm4; store v
-      add eax, 4
-      cmp eax, ecx
-      jl xloop
-      add edi, pitch1
-      add ebx, pitch2Y
-      add edx, pitch2UV
-      add esi, pitch2UV
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
 
 void PlanarFrame::convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
   unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height)
 {
-#ifdef USE_INTR
   width >>= 1; // mov ecx, width
   __m128i Ymask = _mm_set1_epi16(0x00FF);
   for (int y = 0; y < height; y++) {
@@ -571,56 +518,13 @@ void PlanarFrame::convYUY2to422_SSE2(const unsigned char *src, unsigned char *py
     pu += pitch2UV;
     pv += pitch2UV;
   }
-#else
-  __asm
-  {
-    mov edi, src
-    mov ebx, py
-    mov edx, pu
-    mov esi, pv
-    mov ecx, width
-    shr ecx, 1
-    movdqa xmm3, Ymask
-    yloop :
-    xor eax, eax
-      align 16
-      xloop :
-      movdqa xmm0, [edi + eax * 4]; VYUYVYUYVYUYVYUY
-      movdqa xmm1, xmm0; VYUYVYUYVYUYVYUY
-      pand xmm0, xmm3; 0Y0Y0Y0Y0Y0Y0Y0Y
-      psrlw xmm1, 8; 0V0U0V0U0V0U0V0U
-      packuswb xmm0, xmm0; xxxxxxxxYYYYYYYY
-      packuswb xmm1, xmm1; xxxxxxxxVUVUVUVU
-      movdqa xmm2, xmm1; xxxxxxxxVUVUVUVU
-      pand xmm1, xmm3; xxxxxxxx0U0U0U0U
-      psrlw xmm2, 8; xxxxxxxx0V0V0V0V
-      packuswb xmm1, xmm1; xxxxxxxxxxxxUUUU
-      packuswb xmm2, xmm2; xxxxxxxxxxxxVVVV
-      movlpd[ebx + eax * 2], xmm0; store y
-      movd[edx + eax], xmm1; store u
-      movd[esi + eax], xmm2; store v
-      add eax, 4
-      cmp eax, ecx
-      jl xloop
-      add edi, pitch1
-      add ebx, pitch2Y
-      add edx, pitch2UV
-      add esi, pitch2UV
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
 void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned char *pv,
   unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
 {
-  if ((cpu&CPUF_SSE2) && useSIMD && !(intptr_t(dst) & 15))
+  if ((cpu&CPUF_SSE2) && useSIMD)
     conv422toYUY2_SSE2(py, pu, pv, dst, pitch1Y, pitch1UV, pitch2, width, height);
-#ifdef ALLOW_MMX
-  else if ((cpu&CPUF_MMX) && useSIMD)
-    conv422toYUY2_MMX(py, pu, pv, dst, pitch1Y, pitch1UV, pitch2, width, height);
-#endif
   else
   {
     width >>= 1;
@@ -641,49 +545,10 @@ void PlanarFrame::conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned c
   }
 }
 
-#ifdef ALLOW_MMX
-void PlanarFrame::conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsigned char *pv,
-  unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
-{
-  __asm
-  {
-    mov ebx, py
-    mov edx, pu
-    mov esi, pv
-    mov edi, dst
-    mov ecx, width
-    shr ecx, 1
-    yloop:
-    xor eax, eax
-      align 16
-      xloop :
-      movq mm0, [ebx + eax * 2]; YYYYYYYY
-      movd mm1, [edx + eax]; 0000UUUU
-      movd mm2, [esi + eax]; 0000VVVV
-      movq mm3, mm0; YYYYYYYY
-      punpcklbw mm1, mm2; VUVUVUVU
-      punpcklbw mm0, mm1; VYUYVYUY
-      punpckhbw mm3, mm1; VYUYVYUY
-      movq[edi + eax * 4], mm0; store
-      movq[edi + eax * 4 + 8], mm3; store
-      add eax, 4
-      cmp eax, ecx
-      jl xloop
-      add ebx, pitch1Y
-      add edx, pitch1UV
-      add esi, pitch1UV
-      add edi, pitch2
-      dec height
-      jnz yloop
-      emms
-  }
-}
-#endif
 
 void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
   unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height)
 {
-#ifdef USE_INTR
   width >>= 1; // mov ecx, width
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x += 4) {
@@ -699,36 +564,6 @@ void PlanarFrame::conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsig
     pu += pitch1UV;
     pv += pitch1UV;
   }
-#else
-  __asm
-  {
-    mov ebx, py
-    mov edx, pu
-    mov esi, pv
-    mov edi, dst
-    mov ecx, width
-    shr ecx, 1
-    yloop:
-    xor eax, eax
-      align 16
-      xloop :
-      movlpd xmm0, [ebx + eax * 2]; ? ? ? ? ? ? ? ? YYYYYYYY
-      movd xmm1, [edx + eax]; 000000000000UUUU
-      movd xmm2, [esi + eax]; 000000000000VVVV
-      punpcklbw xmm1, xmm2; 00000000VUVUVUVU
-      punpcklbw xmm0, xmm1; VYUYVYUYVYUYVYUY
-      movdqa[edi + eax * 4], xmm0; store
-      add eax, 4
-      cmp eax, ecx
-      jl xloop
-      add ebx, pitch1Y
-      add edx, pitch1UV
-      add esi, pitch1UV
-      add edi, pitch2
-      dec height
-      jnz yloop
-  }
-#endif
 }
 
 // Avisynth v2.5.  Copyright 2002 Ben Rudiak-Gould et al.
@@ -789,194 +624,3 @@ void PlanarFrame::BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char
   }
 }
 
-  /*****************************
-  * Assembler bitblit by Steady
-   *****************************/
-#ifdef ALLOW_MMX
-void PlanarFrame::asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
-  const unsigned char* srcp, int src_pitch, int row_size, int height)
-{
-  if (row_size == 0 || height == 0) return;
-  const unsigned char* srcStart = srcp + src_pitch*(height - 1);
-  unsigned char* dstStart = dstp + dst_pitch*(height - 1);
-  if (row_size < 64)
-  {
-    _asm
-    {
-      mov   esi, srcStart
-      mov   edi, dstStart
-      mov   edx, row_size
-      dec   edx
-      mov   ebx, height
-      align 16
-      memoptS_rowloop:
-      mov   ecx, edx
-        memoptS_byteloop :
-      mov   AL, [esi + ecx]
-        mov[edi + ecx], AL
-        sub   ecx, 1
-        jnc   memoptS_byteloop
-        sub   esi, src_pitch
-        sub   edi, dst_pitch
-        dec   ebx
-        jne   memoptS_rowloop
-    };
-    return;
-  }
-  else if ((int(dstp) | row_size | src_pitch | dst_pitch) & 7)
-  {
-    _asm
-    {
-      mov   esi, srcStart
-      mov   AL, [esi]
-      mov   edi, dstStart
-      mov   edx, row_size
-      mov   ebx, height
-      align 16
-      memoptU_rowloop:
-      mov   ecx, edx
-        dec   ecx
-        add   ecx, esi
-        and   ecx, ~63
-        memoptU_prefetchloop :
-        mov   AX, [ecx]
-        sub   ecx, 64
-        cmp   ecx, esi
-        jae   memoptU_prefetchloop
-        movq    mm6, [esi]
-        movntq[edi], mm6
-        mov   eax, edi
-        neg   eax
-        mov   ecx, eax
-        and   eax, 63
-        and ecx, 7
-        align 16
-        memoptU_prewrite8loop:
-      cmp   ecx, eax
-        jz    memoptU_pre8done
-        movq    mm7, [esi + ecx]
-        movntq[edi + ecx], mm7
-        add   ecx, 8
-        jmp   memoptU_prewrite8loop
-        align 16
-        memoptU_write64loop:
-      movntq[edi + ecx - 64], mm0
-        movntq[edi + ecx - 56], mm1
-        movntq[edi + ecx - 48], mm2
-        movntq[edi + ecx - 40], mm3
-        movntq[edi + ecx - 32], mm4
-        movntq[edi + ecx - 24], mm5
-        movntq[edi + ecx - 16], mm6
-        movntq[edi + ecx - 8], mm7
-        memoptU_pre8done :
-      add   ecx, 64
-        cmp   ecx, edx
-        ja    memoptU_done64
-        movq    mm0, [esi + ecx - 64]
-        movq    mm1, [esi + ecx - 56]
-        movq    mm2, [esi + ecx - 48]
-        movq    mm3, [esi + ecx - 40]
-        movq    mm4, [esi + ecx - 32]
-        movq    mm5, [esi + ecx - 24]
-        movq    mm6, [esi + ecx - 16]
-        movq    mm7, [esi + ecx - 8]
-        jmp   memoptU_write64loop
-        memoptU_done64 :
-      sub     ecx, 64
-        align 16
-        memoptU_write8loop :
-        add     ecx, 8
-        cmp     ecx, edx
-        ja      memoptU_done8
-        movq    mm0, [esi + ecx - 8]
-        movntq[edi + ecx - 8], mm0
-        jmp   memoptU_write8loop
-        memoptU_done8 :
-      movq    mm1, [esi + edx - 8]
-        movntq[edi + edx - 8], mm1
-        sub   esi, src_pitch
-        sub   edi, dst_pitch
-        dec   ebx
-        jne   memoptU_rowloop
-        sfence
-        emms
-    };
-    return;
-  }
-  else
-  {
-    _asm
-    {
-      mov   esi, srcStart
-      mov   edi, dstStart
-      mov   ebx, height
-      mov   edx, row_size
-      align 16
-      memoptA_rowloop:
-      mov   ecx, edx
-        dec   ecx
-        add   ecx, esi
-        and   ecx, ~63
-        align 16
-        memoptA_prefetchloop :
-        mov   AX, [ecx]
-        sub   ecx, 64
-        cmp   ecx, esi
-        jae   memoptA_prefetchloop
-        mov   eax, edi
-        xor   ecx, ecx
-        neg   eax
-        and   eax, 63
-        align 16
-        memoptA_prewrite8loop:
-      cmp   ecx, eax
-        jz    memoptA_pre8done
-        movq    mm7, [esi + ecx]
-        movntq[edi + ecx], mm7
-        add   ecx, 8
-        jmp   memoptA_prewrite8loop
-        align 16
-        memoptA_write64loop:
-      movntq[edi + ecx - 64], mm0
-        movntq[edi + ecx - 56], mm1
-        movntq[edi + ecx - 48], mm2
-        movntq[edi + ecx - 40], mm3
-        movntq[edi + ecx - 32], mm4
-        movntq[edi + ecx - 24], mm5
-        movntq[edi + ecx - 16], mm6
-        movntq[edi + ecx - 8], mm7
-        memoptA_pre8done :
-      add   ecx, 64
-        cmp   ecx, edx
-        ja    memoptA_done64
-        movq    mm0, [esi + ecx - 64]
-        movq    mm1, [esi + ecx - 56]
-        movq    mm2, [esi + ecx - 48]
-        movq    mm3, [esi + ecx - 40]
-        movq    mm4, [esi + ecx - 32]
-        movq    mm5, [esi + ecx - 24]
-        movq    mm6, [esi + ecx - 16]
-        movq    mm7, [esi + ecx - 8]
-        jmp   memoptA_write64loop
-        memoptA_done64 :
-      sub   ecx, 64
-        align 16
-        memoptA_write8loop :
-        add   ecx, 8
-        cmp   ecx, edx
-        ja    memoptA_done8
-        movq    mm7, [esi + ecx - 8]
-        movntq[edi + ecx - 8], mm7
-        jmp   memoptA_write8loop
-        memoptA_done8 :
-      sub   esi, src_pitch
-        sub   edi, dst_pitch
-        dec   ebx
-        jne   memoptA_rowloop
-        sfence
-        emms
-    };
-    return;
-  }
-}
-#endif

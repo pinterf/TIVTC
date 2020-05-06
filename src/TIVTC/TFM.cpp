@@ -25,6 +25,7 @@
 
 #include "TFM.h"
 #include "TFMasm.h"
+#include "TCommonASM.h"
 #include "avs/alignment.h"
 
 PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
@@ -40,7 +41,7 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
   int mmatch1, nmatch1, nmatch2, mmatch2, fmatch, tmatch;
   int combed = -1, tcombed = -1, xblocks = -20;
   bool d2vfilm = false, d2vmatch = false, isSC = true;
-  int np = vi.IsYV12() ? 3 : 1;
+  int np = vi.IsPlanar() ? 3 : 1;
   int mics[5] = { -20, -20, -20, -20, -20 };
   int blockN[5] = { -20, -20, -20, -20, -20 };
   order = orderS;
@@ -748,7 +749,7 @@ bool TFM::checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, 
   int *blockN, int &xblocksi, int *mics, bool ddebug)
 {
   if (np == 1) return checkCombedYUY2(src, n, env, match, blockN, xblocksi, mics, ddebug);
-  else if (np == 3) return checkCombedYV12(src, n, env, match, blockN, xblocksi, mics, ddebug);
+  else if (np == 3) return checkCombedPlanar(src, n, env, match, blockN, xblocksi, mics, ddebug);
   else env->ThrowError("TFM:  an unknown error occured (unknown colorspace)!");
   return false;
 }
@@ -768,28 +769,23 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n,
   IScriptEnvironment *env)
 {
-  int b, plane, plane_aligned, ret, startx, y0a, y1a;
+  int b, ret, startx, y0a, y1a;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
   unsigned char *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Widtha, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
-  int incl = np == 3 ? 1 : mChroma ? 1 : 2;  // ?YV12 specific?
-  int stop = np == 3 ? mChroma ? 3 : 1 : 1;
+  int incl = np == 3 ? 1 : mChroma ? 1 : 2;  // pixel increments: 2 if YUY2 with no-chroma option otherwise 1
+  int stop = np == 3 ? mChroma ? 3 : 1 : 1; // Planar (np==3) -> chroma dependent plane number 1 or 3. YUY2 (np==1) -> 1
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0, accumNm = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int planes_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
   for (b = 0; b < stop; ++b)
   {
-    if (b == 0) {
-      plane = PLANAR_Y; plane_aligned = PLANAR_Y_ALIGNED;
-    }
-    else if (b == 1) {
-      plane = PLANAR_V; plane_aligned = PLANAR_V_ALIGNED;
-    }
-    else {
-      plane = PLANAR_U; plane_aligned = PLANAR_U_ALIGNED;
-    }
+    const int plane = planes[b];
+    const int plane_aligned = planes_aligned[b];
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -1084,7 +1080,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   unsigned char *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Widtha, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
-  int incl = np == 3 ? 1 : mChroma ? 1 : 2;
+  int incl = np == 3 ? 1 : mChroma ? 1 : 2; // fixme check yv12?
   int stop = np == 3 ? mChroma ? 3 : 1 : 1;
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0;
   unsigned long accumNm = 0, accumPml = 0, accumNml = 0;
@@ -1431,7 +1427,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   unsigned char *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Widtha, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
-  int incl = np == 3 ? 1 : mChroma ? 1 : 2;
+  int incl = np == 3 ? 1 : mChroma ? 1 : 2; // fixme check yv12?
   int stop = np == 3 ? mChroma ? 3 : 1 : 1;
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0;
   unsigned long accumNm = 0, accumPml = 0, accumNml = 0;
@@ -2181,6 +2177,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   return ret;
 }
 
+// fixme: possible fix needed inside
 bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   IScriptEnvironment *env, int n)
 {
@@ -2191,8 +2188,10 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   const unsigned char *nxtp = nxt->GetReadPtr(PLANAR_Y);
   int height = src->GetHeight(PLANAR_Y) >> 1;
   int width = src->GetRowSize(PLANAR_Y);
-  if (vi.IsYV12()) width = ((width >> 4) << 4);
-  else width = ((width >> 5) << 5);
+  if (vi.IsPlanar()) 
+    width = ((width >> 4) << 4); // mod16
+  else // YUY2
+    width = ((width >> 5) << 5); // mod32
   int prv_pitch = prv->GetPitch(PLANAR_Y) << 1;
   int src_pitch = src->GetPitch(PLANAR_Y) << 1;
   int nxt_pitch = nxt->GetPitch(PLANAR_Y) << 1;
@@ -2200,71 +2199,33 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   srcp += (1 - field)*(src_pitch >> 1);
   nxtp += (1 - field)*(nxt_pitch >> 1);
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
-  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(srcp) | intptr_t(nxtp) | prv_pitch | src_pitch | nxt_pitch) & 15))
+
+  if (cpu&CPUF_SSE2)
   {
     if (sclast.frame == n)
     {
       diffp = sclast.diff;
-      if (vi.IsYV12()) checkSceneChangeYV12_1_SSE2(srcp, nxtp, height, width, src_pitch,
-        nxt_pitch, diffn);
-      else checkSceneChangeYUY2_1_SSE2(srcp, nxtp, height, width, prv_pitch, src_pitch, diffn);
+      // FIXME: Why planar is: src_pitch, nxt_pitch but YUY2 prv_pitch, src_pitch?
+      // or src_pitch, nxt_pitch is wrong and we need prv_pitch, src_pitch?????
+      if (vi.IsPlanar())
+        checkSceneChangeYV12_1_SSE2(srcp, nxtp, height, width, src_pitch, nxt_pitch, diffn);
+      else 
+        checkSceneChangeYUY2_1_SSE2(srcp, nxtp, height, width, src_pitch, nxt_pitch, diffn);
+
     }
     else
     {
-      if (vi.IsYV12()) checkSceneChangeYV12_2_SSE2(prvp, srcp, nxtp, height, width,
-        prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
-      else checkSceneChangeYUY2_2_SSE2(prvp, srcp, nxtp, height, width, prv_pitch,
-        src_pitch, nxt_pitch, diffp, diffn);
+      if (vi.IsPlanar())
+        checkSceneChangeYV12_2_SSE2(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
+      else 
+        checkSceneChangeYUY2_2_SSE2(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
     }
   }
-#ifdef ALLOW_MMX
-  else if (cpu&CPUF_INTEGER_SSE)
-  {
-    if (sclast.frame == n)
-    {
-      diffp = sclast.diff;
-      if (vi.IsYV12()) checkSceneChangeYV12_1_ISSE(srcp, nxtp, height, width, src_pitch,
-        nxt_pitch, diffn);
-      else checkSceneChangeYUY2_1_ISSE(srcp, nxtp, height, width, prv_pitch, src_pitch, diffn);
-    }
-    else
-    {
-      if (vi.IsYV12()) checkSceneChangeYV12_2_ISSE(prvp, srcp, nxtp, height, width,
-        prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
-      else checkSceneChangeYUY2_2_ISSE(prvp, srcp, nxtp, height, width, prv_pitch,
-        src_pitch, nxt_pitch, diffp, diffn);
-    }
-  }
-  else if (cpu&CPUF_MMX)
-  {
-    if (sclast.frame == n)
-    {
-      diffp = sclast.diff;
-      if (vi.IsYV12()) checkSceneChangeYV12_1_MMX(srcp, nxtp, height, width, src_pitch,
-        nxt_pitch, diffn);
-      else checkSceneChangeYUY2_1_MMX(srcp, nxtp, height, width, prv_pitch, src_pitch, diffn);
-    }
-    else
-    {
-      if (vi.IsYV12()) checkSceneChangeYV12_2_MMX(prvp, srcp, nxtp, height, width,
-        prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
-      else checkSceneChangeYUY2_2_MMX(prvp, srcp, nxtp, height, width, prv_pitch,
-        src_pitch, nxt_pitch, diffp, diffn);
-    }
-  }
-#endif
   else
   {
     if (sclast.frame != n)
     {
-      if (vi.IsYV12())
+      if (vi.IsPlanar())
       {
         for (int y = 0; y < height; ++y)
         {
@@ -2308,7 +2269,7 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     else
     {
       diffp = sclast.diff;
-      if (vi.IsYV12())
+      if (vi.IsPlanar())
       {
         for (int y = 0; y < height; ++y)
         {
@@ -2453,110 +2414,34 @@ void TFM::putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm)
   }
 }
 
+
+// check in TDeint, plus don't call with aligned width!'
 void TFM::buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
-  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | intptr_t(dstp) | prv_pitch | nxt_pitch | dst_pitch) & 15))
-  {
-    buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch,
-      Width, Height);
-  }
-#ifdef ALLOW_MMX
-  else if (cpu&CPUF_MMX)
-  {
-    buildABSDiffMask2_MMX(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch,
-      Width, Height);
-  }
-#endif
-  else
-  {
-    const int inc = (!(vi.IsYUY2() && !mChroma)) ? 1 : 2;
-    for (int y = 0; y < Height; ++y)
-    {
-      for (int x = 0; x < Width; x += inc)
-      {
-        const int diff = abs(prvp[x] - nxtp[x]);
-        if (diff > 19) dstp[x] = 3;
-        else if (diff > 3) dstp[x] = 1;
-        else dstp[x] = 0;
-      }
-      prvp += prv_pitch;
-      nxtp += nxt_pitch;
-      dstp += dst_pitch;
-    }
-  }
+  //if (optt == 0) cpu = 0;
+
+  const bool YUY2_LumaOnly = vi.IsYUY2() && !mChroma;
+  do_buildABSDiffMask2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, Width, Height, YUY2_LumaOnly, cpu);
+
 }
 
+// fixme: don't call with aligned width!'
+// this version has extras regarding YUY2: see comment in TDeint
 void TFM::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
   int prv_pitch, int nxt_pitch, int tpitch, int width, int height,
   IScriptEnvironment *env)
 {
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
-  if ((cpu&CPUF_SSE2) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch | tpitch) & 15))
-  {
-    // aligned. 
-    // different path if not mod16, but only for remaining 8 bytes
-    buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch,
-      width, height);
-  }
-#ifdef ALLOW_MMX
-  else if (cpu&CPUF_MMX)
-  {
-    buildABSDiffMask_MMX(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch,
-      width, height);
-  }
-#endif
-  else
-  {
-    unsigned char *dstp = tbuffer;
-    if (!(vi.IsYUY2() && !mChroma))
-    {
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = 0; x < width; x += 4)
-        {
-          dstp[x + 0] = abs(prvp[x + 0] - nxtp[x + 0]);
-          dstp[x + 1] = abs(prvp[x + 1] - nxtp[x + 1]);
-          dstp[x + 2] = abs(prvp[x + 2] - nxtp[x + 2]);
-          dstp[x + 3] = abs(prvp[x + 3] - nxtp[x + 3]);
-        }
-        prvp += prv_pitch;
-        nxtp += nxt_pitch;
-        dstp += tpitch;
-      }
-    }
-    else
-    {
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = 0; x < width; x += 4)
-        {
-          dstp[x + 0] = abs(prvp[x + 0] - nxtp[x + 0]);
-          dstp[x + 2] = abs(prvp[x + 2] - nxtp[x + 2]);
-        }
-        prvp += prv_pitch;
-        nxtp += nxt_pitch;
-        dstp += tpitch;
-      }
-    }
-  }
+  //if (opt == 0) cpu = 0;
+
+  // made common with TDeint
+  const bool YUY2_LumaOnly = vi.IsYUY2() && !mChroma;
+  do_buildABSDiffMask(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height, YUY2_LumaOnly, cpu);
 }
+
 
 AVSValue __cdecl Create_TFM(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
@@ -2606,8 +2491,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   char linein[1024];
   char *linep, *linet;
   FILE *f = NULL;
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("TFM:  YV12 and YUY2 data only!");
+  if (!vi.IsYUV())
+    env->ThrowError("TFM:  YUV data only!");
   if (vi.height & 1 || vi.width & 1)
     env->ThrowError("TFM:  height and width must be divisible by 2!");
   if (vi.height < 6 || vi.width < 64)
@@ -2704,8 +2589,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   }
   tpitchy = tpitchuv = -20;
   
-  const int ALIGN_BUF = 64; // must be <= as Avisynth's alignment. 64 is enoght for a decade
-  if (vi.IsYV12())
+  const int ALIGN_BUF = 64; // must be <= as Avisynth's alignment. 64 is enough for a decade
+  if (vi.IsPlanar())
   {
     // pinterf: fix for avisynth+ (frame aligment>16 in general)
     // we allocate (height >> 1) * AlignNumber(vi.width,16) for tbuffer

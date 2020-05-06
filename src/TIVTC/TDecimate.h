@@ -56,11 +56,41 @@
 #define cfps(n) n == 1 ? "119.880120" : n == 2 ? "59.940060" : n == 3 ? "39.960040" : \
 				n == 4 ? "29.970030" : n == 5 ? "23.976024" : "unknown"
 
+// All the rest of this code was just copied from tdecimate.cpp because I'm
+// too lazy to make it work such that it could call that code.
+// Fixme: !! Do here, then copy back to TDecimate! Or better: put at one place
+struct CalcMetricData {
+  int np;
+  bool predenoise;
+  VideoInfo vi;
+  bool chroma;
+  int opt;
+  int blockx;
+  int blockx_half;
+  int blockx_shift;
+  int blocky;
+  int blocky_half;
+  int blocky_shift;
+  uint64_t* diff;
+  int nt;
+  bool ssd; // ssd or sad
+
+  bool metricF_needed; // from TDecimate: true, from FrameDiff: false
+  // TDecimate
+  uint64_t* metricF; // out!
+  bool scene;
+};
+
+void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFrame& currt, CalcMetricData& d);
+
+void blurFrame(PVideoFrame& src, PVideoFrame& dst, int np, int iterations,
+  bool bchroma, IScriptEnvironment* env, VideoInfo& vi_t, int opti);
+
 class TDecimate : public GenericVideoFilter
 {
 private:
   int nfrms, nfrmsN, nt, blockx, blocky, linearCount, maxndl;
-  int yshiftS, xshiftS, xhalfS, yhalfS, mode, conCycleTP, opt;
+  int blocky_shift, blockx_shift, blockx_half, blocky_half, mode, conCycleTP, opt;
   int cycleR, cycle, hybrid, vidDetect, conCycle, vfrDec, lastn;
   int lastFrame, lastCycle, lastGroup, lastType, retFrames;
   uint64_t MAX_DIFF, sceneThreshU, sceneDivU, diff_thresh, same_thresh;
@@ -138,11 +168,6 @@ private:
   uint64_t calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
     int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene);
 
-  uint64_t calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
-    int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
-  uint64_t calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,
-    int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env);
-
 
   void calcBlendRatios2(double &amount1, double &amount2, int &frame1,
     int &frame2, int tf, Cycle &p, Cycle &c, Cycle &n, int remove);
@@ -152,29 +177,6 @@ private:
   int diff_f(int f1, int f2, IScriptEnvironment *env);
   int mode7_analysis(int n, IScriptEnvironment *env);
 
-#ifdef ALLOW_MMX
-  static void VerticalBlurMMX(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-    int dst_pitch, int width, int height);
-#endif
-  static void VerticalBlurSSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-    int dst_pitch, int width, int height);
-
-  template<bool use_sse2>
-  static void HorizontalBlurMMXorSSE2_YV12(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-    int dst_pitch, int width, int height);
-
-  template<bool use_sse2>
-  static void HorizontalBlurMMXorSSE2_YUY2_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-    int dst_pitch, int width, int height);
-
-  static void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
-    IScriptEnvironment *env, VideoInfo& vi_t, int opti);
-  static void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
-    IScriptEnvironment *env, VideoInfo& vi_t, int opti);
-
-  template<bool use_sse2>
-  static void HorizontalBlurMMXorSSE2_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
-    int dst_pitch, int width, int height);
   bool wasChosen(int i, int n);
   void calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene, bool gethint,
     IScriptEnvironment *env);
@@ -189,11 +191,15 @@ public:
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
     PClip _clip2, int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env);
   ~TDecimate();
-  static void blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
-    bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
   }
+
+  static uint64_t calcLumaDiffYUY2SSD(const unsigned char* prvp, const unsigned char* nxtp,
+    int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env);
+  static uint64_t calcLumaDiffYUY2SAD(const unsigned char* prvp, const unsigned char* nxtp,
+    int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env);
+
 
 };

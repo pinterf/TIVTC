@@ -39,38 +39,29 @@ class FieldDiff : public GenericVideoFilter
 {
 private:
   int nt, nfrms, opt;
-  bool chroma, debug, display, sse;
+  bool chroma, debug, display;
+  bool sse; // sum of squared errors instead of sad
   char buf[512];
-  static int64_t getDiff(PVideoFrame &src, int np, bool chromaIn, int ntIn,
+  static int64_t getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn,
     int opti, IScriptEnvironment *env);
   static int64_t getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn,
     int opti, IScriptEnvironment *env);
-  static void calcFieldDiff_SSE_SSE2(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_16(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
   static void calcFieldDiff_SSE_SSE2_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SSE_SSE2_Luma(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_Luma_16(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
   static void calcFieldDiff_SSE_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_16(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
   static void calcFieldDiff_SAD_SSE2_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_Luma(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(const unsigned char *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-#ifdef ALLOW_MMX
-  static void calcFieldDiff_SSE_MMX(const unsigned char *src2p, int src_pitch,
-    int width, int height, int64_t nt, int64_t &diff);
-  static void calcFieldDiff_SSE_MMX_Luma(const unsigned char *src2p, int src_pitch,
-    int width, int height, int64_t nt, int64_t &diff);
-  static void calcFieldDiff_SAD_MMX(const unsigned char *src2p, int src_pitch,
-    int width, int height, int64_t nt, int64_t &diff);
-  static void calcFieldDiff_SAD_MMX_Luma(const unsigned char *src2p, int src_pitch,
-    int width, int height, int64_t nt, int64_t &diff);
-#endif
 
 public:
   FieldDiff(PClip _child, int _nt, bool _chroma, bool _display,

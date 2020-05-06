@@ -28,7 +28,7 @@
 #include <malloc.h>
 #include "internal.h"
 
-#define MIN_ALIGNMENT 16
+#define MIN_ALIGNMENT 32
 
 #define PLANAR_420 1
 #define PLANAR_422 2
@@ -53,26 +53,14 @@ private:
   void copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
   void copyInternalTo(PlanarFrame &frame);
   void copyInternalPlaneTo(PlanarFrame &frame, int plane);
-#ifdef ALLOW_MMX
-  static void asm_BitBlt_ISSE(unsigned char* dstp, int dst_pitch,
-    const unsigned char* srcp, int src_pitch, int row_size, int height);
-#endif
   void convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
-#ifdef ALLOW_MMX
-  void convYUY2to422_MMX(const unsigned char *src, unsigned char *py, unsigned char *pu,
-    unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
-#endif
   void convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
     unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
   void conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
   void conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
-#ifndef _M_X64
-  void conv422toYUY2_MMX(unsigned char *py, unsigned char *pu, unsigned char *pv,
-    unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
-#endif
 
 public:
   PlanarFrame();

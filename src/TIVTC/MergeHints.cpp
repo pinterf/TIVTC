@@ -30,8 +30,8 @@ MergeHints::MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnviro
 {
   if (vi.width * vi.height < 64)
     env->ThrowError("MergeHints:  total frame size must be at least 64 pixels!");
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("MergeHints:  only YV12 and YUY2 input supported!");
+  if (!vi.IsYUV())
+    env->ThrowError("MergeHints:  only YUV input supported!");
   child->SetCacheHints(CACHE_NOTHING, 0);
   hintClip->SetCacheHints(CACHE_NOTHING, 0);
   if (debug)

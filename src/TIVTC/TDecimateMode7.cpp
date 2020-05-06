@@ -125,7 +125,7 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
     else
     {
       dst = clip2->GetFrame(ret, env);
-      np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
     }
     env->MakeWritable(&dst);
     sprintf(buf, "TDecimate %s by tritical", VERSION);

@@ -56,10 +56,15 @@ private:
   bool getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hint);
   void getSetOvr(int n);
   void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
+  
+  // fixme check: similar (but not same) in TDeInterlace
   void denoiseYUY2(PlanarFrame *mask);
-  void denoiseYV12(PlanarFrame *mask);
+  void denoisePlanar(PlanarFrame *mask);
+
   void linkYUY2(PlanarFrame *mask);
-  void linkYV12(PlanarFrame *mask);
+  template<int planarType>
+  void linkPlanar(PlanarFrame *mask);
+
   void destroyHint(PVideoFrame &dst, unsigned int hint);
   void CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
     int field, int np, IScriptEnvironment *env);

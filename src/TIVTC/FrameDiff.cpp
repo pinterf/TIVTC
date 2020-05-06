@@ -32,8 +32,10 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
   debug(_debug), norm(_norm), predenoise(_predenoise), ssd(_ssd), rpos(_rpos), opt(_opt)
 {
   diff = NULL;
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("FrameDiff:  only YV12 and YUY2 input supported!");
+  if (vi.BitsPerComponent() != 8)
+    env->ThrowError("FrameDiff:  Only 8 bit clip data supported!");
+  if (vi.IsRGB() || vi.IsYV411())
+    env->ThrowError("FrameDiff:  RGB or 411 data not supported!");
   if (vi.height & 1)
     env->ThrowError("FrameDiff:  height must be mod 2!");
   if (vi.height < 8)
@@ -50,41 +52,64 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
     env->ThrowError("FrameDiff:  illegal blocky size!");
   if (opt < 0 || opt > 4)
     env->ThrowError("FrameDiff:  opt must be set to 0, 1, 2, 3, or 4!");
-  xshiftS = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
+  blockx_shift = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
     blockx == 64 ? 6 : blockx == 128 ? 7 : blockx == 256 ? 8 : blockx == 512 ? 9 :
-    blockx == 1024 ? 10 : 11;
-  yshiftS = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
+    blockx == 1024 ? 10 : 11; // log2 blockx
+  blocky_shift = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
     blocky == 64 ? 6 : blocky == 128 ? 7 : blocky == 256 ? 8 : blocky == 512 ? 9 :
-    blocky == 1024 ? 10 : 11;
-  yhalfS = blocky >> 1;
-  xhalfS = blockx >> 1;
-  if (vi.IsYV12())
+    blocky == 1024 ? 10 : 11; // log2 blocky
+  // not chroma block sizes, really blockx / 2
+  blocky_half = blocky >> 1; // not yv12 specific, really half
+  blockx_half = blockx >> 1;
+
+  /*
+  const int blockxC = vi.IsYUY2() ? blocky >> 1 : blocky >> vi.GetPlaneHeightSubsampling(PLANAR_U); // fixme: yv12 specific?
+  const int blockYC = vi.IsYUY2() ? blockx >> 1 : blockx >> vi.GetPlaneWidthSubsampling(PLANAR_U); // fixme: vy12/yuy2 specific?
+  */
+  if (!vi.IsYUY2())
   {
-    if (chroma)
+    if (chroma) // Y + U + V
     {
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*2.0));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*2.0);
+      // fixme: common metrics, like in mvtools? 4:2:2 has greater chroma weight!
+      // keep xhalfS and yhalfS if YV16/24 ssd/sad is converted to YV12-like metrics
+      // or else use blockXC and blockYC
+      if (ssd) 
+        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*2.0)); // 2 chroma planes
+      else 
+        MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*2.0);
     }
     else
     {
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
+      // luma only
+      if (ssd) 
+        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
+      else 
+        MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
     }
   }
   else
   {
+    // YUY2
     if (chroma)
     {
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*4.0*0.625));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*4.0*0.625);
+      if (ssd) // fixme: why *4*0.625 (*2.5) and why yhalfS is /2 however no subsampling
+        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*4.0*0.625));
+      else 
+        MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*4.0*0.625);
     }
     else
     {
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
+      if (ssd) 
+        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
+      else 
+        MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
     }
   }
-  diff = (uint64_t*)_aligned_malloc((((vi.width + xhalfS) >> xshiftS) + 1)*(((vi.height + yhalfS) >> yshiftS) + 1) * 4 * sizeof(uint64_t), 16);
+  // fixme: done diff size: here is for blocks. xhalfS is really blockx >> 1
+  diff = (uint64_t*)_aligned_malloc((((vi.width + (blockx >> 1)) >> blockx_shift) + 1) * (((vi.height + (blocky >> 1)) >> blocky_shift) + 1) 
+    * 4 // fixme: check why 4?
+    * sizeof(uint64_t), 16);
+  //diff = (uint64_t*)_aligned_malloc((((vi.width + xhalfS) >> xshiftS) + 1)*(((vi.height + yhalfS) >> yshiftS) + 1) * 4 * sizeof(uint64_t), 16);
   if (diff == NULL) env->ThrowError("FrameDiff:  malloc failure (diff)!");
   nfrms = vi.num_frames - 1;
 #ifdef AVISYNTH_2_5
@@ -109,9 +134,9 @@ AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
-  int np = vi.IsYV12() ? 3 : 1;
-  int xblocks = ((vi.width + xhalfS) >> xshiftS) + 1;
-  int yblocks = ((vi.height + yhalfS) >> yshiftS) + 1;
+  int np = vi.IsYUY2() ? 1 : 3;
+  int xblocks = ((vi.width + blockx_half) >> blockx_shift) + 1;
+  int yblocks = ((vi.height + blocky_half) >> blocky_shift) + 1;
   int arraysize = (xblocks*yblocks) << 2;
   bool lset = false, hset = false;
   uint64_t lowestDiff = ULLONG_MAX, highestDiff = 0;
@@ -195,10 +220,10 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
-  int np = vi.IsYV12() ? 3 : 1;
-  int xblocks = ((vi.width + xhalfS) >> xshiftS) + 1;
+  int np = vi.IsYUY2() ? 1 : 3;
+  int xblocks = ((vi.width + blockx_half) >> blockx_shift) + 1; // same as in constructor
   int xblocks4 = xblocks << 2;
-  int yblocks = ((vi.height + yhalfS) >> yshiftS) + 1;
+  int yblocks = ((vi.height + blocky_half) >> blocky_shift) + 1; // same as in constructor
   int arraysize = (xblocks*yblocks) << 2;
   PVideoFrame src;
   if (prevf && n >= 1)
@@ -294,11 +319,13 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
 
 void FrameDiff::setBlack(PVideoFrame &d)
 {
-  const int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = vi.IsYV12() ? 3 : 1;
-  for (int i = 0; i < 3; ++i)
-    memset(d->GetWritePtr(plane[i]), 0,
-      d->GetPitch(plane[i])*d->GetHeight(plane[i]));
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int stop = vi.IsYUY2() ? 1 : 3;
+  for (int i = 0; i < stop; ++i) { // PF 20200412 was: 3 even for YUY2?
+    const int plane = planes[i];
+    memset(d->GetWritePtr(plane), 0,
+      d->GetPitch(plane) * d->GetHeight(plane));
+  }
 }
 
 bool FrameDiff::checkOnImage(int x, int xblocks4)
@@ -315,8 +342,8 @@ bool FrameDiff::checkOnImage(int x, int xblocks4)
   if (cordy >= vi.height) return false;
   if (cordx >= vi.width) return false;
   if (mode == 1) return true;
-  if (cordy < 0 || cordy + yhalfS >= vi.height) return false;
-  if (cordx < 0 || cordx + xhalfS >= vi.width) return false;
+  if (cordy < 0 || cordy + blocky_half >= vi.height) return false;
+  if (cordx < 0 || cordx + blockx_half >= vi.width) return false;
   return true;
 }
 
@@ -327,112 +354,118 @@ int FrameDiff::mapn(int n)
   return n;
 }
 
-// All the rest of this code was just copied from tdecimate.cpp because I'm
-// too lazy to make it work such that it could call that code.
-
 void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env)
 {
+  struct CalcMetricData d;
+  d.np = np;
+  d.predenoise = predenoise;
+  d.vi = vi;
+  d.chroma = chroma;
+  d.opt = opt;
+  d.blockx_half = blockx;
+  d.blockx_half = blockx_half;
+  d.blockx_shift = blockx_shift;
+  d.blocky = blocky;
+  d.blocky_half = blocky_half;
+  d.blocky_shift = blocky_shift;
+  d.diff = diff;
+  d.nt = nt;
+  d.ssd = ssd;
+
+  d.metricF_needed = false;
+  // only for TDecimate:
+  uint64_t dummy_metricF;
+  d.metricF = &dummy_metricF;
+  d.scene = false; // n/a
+  CalcMetricsExtracted(env, prevt, currt, d);
+}
+
+// the same core is in calcMetricCycle
+void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFrame& currt, CalcMetricData& d)
+{
   PVideoFrame prev, curr;
-  if (predenoise)
+
+  if (d.predenoise)
   {
-    prev = env->NewVideoFrame(vi);
-    curr = env->NewVideoFrame(vi);
-    TDecimate::blurFrame(prevt, prev, np, 2, chroma, env, vi, opt);
-    TDecimate::blurFrame(currt, curr, np, 2, chroma, env, vi, opt);
+    prev = env->NewVideoFrame(d.vi);
+    curr = env->NewVideoFrame(d.vi);
+    blurFrame(prevt, prev, d.np, 2, d.chroma, env, d.vi, d.opt);
+    blurFrame(currt, curr, d.np, 2, d.chroma, env, d.vi, d.opt);
   }
   else
   {
     prev = prevt;
     curr = currt;
   }
-  const unsigned char *prvp, *curp, *prvpT, *curpT;
+
+  // core start
+
+  const unsigned char* prvp, * curp, * prvpT, * curpT;
   int prv_pitch, cur_pitch, width, height, y, x, difft;
-  int xblocks = ((vi.width + xhalfS) >> xshiftS) + 1;
+
+  int xblocks = ((d.vi.width + d.blockx_half) >> d.blockx_shift) + 1;
   int xblocks4 = xblocks << 2;
-  int yblocks = ((vi.height + yhalfS) >> yshiftS) + 1;
-  int arraysize = (xblocks*yblocks) << 2;
-  int temp1, temp2, box1, box2, stop, inc;
-  int yhalf, xhalf, yshift, xshift, b, plane;
+  int yblocks = ((d.vi.height + d.blocky_half) >> d.blocky_shift) + 1;
+  int arraysize = (xblocks * yblocks) << 2;
+
+  int temp1, temp2, box1, box2;
+  int yhalf, xhalf, yshift, xshift, b;
   int widtha, heighta, u, v, diffs;
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
-  memset(diff, 0, arraysize * sizeof(uint64_t));
-  stop = chroma ? np : 1;
-  inc = np == 3 ? 1 : chroma ? 1 : 2;
+
+  memset(d.diff, 0, arraysize * sizeof(uint64_t));
+
+  const bool IsYUY2 = (d.np == 1); // fixme: we have also vi here
+  const int stop = d.chroma ? d.np : 1; // chroma: full 3 planes at planar, 1 at YUY2 or planar luma-only
+  const int inc = IsYUY2 ? (d.chroma ? 1 : 2) : 1; // fixed YV12/YUY
+
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+
   for (b = 0; b < stop; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_U;
-    else plane = PLANAR_V;
+    const int plane = planes[b];
     prvp = prev->GetReadPtr(plane);
     prv_pitch = prev->GetPitch(plane);
     width = prev->GetRowSize(plane);
     height = prev->GetHeight(plane);
     curp = curr->GetReadPtr(plane);
     cur_pitch = curr->GetPitch(plane);
-    if (b == 0)
+    if (d.vi.IsPlanar())
     {
-      yshift = yshiftS;
-      yhalf = yhalfS;
-      if (np == 3)
-      {
-        xshift = xshiftS;
-        xhalf = xhalfS;
-      }
-      else
-      {
-        xshift = xshiftS + 1;
-        xhalf = xhalfS << 1;
-      }
+      const int ysubsampling = d.vi.GetPlaneHeightSubsampling(plane);
+      const int xsubsampling = d.vi.GetPlaneWidthSubsampling(plane);
+      yshift = d.blocky_shift - ysubsampling; // fixed yv12
+      yhalf = d.blocky_half >> ysubsampling; // fixed YV12
+      xshift = d.blockx_shift - xsubsampling; // fixme: why -1? YV12 specific?
+      xhalf = d.blockx_half >> xsubsampling; // fixed YV12
     }
-    else
+    else {
+      // YUY2
+      yshift = d.blocky_shift;
+      yhalf = d.blocky_half;
+      xshift = d.blockx_shift + 1;
+      xhalf = d.blockx_half << 1;
+    }
+
+    // fixme: correct chroma diff for yv16 and yv24 to the yv12 metrics (div by 2 for yv16, div by 4 for yv24)
+    // or use Chromaweight correction factor like in mvtools2
+    // sum is gathered in uint64_t diff
+
+    if (d.blockx == 32 && d.blocky == 32 && d.nt <= 0)
     {
-      yshift = yshiftS - 1;
-      yhalf = yhalfS >> 1;
-      xshift = xshiftS - 1;
-      xhalf = xhalfS >> 1;
-    }
-    if (blockx == 32 && blocky == 32 && nt <= 0)
-    { 
-      if (ssd && (cpu&CPUF_SSE2))
-        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true, diff, chroma); // true: use_sse2
-#ifdef ALLOW_MMX
-      else if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false, diff, chroma);
-#endif
-      else if (!ssd && (cpu&CPUF_SSE2))
-        calcDiffSAD_32x32_iSSEorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-#ifdef ALLOW_MMX
-      else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-        calcDiffSAD_32x32_iSSEorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-      else if (!ssd && (cpu&CPUF_MMX))
-        calcDiffSAD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-#endif
+      if (d.ssd && (cpu & CPUF_SSE2))
+        calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma);
+      else if (!d.ssd && (cpu & CPUF_SSE2))
+        calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma);
       else { goto use_c; }
     }
-    else if (((np == 3 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
+    else if (((!IsYUY2 && d.blockx >= 16 && d.blocky >= 16) || (IsYUY2 && d.blockx >= 8 && d.blocky >= 8)) && d.nt <= 0)
     {
-
-      if (ssd && (cpu&CPUF_SSE2))
-        calcDiffSSD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#ifdef ALLOW_MMX
-      else if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-      else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-        calcDiffSAD_Generic_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#endif
-      else if (!ssd && (cpu&CPUF_SSE2))
-        calcDiffSAD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#ifdef ALLOW_MMX
-      else if (!ssd && (cpu&CPUF_MMX))
-        calcDiffSAD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#endif
+      // YUY2 block size 8 is really 16 in width because luma + chroma
+      if (d.ssd && (cpu & CPUF_SSE2))
+        calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half);
+      else if (!d.ssd && (cpu & CPUF_SSE2))
+        calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half);
       else { goto use_c; }
     }
     else
@@ -440,12 +473,12 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
     use_c:
       heighta = (height >> (yshift - 1)) << (yshift - 1);
       widtha = (width >> (xshift - 1)) << (xshift - 1);
-      if (ssd)
+      if (d.ssd)
       {
         for (y = 0; y < heighta; y += yhalf)
         {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
+          temp1 = (y >> yshift) * xblocks4;
+          temp2 = ((y + yhalf) >> yshift) * xblocks4;
           for (x = 0; x < widtha; x += xhalf)
           {
             prvpT = prvp;
@@ -456,19 +489,19 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
               {
                 difft = prvpT[x + v] - curpT[x + v];
                 difft *= difft;
-                if (difft > nt) diffs += difft;
+                if (difft > d.nt) diffs += difft;
               }
               prvpT += prv_pitch;
               curpT += cur_pitch;
             }
-            if (diffs > nt)
+            if (diffs > d.nt)
             {
               box1 = (x >> xshift) << 2;
               box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
+              d.diff[temp1 + box1 + 0] += diffs;
+              d.diff[temp1 + box2 + 1] += diffs;
+              d.diff[temp2 + box1 + 2] += diffs;
+              d.diff[temp2 + box2 + 3] += diffs;
             }
           }
           for (x = widtha; x < width; x += inc)
@@ -479,39 +512,39 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
             {
               difft = prvpT[x] - curpT[x];
               difft *= difft;
-              if (difft > nt) diffs += difft;
+              if (difft > d.nt) diffs += difft;
               prvpT += prv_pitch;
               curpT += cur_pitch;
             }
-            if (diffs > nt)
+            if (diffs > d.nt)
             {
               box1 = (x >> xshift) << 2;
               box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
+              d.diff[temp1 + box1 + 0] += diffs;
+              d.diff[temp1 + box2 + 1] += diffs;
+              d.diff[temp2 + box1 + 2] += diffs;
+              d.diff[temp2 + box2 + 3] += diffs;
             }
           }
-          prvp += prv_pitch*yhalf;
-          curp += cur_pitch*yhalf;
+          prvp += prv_pitch * yhalf;
+          curp += cur_pitch * yhalf;
         }
         for (y = heighta; y < height; ++y)
         {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
+          temp1 = (y >> yshift) * xblocks4;
+          temp2 = ((y + yhalf) >> yshift) * xblocks4;
           for (x = 0; x < width; x += inc)
           {
             difft = prvp[x] - curp[x];
             difft *= difft;
-            if (difft > nt)
+            if (difft > d.nt)
             {
               box1 = (x >> xshift) << 2;
               box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += difft;
-              diff[temp1 + box2 + 1] += difft;
-              diff[temp2 + box1 + 2] += difft;
-              diff[temp2 + box2 + 3] += difft;
+              d.diff[temp1 + box1 + 0] += difft;
+              d.diff[temp1 + box2 + 1] += difft;
+              d.diff[temp2 + box1 + 2] += difft;
+              d.diff[temp2 + box2 + 3] += difft;
             }
           }
           prvp += prv_pitch;
@@ -522,8 +555,8 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
       {
         for (y = 0; y < heighta; y += yhalf)
         {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
+          temp1 = (y >> yshift) * xblocks4;
+          temp2 = ((y + yhalf) >> yshift) * xblocks4;
           for (x = 0; x < widtha; x += xhalf)
           {
             prvpT = prvp;
@@ -533,19 +566,19 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
               for (v = 0; v < xhalf; v += inc)
               {
                 difft = abs(prvpT[x + v] - curpT[x + v]);
-                if (difft > nt) diffs += difft;
+                if (difft > d.nt) diffs += difft;
               }
               prvpT += prv_pitch;
               curpT += cur_pitch;
             }
-            if (diffs > nt)
+            if (diffs > d.nt)
             {
               box1 = (x >> xshift) << 2;
               box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
+              d.diff[temp1 + box1 + 0] += diffs;
+              d.diff[temp1 + box2 + 1] += diffs;
+              d.diff[temp2 + box1 + 2] += diffs;
+              d.diff[temp2 + box2 + 3] += diffs;
             }
           }
           for (x = widtha; x < width; x += inc)
@@ -555,42 +588,66 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
             for (diffs = 0, u = 0; u < yhalf; ++u)
             {
               difft = abs(prvpT[x] - curpT[x]);
-              if (difft > nt) diffs += difft;
+              if (difft > d.nt) diffs += difft;
               prvpT += prv_pitch;
               curpT += cur_pitch;
             }
-            if (diffs > nt)
+            if (diffs > d.nt)
             {
               box1 = (x >> xshift) << 2;
               box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
+              d.diff[temp1 + box1 + 0] += diffs;
+              d.diff[temp1 + box2 + 1] += diffs;
+              d.diff[temp2 + box1 + 2] += diffs;
+              d.diff[temp2 + box2 + 3] += diffs;
             }
           }
-          prvp += prv_pitch*yhalf;
-          curp += cur_pitch*yhalf;
+          prvp += prv_pitch * yhalf;
+          curp += cur_pitch * yhalf;
         }
         for (y = heighta; y < height; ++y)
         {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
+          temp1 = (y >> yshift) * xblocks4;
+          temp2 = ((y + yhalf) >> yshift) * xblocks4;
           for (x = 0; x < width; x += inc)
           {
             difft = abs(prvp[x] - curp[x]);
-            if (difft > nt)
+            if (difft > d.nt)
             {
               box1 = (x >> xshift) << 2;
               box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += difft;
-              diff[temp1 + box2 + 1] += difft;
-              diff[temp2 + box1 + 2] += difft;
-              diff[temp2 + box2 + 3] += difft;
+              d.diff[temp1 + box1 + 0] += difft;
+              d.diff[temp1 + box2 + 1] += difft;
+              d.diff[temp2 + box1 + 2] += difft;
+              d.diff[temp2 + box2 + 3] += difft;
             }
           }
           prvp += prv_pitch;
           curp += cur_pitch;
+        }
+      }
+    }
+
+    if (d.metricF_needed) { // called from TDecimate. from FrameDiff:false
+      if (b == 0)
+      {
+        d.metricF = 0;
+        if (d.scene)
+        {
+          if (d.np == 3 || !d.chroma) // planar or YUY2 luma+chroma
+          {
+            for (x = 0; x < arraysize; x += 4)
+              d.metricF += d.diff[x];
+          }
+          else
+          {
+            if (d.ssd)  // fixme: why is YUY2 the name?
+              *d.metricF = TDecimate::calcLumaDiffYUY2SSD(prev->GetReadPtr(), curr->GetReadPtr(),
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, env);
+            else
+              *d.metricF = TDecimate::calcLumaDiffYUY2SAD(prev->GetReadPtr(), curr->GetReadPtr(),
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, env);
+          }
         }
       }
     }
@@ -599,7 +656,7 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
 
 void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot)
 {
-  if (vi.IsYV12()) return fillBoxYV12(dst, blockN, xblocks, dot);
+  if (vi.IsPlanar()) return fillBoxPlanar(dst, blockN, xblocks, dot);
   else return fillBoxYUY2(dst, blockN, xblocks, dot);
 }
 
@@ -651,7 +708,7 @@ void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot)
   }
 }
 
-void FrameDiff::fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks, bool dot)
+void FrameDiff::fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool dot)
 {
   unsigned char *dstp = dst->GetWritePtr(PLANAR_Y);
   int width = dst->GetRowSize(PLANAR_Y);
@@ -831,6 +888,7 @@ void FrameDiff::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
   }
 }
 
+// fixme: not only for YV12
 void FrameDiff::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s)
 {
   int x, y = y1 * 20, num, tx, ty;

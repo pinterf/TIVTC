@@ -117,7 +117,7 @@ private:
   void getSettingOvr(int n);
   bool checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug);
-  bool checkCombedYV12(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
+  bool checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug);
   bool checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug);
@@ -148,6 +148,8 @@ private:
   void checkmm(int &cmatch, int m1, int m2, PVideoFrame &dst, int &dfrm, PVideoFrame &tmp, int &tfrm,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env, int np, int n,
     int *blockN, int &xblocks, int *mics);
+
+  // O.K. common parts with TDeint
   void buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
     int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
 

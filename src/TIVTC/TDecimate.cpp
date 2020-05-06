@@ -31,7 +31,7 @@ PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 {
   if (n < 0) n = 0;
   else if (n > nfrmsN) n = nfrmsN;
-  int np = child->GetVideoInfo().IsYV12() ? 3 : 1;
+  int np = child->GetVideoInfo().IsPlanar() ? 3 : 1;
   PVideoFrame dst;
   if (mode < 2) dst = GetFrameMode01(n, env, np);     // most similar/longest string
   else if (mode == 2) dst = GetFrameMode2(n, env, np); // arbitrary framerate
@@ -264,12 +264,12 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
           PVideoFrame frame1 = clip2->GetFrame(f1, env);
           PVideoFrame frame2 = clip2->GetFrame(f2, env);
           blendFrames(frame1, frame2, dst, a1, a2,
-            clip2->GetVideoInfo().IsYV12() ? 3 : 1, env);
+            clip2->GetVideoInfo().IsPlanar() ? 3 : 1, env);
         }
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2,
-        useclip2 ? (clip2->GetVideoInfo().IsYV12() ? 3 : 1) : np);
+        useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
       return dst;
     }
     // drop one dup and replace the other with a blend of its neighbors
@@ -329,7 +329,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       else
       {
         dst = env->NewVideoFrame(clip2->GetVideoInfo());
-        np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+        np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
         PVideoFrame frame1 = clip2->GetFrame(f1, env);
         PVideoFrame frame2 = clip2->GetFrame(f2, env);
         blendFrames(frame1, frame2, dst, a1, a2, np, env);
@@ -346,7 +346,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       else
       {
         dst = clip2->GetFrame(curr.frame + ret, env);
-        np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+        np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
       }
       env->MakeWritable(&dst);
       displayOutput(env, dst, n, curr.frame + ret, true, a1, a2, f1, f2, np);
@@ -422,12 +422,12 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
           PVideoFrame frame1 = clip2->GetFrame(f1, env);
           PVideoFrame frame2 = clip2->GetFrame(f2, env);
           blendFrames(frame1, frame2, dst, a1, a2,
-            useclip2 ? (clip2->GetVideoInfo().IsYV12() ? 3 : 1) : np, env);
+            useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np, env);
         }
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2,
-        useclip2 ? (clip2->GetVideoInfo().IsYV12() ? 3 : 1) : np);
+        useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
       return dst;
     }
     // normal drop operation
@@ -446,7 +446,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       else
       {
         dst = clip2->GetFrame(curr.frame + ret, env);
-        np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+        np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
       }
       env->MakeWritable(&dst);
       displayOutput(env, dst, n, curr.frame + ret, curr.blend == 2 ? false : true, 0.0, 0.0, 0, 0, np);
@@ -467,7 +467,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
         else
         {
           dst = clip2->GetFrame(n, env);
-          np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+          np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
         }
         env->MakeWritable(&dst);
         displayOutput(env, dst, n, n, false, 0.0, 0.0, 0, 0, np);
@@ -506,12 +506,12 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
         PVideoFrame frame1 = clip2->GetFrame(f1, env);
         PVideoFrame frame2 = clip2->GetFrame(f2, env);
         blendFrames(frame1, frame2, dst, a1, a2,
-          clip2->GetVideoInfo().IsYV12() ? 3 : 1, env);
+          clip2->GetVideoInfo().IsPlanar() ? 3 : 1, env);
       }
     }
     if (debug) debugOutput2(n, 0, false, f1, f2, a1, a2);
     if (display) displayOutput(env, dst, n, 0, false, a1, a2, f1, f2,
-      useclip2 ? (clip2->GetVideoInfo().IsYV12() ? 3 : 1) : np);
+      useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
     return dst;
   }
 }
@@ -674,11 +674,11 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
         else
         {
           dst = clip2->GetFrame(lastCycle + (n - lastGroup), env);
-          np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+          np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
         }
         env->MakeWritable(&dst);
         displayOutput(env, dst, n, lastCycle + (n - lastGroup), false, 0.0, 0.0, 0, 0,
-          useclip2 ? (clip2->GetVideoInfo().IsYV12() ? 3 : 1) : np);
+          useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
         return dst;
       }
       if (!useclip2) return child->GetFrame(lastCycle + (n - lastGroup), env);
@@ -709,11 +709,11 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
         else
         {
           dst = clip2->GetFrame(curr.frame + ret, env);
-          np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+          np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
         }
         env->MakeWritable(&dst);
         displayOutput(env, dst, n, curr.frame + ret, true, 0.0, 0.0, curr.blend == 3 ? 5 : 0, 0,
-          useclip2 ? (clip2->GetVideoInfo().IsYV12() ? 3 : 1) : np);
+          useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
         return dst;
       }
       if (!useclip2) return child->GetFrame(curr.frame + ret, env);
@@ -732,13 +732,13 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
     mkvOutF = NULL;
   }
   PVideoFrame dst = env->NewVideoFrame(vi);
-  setBlack(dst, vi.IsYV12() ? 3 : 1);
+  setBlack(dst, vi.IsPlanar() ? 3 : 1);
   if (retFrames <= -305)
   {
     if (retFrames <= -306 && se)
       env->ThrowError("TDecimate:  mode 3 finished (early termination)!");
     sprintf(buf, "Mode 3:  Last Actual Frame = %d", lastFrame);
-    Draw(dst, 2, 1, buf, vi.IsYV12() ? 3 : 1);
+    Draw(dst, 2, 1, buf, vi.IsPlanar() ? 3 : 1);
   }
   --retFrames;
   return dst;
@@ -770,7 +770,7 @@ PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, int np)
     if (useclip2)
     {
       src = clip2->GetFrame(n, env);
-      np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
     }
     env->MakeWritable(&src);
     if (blockN != -20) drawBox(src, blockN, xblocks, np);
@@ -804,7 +804,7 @@ PVideoFrame TDecimate::GetFrameMode5(int n, IScriptEnvironment *env, int np)
     else
     {
       dst = clip2->GetFrame(frame, env);
-      np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
     }
     env->MakeWritable(&dst);
     sprintf(buf, "TDecimate %s by tritical", VERSION);
@@ -834,7 +834,7 @@ PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, int np)
     else
     {
       dst = clip2->GetFrame(frame, env);
-      np = clip2->GetVideoInfo().IsYV12() ? 3 : 1;
+      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
     }
     env->MakeWritable(&dst);
     sprintf(buf, "TDecimate %s by tritical", VERSION);
@@ -977,296 +977,45 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene,
   }
 }
 
+// !! Do in FrameDiff then copy here to TDecimate! Or better: put at one place
+//void FrameDiff::calcMetric(PVideoFrame& prevt, PVideoFrame& currt, int np, IScriptEnvironment* env)
+// fixme: compare them
 uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
   int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene)
 {
-  PVideoFrame prev, curr;
-  VideoInfo vit = child->GetVideoInfo();
-  if (predenoise)
-  {
-    prev = env->NewVideoFrame(vit);
-    curr = env->NewVideoFrame(vit);
-    blurFrame(prevt, prev, np, 2, chroma, env, vit, opt);
-    blurFrame(currt, curr, np, 2, chroma, env, vit, opt);
-  }
-  else
-  {
-    prev = prevt;
-    curr = currt;
-  }
-  const unsigned char *prvp, *curp, *prvpT, *curpT;
-  int prv_pitch, cur_pitch, width, height, y, x, difft;
-  int xblocks = ((vit.width + xhalfS) >> xshiftS) + 1;
-  int xblocks4 = xblocks << 2;
-  int yblocks = ((vit.height + yhalfS) >> yshiftS) + 1;
-  int arraysize = (xblocks*yblocks) << 2;
-  int temp1, temp2, box1, box2, stop, inc;
-  int yhalf, xhalf, yshift, xshift, b, plane;
-  int widtha, heighta, u, v, diffs;
   uint64_t highestDiff = 0;
-  long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
-  memset(diff, 0, arraysize * sizeof(uint64_t));
-  stop = chroma ? np : 1;
-  inc = np == 3 ? 1 : chroma ? 1 : 2;
-  for (b = 0; b < stop; ++b)
-  {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_U;
-    else plane = PLANAR_V;
-    prvp = prev->GetReadPtr(plane);
-    prv_pitch = prev->GetPitch(plane);
-    width = prev->GetRowSize(plane);
-    height = prev->GetHeight(plane);
-    curp = curr->GetReadPtr(plane);
-    cur_pitch = curr->GetPitch(plane);
-    if (b == 0)
-    {
-      yshift = yshiftS;
-      yhalf = yhalfS;
-      if (np == 3)
-      {
-        xshift = xshiftS;
-        xhalf = xhalfS;
-      }
-      else
-      {
-        xshift = xshiftS + 1;
-        xhalf = xhalfS << 1;
-      }
-    }
-    else
-    {
-      yshift = yshiftS - 1;
-      yhalf = yhalfS >> 1;
-      xshift = xshiftS - 1;
-      xhalf = xhalfS >> 1;
-    }
-    if (blockx == 32 && blocky == 32 && nt <= 0)
-    {
-      if (ssd && (cpu&CPUF_SSE2))
-        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true, diff, chroma); // true: use_sse2
-#ifdef ALLOW_MMX
-      else if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false, diff, chroma);
-#endif
-      else if (!ssd && (cpu&CPUF_SSE2))
-        calcDiffSAD_32x32_iSSEorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-#ifdef ALLOW_MMX
-      else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-        calcDiffSAD_32x32_iSSEorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-      else if (!ssd && (cpu&CPUF_MMX))
-        calcDiffSAD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-#endif
-      else { goto use_c; }
-    }
-    else if (((np == 3 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
-    {
-      if (ssd && (cpu&CPUF_SSE2))
-        calcDiffSSD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#ifdef ALLOW_MMX
-      else if (ssd && (cpu&CPUF_MMX))
-        calcDiffSSD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-      else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-        calcDiffSAD_Generic_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#endif
-      else if (!ssd && (cpu&CPUF_SSE2))
-        calcDiffSAD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#ifdef ALLOW_MMX
-      else if (!ssd && (cpu&CPUF_MMX))
-        calcDiffSAD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#endif
-      else { goto use_c; }
-    }
-    else
-    {
-    use_c:
-      heighta = (height >> (yshift - 1)) << (yshift - 1);
-      widtha = (width >> (xshift - 1)) << (xshift - 1);
-      if (ssd)
-      {
-        for (y = 0; y < heighta; y += yhalf)
-        {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
-          for (x = 0; x < widtha; x += xhalf)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              for (v = 0; v < xhalf; v += inc)
-              {
-                difft = prvpT[x + v] - curpT[x + v];
-                difft *= difft;
-                if (difft > nt) diffs += difft;
-              }
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          for (x = widtha; x < width; x += inc)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              difft = prvpT[x] - curpT[x];
-              difft *= difft;
-              if (difft > nt) diffs += difft;
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          prvp += prv_pitch*yhalf;
-          curp += cur_pitch*yhalf;
-        }
-        for (y = heighta; y < height; ++y)
-        {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
-          for (x = 0; x < width; x += inc)
-          {
-            difft = prvp[x] - curp[x];
-            difft *= difft;
-            if (difft > nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += difft;
-              diff[temp1 + box2 + 1] += difft;
-              diff[temp2 + box1 + 2] += difft;
-              diff[temp2 + box2 + 3] += difft;
-            }
-          }
-          prvp += prv_pitch;
-          curp += cur_pitch;
-        }
-      }
-      else
-      {
-        for (y = 0; y < heighta; y += yhalf)
-        {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
-          for (x = 0; x < widtha; x += xhalf)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              for (v = 0; v < xhalf; v += inc)
-              {
-                difft = abs(prvpT[x + v] - curpT[x + v]);
-                if (difft > nt) diffs += difft;
-              }
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          for (x = widtha; x < width; x += inc)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              difft = abs(prvpT[x] - curpT[x]);
-              if (difft > nt) diffs += difft;
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += diffs;
-              diff[temp1 + box2 + 1] += diffs;
-              diff[temp2 + box1 + 2] += diffs;
-              diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          prvp += prv_pitch*yhalf;
-          curp += cur_pitch*yhalf;
-        }
-        for (y = heighta; y < height; ++y)
-        {
-          temp1 = (y >> yshift)*xblocks4;
-          temp2 = ((y + yhalf) >> yshift)*xblocks4;
-          for (x = 0; x < width; x += inc)
-          {
-            difft = abs(prvp[x] - curp[x]);
-            if (difft > nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              diff[temp1 + box1 + 0] += difft;
-              diff[temp1 + box2 + 1] += difft;
-              diff[temp2 + box1 + 2] += difft;
-              diff[temp2 + box2 + 3] += difft;
-            }
-          }
-          prvp += prv_pitch;
-          curp += cur_pitch;
-        }
-      }
-    }
-    if (b == 0)
-    {
-      metricF = 0;
-      if (scene)
-      {
-        if (np == 3 || !chroma)
-        {
-          for (x = 0; x < arraysize; x += 4) metricF += diff[x];
-        }
-        else
-        {
-          if (ssd)
-            metricF = calcLumaDiffYUY2SSD(prev->GetReadPtr(), curr->GetReadPtr(),
-              prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), env);
-          else
-            metricF = calcLumaDiffYUY2SAD(prev->GetReadPtr(), curr->GetReadPtr(),
-              prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), env);
-        }
-      }
-    }
-  }
+
+  struct CalcMetricData d;
+  d.np = np;
+  d.predenoise = predenoise;
+  d.vi = child->GetVideoInfo();
+  d.chroma = chroma;
+  d.opt = opt;
+  d.blockx_half = blockx;
+  d.blockx_half = blockx_half;
+  d.blockx_shift = blockx_shift;
+  d.blocky = blocky;
+  d.blocky_half = blocky_half;
+  d.blocky_shift = blocky_shift;
+  d.diff = diff;
+  d.nt = nt;
+  d.ssd = ssd;
+
+  d.metricF_needed = true;
+  // only for TDecimate:
+  d.metricF = &metricF;
+  d.scene = scene; 
+  CalcMetricsExtracted(env, prevt, currt, d);
+  int xblocks = ((d.vi.width + d.blockx_half) >> d.blockx_shift) + 1;
+  int xblocks4 = xblocks << 2;
+  int yblocks = ((d.vi.height + d.blocky_half) >> d.blocky_shift) + 1;
+  int arraysize = (xblocks * yblocks) << 2;
+
+  // output parameters
   blockNI = -20;
   xblocksI = xblocks4;
-  for (x = 0; x < arraysize; ++x)
+
+  for (int x = 0; x < arraysize; ++x)
   {
     if (diff[x] > highestDiff)
     {
@@ -1287,33 +1036,22 @@ uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, i
 void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
   bool scene, bool hnt)
 {
-  if (current.mSet || current.cycleS == current.cycleE) return;
+  if (current.mSet || current.cycleS == current.cycleE) 
+    return;
+  
   VideoInfo vit = child->GetVideoInfo();
-  int xblocks = ((vit.width + xhalfS) >> xshiftS) + 1;
-  int xblocks4 = xblocks << 2;
-  int yblocks = ((vit.height + yhalfS) >> yshiftS) + 1;
-  int arraysize = (xblocks*yblocks) << 2;
-  int temp1, temp2, box1, box2;
-  int yhalf, xhalf, yshift, xshift, b, plane;
-  int prv_pitch, cur_pitch, width, height, difft, diffs;
-  int i, y, x, w, stop, inc, u, v, widtha, heighta;
+  
+  int i, w, stop, inc;
   uint64_t highestDiff;
   int next_num = -20, next_numd = -20;
-  long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
-  }
+
   PVideoFrame prev, next, prevt, nextt;
   if (predenoise)
   {
     prev = env->NewVideoFrame(vit);
     next = env->NewVideoFrame(vit);
   }
-  const unsigned char *prvp, *curp, *prvpT, *curpT;
+
   for (w = current.frameSO, i = current.cycleS; i < current.cycleE; ++i, ++w)
   {
     if ((current.match[i] != -20 || !hnt) && current.diffMetricsU[i] != ULLONG_MAX &&
@@ -1335,8 +1073,12 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
         }
         continue;
       }
-      if (next_num == w - 1) prevt = nextt;
-      else prevt = child->GetFrame(w > 0 ? w - 1 : 0, env);
+      
+      if (next_num == w - 1) 
+        prevt = nextt;
+      else 
+        prevt = child->GetFrame(w > 0 ? w - 1 : 0, env);
+      
       nextt = child->GetFrame(w, env);
       next_num = w;
       if (current.match[i] == -20 && hnt)
@@ -1344,8 +1086,11 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
         if (!usehints) current.match[i] = -200;
         else current.match[i] = getHint(nextt, current.filmd2v[i]);
       }
-      if (next_numd == w - 1) copyFrame(prev, next, env, np);
-      else blurFrame(prevt, prev, np, 2, chroma, env, vit, opt);
+      if (next_numd == w - 1) 
+        copyFrame(prev, next, env, np);
+      else 
+        blurFrame(prevt, prev, np, 2, chroma, env, vit, opt);
+      
       blurFrame(nextt, next, np, 2, chroma, env, vit, opt);
       next_numd = w;
     }
@@ -1366,8 +1111,10 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
         }
         continue;
       }
-      if (next_num == w - 1) prev = next;
-      else prev = child->GetFrame(w > 0 ? w - 1 : 0, env);
+      if (next_num == w - 1) 
+        prev = next;
+      else 
+        prev = child->GetFrame(w > 0 ? w - 1 : 0, env);
       next = child->GetFrame(w, env);
       next_num = w;
       if (current.match[i] == -20 && hnt)
@@ -1376,76 +1123,66 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
         else current.match[i] = getHint(next, current.filmd2v[i]);
       }
     }
+
+    // similar to the core of CalcMetricsExtracted
+    const unsigned char* prvp, * curp, * prvpT, * curpT;
+    int prv_pitch, cur_pitch, width, height, y, x, difft;
+
+    int xblocks = ((vit.width + blockx_half) >> blockx_shift) + 1;
+    int xblocks4 = xblocks << 2;
+    int yblocks = ((vit.height + blocky_half) >> blocky_shift) + 1;
+    int arraysize = (xblocks * yblocks) << 2;
+
+    int temp1, temp2, box1, box2;
+    int yhalf, xhalf, yshift, xshift, b;
+    int widtha, heighta, u, v, diffs;
+    long cpu = env->GetCPUFlags();
+
     memset(diff, 0, arraysize * sizeof(uint64_t));
-    stop = chroma ? np : 1;
-    inc = np == 3 ? 1 : chroma ? 1 : 2;
+    stop = chroma ? np : 1; // chroma: planar is 3, YUY2 always 1 planes
+    inc = np == 3 ? 1 : chroma ? 1 : 2; // 2 is YUY2 luma only, otherwise 1
+    const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
     for (b = 0; b < stop; ++b)
     {
-      if (b == 0) plane = PLANAR_Y;
-      else if (b == 1) plane = PLANAR_U;
-      else plane = PLANAR_V;
+      const int plane = planes[b];
       prvp = prev->GetReadPtr(plane);
       prv_pitch = prev->GetPitch(plane);
       width = prev->GetRowSize(plane);
       height = prev->GetHeight(plane);
       curp = next->GetReadPtr(plane);
       cur_pitch = next->GetPitch(plane);
-      if (b == 0)
+
+      if (vit.IsPlanar())
       {
-        yshift = yshiftS;
-        yhalf = yhalfS;
-        if (np == 3)
-        {
-          xshift = xshiftS;
-          xhalf = xhalfS;
-        }
-        else
-        {
-          xshift = xshiftS + 1;
-          xhalf = xhalfS << 1;
-        }
+        const int ysubsampling = vit.GetPlaneHeightSubsampling(plane);
+        const int xsubsampling = vit.GetPlaneWidthSubsampling(plane);
+        yshift = blocky_shift - ysubsampling; // generalized from yv12's 1
+        yhalf = blocky_half >> ysubsampling; // generalized from yv12's 1
+        xshift = blockx_shift - xsubsampling; // generalized from yv12's 1
+        xhalf = blockx_half >> xsubsampling; // generalized from yv12's 1
       }
-      else
-      {
-        yshift = yshiftS - 1;
-        yhalf = yhalfS >> 1;
-        xshift = xshiftS - 1;
-        xhalf = xhalfS >> 1;
+      else {
+        // YUY2
+        yshift = blocky_shift;
+        yhalf = blocky_half;
+        xshift = blockx_shift + 1;
+        xhalf = blockx_half << 1;
       }
+
       if (blockx == 32 && blocky == 32 && nt <= 0)
       {
         if (ssd && (cpu&CPUF_SSE2))
-          calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, true, diff, chroma);
-#ifdef ALLOW_MMX
-        else if (ssd && (cpu&CPUF_MMX))
-          calcDiffSSD_32x32_MMXorSSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, false, diff, chroma);
-#endif
+          calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
         else if (!ssd && (cpu&CPUF_SSE2))
-          calcDiffSAD_32x32_iSSEorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-#ifdef ALLOW_MMX
-        else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-          calcDiffSAD_32x32_iSSEorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-        else if (!ssd && (cpu&CPUF_MMX))
-          calcDiffSAD_32x32_MMX(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
-#endif
+          calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma);
         else { goto use_c; }
       }
       else if (((np == 3 && blockx >= 16 && blocky >= 16) || (np == 1 && blockx >= 8 && blocky >= 8)) && nt <= 0)
       {
         if (ssd && (cpu&CPUF_SSE2))
-          calcDiffSSD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#ifdef ALLOW_MMX
-        else if (ssd && (cpu&CPUF_MMX))
-          calcDiffSSD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#endif
+          calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, blockx_shift, blocky_shift, blockx_half, blocky_half);
         else if (!ssd && (cpu&CPUF_SSE2))
-          calcDiffSAD_Generic_MMXorSSE2<true>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#ifdef ALLOW_MMX
-        else if (!ssd && (cpu&CPUF_INTEGER_SSE))
-          calcDiffSAD_Generic_iSSE(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-        else if (!ssd && (cpu&CPUF_MMX))
-          calcDiffSAD_Generic_MMXorSSE2<false>(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS);
-#endif
+          calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, b, xblocks4, np, diff, chroma, blockx_shift, blocky_shift, blockx_half, blocky_half);
         else { goto use_c; }
       }
       else
@@ -1620,10 +1357,10 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
           {
             if (ssd)
               current.diffMetricsUF[i] = calcLumaDiffYUY2SSD(prev->GetReadPtr(), next->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), nt, env);
             else
               current.diffMetricsUF[i] = calcLumaDiffYUY2SAD(prev->GetReadPtr(), next->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), next->GetPitch(), nt, env);
           }
         }
       }
@@ -1645,171 +1382,60 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
   current.setIsFilmD2V();
 }
 
-uint64_t TDecimate::calcLumaDiffYUY2SAD(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env)
+uint64_t TDecimate::calcLumaDiffYUY2SAD(const unsigned char* prvp, const unsigned char* nxtp,
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env)
 {
   uint64_t diff = 0;
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
-  {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
+
+  int widtha;
+
+  if (cpu & CPUF_SSE2 && (nt == 0) && width >= 16) {
+    widtha = (width / 16) * 16;
+    calcLumaDiffYUY2SAD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
   }
-#ifndef ALLOW_MMX
-  if (cpu&CPUF_SSE2 && (nt == 0) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch) & 15)) {
-    if (!(width & 15))
-    {
-      calcLumaDiffYUY2SAD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-    }
-    else
-    {
-      int widtha = (width / 16) * 16;
-      calcLumaDiffYUY2SAD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = widtha; x < width; x += 2)
-        {
-          int temp = abs(prvp[x] - nxtp[x]);
-          if (temp > nt) diff += temp;
-        }
-        prvp += prv_pitch;
-        nxtp += nxt_pitch;
-      }
-    }
-  }
-#else
-  if ((cpu&CPUF_INTEGER_SSE) && nt == 0)
-  {
-    if (!(width & 15))
-    {
-      if ((cpu&CPUF_SSE2) && !((int(prvp) | int(nxtp) | prv_pitch | nxt_pitch) & 15))
-        calcLumaDiffYUY2SAD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-      else
-        calcLumaDiffYUY2SAD_ISSE_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-    }
-    else
-    {
-      int widtha = (width >> 3) << 3;
-      calcLumaDiffYUY2SAD_ISSE_8(prvp, nxtp, widtha, height, prv_pitch, nxt_pitch, diff);
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = widtha; x < width; x += 2)
-        {
-          int temp = abs(prvp[x] - nxtp[x]);
-          if (temp > nt) diff += temp;
-        }
-        prvp += prv_pitch;
-        nxtp += nxt_pitch;
-      }
-    }
-  }
-  else if ((cpu&CPUF_MMX) && nt == 0)
-  {
-    if (!(width & 15))
-      calcLumaDiffYUY2SAD_MMX_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-    else
-    {
-      int widtha = (width >> 3) << 3;
-      calcLumaDiffYUY2SAD_MMX_8(prvp, nxtp, widtha, height, prv_pitch, nxt_pitch, diff);
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = widtha; x < width; x += 2)
-        {
-          int temp = abs(prvp[x] - nxtp[x]);
-          if (temp > nt) diff += temp;
-        }
-        prvp += prv_pitch;
-        nxtp += nxt_pitch;
-      }
-    }
-  }
-#endif
   else
   {
+    widtha = 0;
+  }
+
+  if (width != widtha) {
     for (int y = 0; y < height; ++y)
     {
-      for (int x = 0; x < width; x += 2)
+      for (int x = widtha; x < width; x += 2)
       {
-        const int temp = abs(prvp[x] - nxtp[x]);
+        int temp = abs(prvp[x] - nxtp[x]);
         if (temp > nt) diff += temp;
       }
       prvp += prv_pitch;
       nxtp += nxt_pitch;
     }
   }
+
   return diff;
 }
 
-uint64_t TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigned char *nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, IScriptEnvironment *env)
+uint64_t TDecimate::calcLumaDiffYUY2SSD(const unsigned char* prvp, const unsigned char* nxtp,
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, IScriptEnvironment* env)
 {
   uint64_t diff = 0;
   long cpu = env->GetCPUFlags();
-  if (opt != 4)
+ 
+  int widtha;
+
+  if (cpu & CPUF_SSE2 && (nt == 0) && width >= 16)
   {
-    if (opt == 0) cpu &= ~0x2C;
-    else if (opt == 1) { cpu &= ~0x28; cpu |= 0x04; }
-    else if (opt == 2) { cpu &= ~0x20; cpu |= 0x0C; }
-    else if (opt == 3) cpu |= 0x2C;
+    widtha = (width / 16) * 16;
+    calcLumaDiffYUY2SSD_SSE2_16(prvp, nxtp, widtha, height, prv_pitch, nxt_pitch, diff);
   }
-#ifndef ALLOW_MMX
-  if (cpu&CPUF_SSE2 && (nt == 0) && !((intptr_t(prvp) | intptr_t(nxtp) | prv_pitch | nxt_pitch) & 15)) {
-    if (!(width & 15))
-    {
-      calcLumaDiffYUY2SSD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-    }
-    else
-    {
-      int widtha = (width / 16) * 16;
-      calcLumaDiffYUY2SSD_SSE2_16(prvp, nxtp, widtha, height, prv_pitch, nxt_pitch, diff);
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = widtha; x < width; x += 2)
-        {
-          int temp = prvp[x] - nxtp[x];
-          temp *= temp;
-          if (temp > nt) diff += temp;
-        }
-        prvp += prv_pitch;
-        nxtp += nxt_pitch;
-      }
-    }
+  else {
+    widtha = 0;
   }
-#else
-  if ((cpu&CPUF_MMX) && nt == 0)
-  {
-    if (!(width & 15))
-    {
-      if ((cpu&CPUF_SSE2) && !((int(prvp) | int(nxtp) | prv_pitch | nxt_pitch) & 15))
-        calcLumaDiffYUY2SSD_SSE2_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-      else
-        calcLumaDiffYUY2SSD_MMX_16(prvp, nxtp, width, height, prv_pitch, nxt_pitch, diff);
-    }
-    else
-    {
-      int widtha = (width >> 3) << 3;
-      calcLumaDiffYUY2SSD_MMX_8(prvp, nxtp, widtha, height, prv_pitch, nxt_pitch, diff);
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = widtha; x < width; x += 2)
-        {
-          int temp = prvp[x] - nxtp[x];
-          temp *= temp;
-          if (temp > nt) diff += temp;
-        }
-        prvp += prv_pitch;
-        nxtp += nxt_pitch;
-      }
-    }
-  }
-  else
-#endif
-  {
+
+  if (width != widtha) {
     for (int y = 0; y < height; ++y)
     {
-      for (int x = 0; x < width; x += 2)
+      for (int x = widtha; x < width; x += 2)
       {
         int temp = prvp[x] - nxtp[x];
         temp *= temp;
@@ -1819,22 +1445,20 @@ uint64_t TDecimate::calcLumaDiffYUY2SSD(const unsigned char *prvp, const unsigne
       nxtp += nxt_pitch;
     }
   }
+
   return diff;
 }
 
 
 
-
-
-
 void TDecimate::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np)
 {
-  int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  int plane_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int planes_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
   for (int b = 0; b < np; ++b)
   {
-    env->BitBlt(dst->GetWritePtr(plane[b]), dst->GetPitch(plane[b]), src->GetReadPtr(plane[b]),
-      src->GetPitch(plane[b]), src->GetRowSize(plane_aligned[b]), src->GetHeight(plane[b]));
+    env->BitBlt(dst->GetWritePtr(planes[b]), dst->GetPitch(planes[b]), src->GetReadPtr(planes[b]),
+      src->GetPitch(planes[b]), src->GetRowSize(planes_aligned[b]), src->GetHeight(planes[b]));
   }
 }
 
@@ -2723,23 +2347,13 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
 {
   const unsigned char *srcp1, *srcp2;
   unsigned char *dstp;
-  int b, plane, x, y, width, height;
+  int b, x, y, width, height;
   int s1_pitch, dst_pitch, s2_pitch, widthM;
-  bool useMMX = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
-  bool useISSE = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
-  bool useSSE2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
-  if (opt != 4)
-  {
-    if (opt == 0) useMMX = useISSE = useSSE2 = false;
-    else if (opt == 1) { useMMX = true; useISSE = useSSE2 = false; }
-    else if (opt == 2) { useMMX = useISSE = true; useSSE2 = false; }
-    else if (opt == 3) useMMX = useISSE = useSSE2 = true;
-  }
+  const bool useSSE2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (b = 0; b < np; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    const int plane = planes[b];
     srcp1 = src1->GetReadPtr(plane);
     s1_pitch = src1->GetPitch(plane);
     width = src1->GetRowSize(plane);
@@ -2748,31 +2362,16 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
     s2_pitch = src2->GetPitch(plane);
     dstp = dst->GetWritePtr(plane);
     dst_pitch = dst->GetPitch(plane);
-    if (useSSE2 && amount1 == 0.5 && amount2 == 0.5 &&
-      !((intptr_t(dstp) | intptr_t(srcp1) | intptr_t(srcp2) | dst_pitch | s1_pitch | s2_pitch) & 15))
+    if (useSSE2 && amount1 == 0.5 && amount2 == 0.5)
     {
       widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
-      blend_SSE2_5050(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch);
+      blend_SSE2_5050(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch); // quick special average
     }
-#ifdef ALLOW_MMX
-    else if (useISSE && amount1 == 0.5 && amount2 == 0.5)
-    {
-      widthM = width + ((width % 8) == 0 ? 0 : 8 - (width % 8));
-      blend_iSSE_5050(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch);
-    }
-#endif
-    else if (useSSE2 && !((intptr_t(dstp) | intptr_t(srcp1) | intptr_t(srcp2) | dst_pitch | s1_pitch | s2_pitch) & 15))
+    else if (useSSE2)
     {
       widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
       blend_SSE2_16(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch, amount1, amount2);
     }
-#ifdef ALLOW_MMX
-    else if (useMMX)
-    {
-      widthM = width + ((width % 8) == 0 ? 0 : 8 - (width % 8));
-      blend_MMX_8(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch, amount1, amount2);
-    }
-#endif
     else
     {
       for (y = 0; y < height; ++y)
@@ -2804,12 +2403,11 @@ int TDecimate::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np, int
 void TDecimate::setBlack(PVideoFrame &dst, int np)
 {
   unsigned char *dstp;
-  int b, plane, x, y, pitch, width, height;
+  int b, x, y, pitch, width, height;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (b = 0; b < np; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    const int plane = planes[b];
     dstp = dst->GetWritePtr(plane);
     pitch = dst->GetPitch(plane);
     height = dst->GetHeight(plane);
@@ -2981,7 +2579,7 @@ void TDecimate::init_mode_5(IScriptEnvironment* env) {
   prevM.maxFrame = currM.maxFrame = nextM.maxFrame = nfrms;
   bool vid, prevVid;
   int i, h, w, firstkv, countprev, filmC, videoC, longestT, longestV, countVT;
-  int count, b, np = vi.IsYV12() ? 3 : 1, passThrough = 0;
+  int count, b, np = vi.IsPlanar() ? 3 : 1, passThrough = 0;
 twopassrun:
   ++passThrough;
   if ((f = fopen("debug.txt", "a")) != NULL) {
@@ -3304,8 +2902,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   bool tfmFullInfo = false, metricsFullInfo = false;
   
   fps = (double)(vi.fps_numerator) / (double)(vi.fps_denominator);
-  if (!vi.IsYV12() && !vi.IsYUY2())
-    env->ThrowError("TDecimate:  YV12 and YUY2 colorspaces only!");
+  if (!vi.IsYUV())
+    env->ThrowError("TDecimate:  YUV colorspaces only!");
   if (mode < 0 || mode > 7)
     env->ThrowError("TDecimate:  mode must be set to 0, 1, 2, 3, 4, 5, 6, or 7!");
   if (mode == 3 && !(*mkvOut))
@@ -3364,8 +2962,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  opt must be set to 0, 1, 2, 3, or 4!");
   if (clip2 && vi.num_frames != clip2->GetVideoInfo().num_frames)
     env->ThrowError("TDecimate:  clip2 must have the same number of frames as the input clip!");
-  if (clip2 && !clip2->GetVideoInfo().IsYV12() && !clip2->GetVideoInfo().IsYUY2())
-    env->ThrowError("TDecimate:  clip2 must be in YV12 or YUY2 colorspace!");
+  if (clip2 && !clip2->GetVideoInfo().IsYUV())
+    env->ThrowError("TDecimate:  clip2 must be YUV colorspace!");
   if (clip2)
   {
 #ifdef AVISYNTH_2_5
@@ -3448,14 +3046,14 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   nfrms = nfrmsN = vi.num_frames - 1;
   prev.length = curr.length = next.length = nbuf.length = cycle;
   prev.maxFrame = curr.maxFrame = next.maxFrame = nbuf.maxFrame = nfrms;
-  xshiftS = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
+  blockx_shift = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
     blockx == 64 ? 6 : blockx == 128 ? 7 : blockx == 256 ? 8 : blockx == 512 ? 9 :
     blockx == 1024 ? 10 : 11;
-  yshiftS = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
+  blocky_shift = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
     blocky == 64 ? 6 : blocky == 128 ? 7 : blocky == 256 ? 8 : blocky == 512 ? 9 :
     blocky == 1024 ? 10 : 11;
-  yhalfS = blocky >> 1;
-  xhalfS = blockx >> 1;
+  blocky_half = blocky >> 1;
+  blockx_half = blockx >> 1;
   useTFMPP = false;
   try
   {
@@ -3464,12 +3062,13 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   catch (IScriptEnvironment::NotFound) {}
   if (exPP) useTFMPP = true;
-  if (vi.IsYV12())
+  if (vi.IsPlanar())
   {
     if (chroma)
     {
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*2.0));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*2.0);
+      // fixme: only valid if chroma 422 and 444 cases are divided back to yv12 chroma weight relative to luma
+      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*2.0));
+      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*2.0);
     }
     else
     {
@@ -3491,8 +3090,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   {
     if (chroma)
     {
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*xhalfS*yhalfS*4.0*0.625));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*xhalfS*yhalfS*4.0*0.625);
+      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*4.0*0.625));
+      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*4.0*0.625);
     }
     else
     {
@@ -3512,7 +3111,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   if (mode < 5 || mode == 7)
   {
-    diff = (uint64_t *)_aligned_malloc((((vi.width + xhalfS) >> xshiftS) + 1)*(((vi.height + yhalfS) >> yshiftS) + 1) * 4 * sizeof(uint64_t), 16);
+    diff = (uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16);
     if (diff == NULL) env->ThrowError("TDecimate:  malloc failure (diff)!");
   }
   if (*output)

@@ -44,12 +44,12 @@ private:
   char buf[512];
   bool predenoise, ssd, rpos;
   int nt, nfrms, blockx, blocky, mode, display;
-  int yshiftS, xshiftS, yhalfS, xhalfS, opt;
+  int blocky_shift, blockx_shift, blocky_half, blockx_half, opt;
   bool chroma, debug, prevf, norm;
   uint64_t *diff, MAX_DIFF, threshU;
   void calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env);
   void fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);
-  void fillBoxYV12(PVideoFrame &dst, int blockN, int xblocks, bool dot);
+  void fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np);
   void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
