@@ -60,8 +60,10 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     {
       dst = env->NewVideoFrame(vi);
       buildMotionMask(prv, src, nxt, mmask, use, np, env);
-      PVideoFrame frame = clip2->GetFrame(n, env);
-      if (uC2) maskClip2(src, frame, mmask, dst, np, env);
+      if (uC2) {
+        PVideoFrame frame = clip2->GetFrame(n, env);
+        maskClip2(src, frame, mmask, dst, np, env);
+      }
       else
       {
         if (PP == 5) BlendDeint(src, mmask, dst, false, np, env);
