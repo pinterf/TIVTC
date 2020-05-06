@@ -1,4 +1,5 @@
-# TIVTC v1.0.14 (20190207) # TDeInt v1.2 (20200505)
+# TIVTC v1.0.14+ (20200506 - refactor and planar project work in progress) 
+# TDeInt v1.2 (20200505)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
@@ -13,14 +14,9 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - Fix crash with AviSynth+ versions (in general: when frame buffer alignment is more than 16 bytes)
 - TDeint: refactor, code clean, c++17 conformity, keep C and SSE2
 - Inline assembler code ported to intrinsics and C code. 
-- Add some more SSE2 (MMX and ISSE code kept but is not active)
+- Add some more SSE2 (MMX and ISSE code removed)
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
-  For some magic, TIVTC cannot be built with the v142 toolset and VS2019 16.5.2 :) :(
-    INTERNAL COMPILER ERROR in 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.25.28610\bin\HostX86\x64\CL.exe'
-    1>        Please choose the Technical Support command on the Visual C++
-    1>        Help menu, or open the Technical Support help file for more information
-    1>    The command exited with code -1073741819.
 
 # TIVTC v1.0.14 (20190207):
 
