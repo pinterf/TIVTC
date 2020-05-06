@@ -25,6 +25,7 @@
 
 #include "TFM.h"
 #include "TFMasm.h"
+#include "TCommonASM.h"
 
 
 bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
@@ -50,16 +51,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     }
     return false;
   }
-  bool use_mmx = (env->GetCPUFlags()&CPUF_MMX) ? true : false;
-  bool use_isse = (env->GetCPUFlags()&CPUF_INTEGER_SSE) ? true : false;
   bool use_sse2 = (env->GetCPUFlags()&CPUF_SSE2) ? true : false;
-  if (opt != 4)
-  {
-    if (opt == 0) use_mmx = use_isse = use_sse2 = false;
-    else if (opt == 1) { use_mmx = true; use_isse = use_sse2 = false; }
-    else if (opt == 2) { use_mmx = use_isse = true; use_sse2 = false; }
-    else if (opt == 3) use_mmx = use_isse = use_sse2 = true;
-  }
   const unsigned char *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();
@@ -85,27 +77,14 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;
-#ifdef ALLOW_MMX
-    int64_t cthreshb[2] = { 0, 0 }, cthresh6w[2] = { 0, 0 };
-#endif
     __m128i cthreshb_m128i;
     __m128i cthresh6w_m128i;
-    if (use_mmx || use_isse || use_sse2)
+    if (use_sse2)
     {
       unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
       cthreshb_m128i = _mm_set1_epi8(cthresht);
-#ifdef ALLOW_MMX
-      cthreshb[0] = (cthresht << 24) + (cthresht << 16) + (cthresht << 8) + cthresht;
-      cthreshb[0] += (cthreshb[0] << 32);
-      cthreshb[1] = cthreshb[0];
-#endif
       unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
       cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
-#ifdef ALLOW_MMX
-      cthresh6w[0] = (cthresh6t << 16) + cthresh6t;
-      cthresh6w[0] += (cthresh6w[0] << 32);
-      cthresh6w[1] = cthresh6w[0];
-#endif
     }
     for (int x = 0; x < Width; x += inc)
     {
@@ -138,93 +117,27 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     srcpn += src_pitch;
     srcpnn += src_pitch;
     cmkw += cmk_pitch;
-    if (use_mmx || use_isse || use_sse2)
+    if (use_sse2)
     {
       if (chroma)
       {
-#ifndef ALLOW_MMX
-        if (use_sse2)
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-          else
-            check_combing_SSE2<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-        }
-#else
-        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          __m128i cthreshb128, cthresh6w128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movups xmm2, xmmword ptr[cthresh6w]
-            movaps cthreshb128, xmm1
-            movaps cthresh6w128, xmm2
-          }
-          check_combing_SSE2<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb128, cthresh6w128);
-        }
-        else if (use_isse)
-          check_combing_iSSE(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-        else if (use_mmx)
-          check_combing_MMX(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-#endif
-        else env->ThrowError("TFM:  simd error (0)!");
-        srcppp += src_pitch*(Height - 4);
-        srcpp += src_pitch*(Height - 4);
-        srcp += src_pitch*(Height - 4);
-        srcpn += src_pitch*(Height - 4);
-        srcpnn += src_pitch*(Height - 4);
-        cmkw += cmk_pitch*(Height - 4);
+        check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        srcppp += src_pitch * (Height - 4);
+        srcpp += src_pitch * (Height - 4);
+        srcp += src_pitch * (Height - 4);
+        srcpn += src_pitch * (Height - 4);
+        srcpnn += src_pitch * (Height - 4);
+        cmkw += cmk_pitch * (Height - 4);
       }
       else
       {
-#ifndef ALLOW_MMX
-        if (use_sse2)
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-          else
-            check_combing_SSE2_Luma<false>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-              cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-        }
-#else
-        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          __m128i cthreshb128, cthresh6w128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movups xmm2, xmmword ptr[cthresh6w]
-            movaps cthreshb128, xmm1
-            movaps cthresh6w128, xmm2
-          }
-          check_combing_SSE2_Luma<true>(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb128, cthresh6w128);
-        }
-        else if (use_isse)
-          check_combing_iSSE_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-        else if (use_mmx)
-          check_combing_MMX_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2,
-            cmk_pitch, cthreshb[0], cthresh6w[0]);
-#endif
-        else env->ThrowError("TFM:  simd error (1)!");
-        srcppp += src_pitch*(Height - 4);
-        srcpp += src_pitch*(Height - 4);
-        srcp += src_pitch*(Height - 4);
-        srcpn += src_pitch*(Height - 4);
-        srcpnn += src_pitch*(Height - 4);
-        cmkw += cmk_pitch*(Height - 4);
+        check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        srcppp += src_pitch * (Height - 4);
+        srcpp += src_pitch * (Height - 4);
+        srcp += src_pitch * (Height - 4);
+        srcpn += src_pitch * (Height - 4);
+        srcpnn += src_pitch * (Height - 4);
+        cmkw += cmk_pitch * (Height - 4);
       }
     }
     else
@@ -278,19 +191,9 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   else
   {
     const int cthreshsq = cthresh*cthresh;
-#ifdef ALLOW_MMX
-    int64_t cthreshb[2] = { 0, 0 };
-#endif
-    __m128i cthreshb_m128i;
-    if (use_mmx || use_isse || use_sse2)
-    {
-      cthreshb_m128i = _mm_set1_epi32(cthreshsq);
-#ifdef ALLOW_MMX
-      cthreshb[0] = cthreshsq;
-      cthreshb[0] += (cthreshb[0] << 32);
-      cthreshb[1] = cthreshb[0];
-#endif
-    }
+    __m128i cthreshb_m128i = _mm_set1_epi32(cthreshsq);
+
+    // top
     for (int x = 0; x < Width; x += inc)
     {
       if ((srcp[x] - srcpn[x])*(srcp[x] - srcpn[x]) > cthreshsq)
@@ -300,83 +203,27 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     srcp += src_pitch;
     srcpn += src_pitch;
     cmkw += cmk_pitch;
-    if (use_mmx || use_isse || use_sse2)
+    // middle section
+    if (use_sse2)
     {
+      // height-2: no top, no bottom
+      // no "inc" here (chroma: inc=1 lumaonly: inc=2)
+      // SSE2 is separated instead
       if (chroma)
-      {
-#ifndef ALLOW_MMX
-        if (use_sse2)
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-          else
-            check_combing_SSE2_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-        }
-#else
-        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          __m128i cthreshb128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movaps cthreshb128, xmm1
-          }
-          check_combing_SSE2_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb128);
-        }
-        else if (use_mmx)
-          check_combing_MMX_M1(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (6)!");
-        srcpp += src_pitch*(Height - 2);
-        srcp += src_pitch*(Height - 2);
-        srcpn += src_pitch*(Height - 2);
-        cmkw += cmk_pitch*(Height - 2);
-      }
+        check_combing_SSE2_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
       else
-      {
-#ifndef ALLOW_MMX
-        if (use_sse2)
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          if (!((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-            check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-          else
-            check_combing_SSE2_Luma_M1<false>(srcp, cmkw, Width, Height - 2, src_pitch,
-              cmk_pitch, cthreshb_m128i);
-        }
-#else
-        if (use_sse2 && !((intptr_t(srcp) | intptr_t(cmkw) | src_pitch | cmk_pitch) & 15))
-        {
-          // aligned! we have to have an unaligned sse2 if isse and mmx is killed
-          __m128i cthreshb128;
-          __asm
-          {
-            movups xmm1, xmmword ptr[cthreshb]
-            movaps cthreshb128, xmm1
-          }
-          check_combing_SSE2_Luma_M1<true>(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb128);
-        }
-        else if (use_mmx)
-          check_combing_MMX_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch,
-            cmk_pitch, cthreshb[0]);
-#endif
-        else env->ThrowError("ShowCombedTIVTC:  simd error (5)!");
-        srcpp += src_pitch*(Height - 2);
-        srcp += src_pitch*(Height - 2);
-        srcpn += src_pitch*(Height - 2);
-        cmkw += cmk_pitch*(Height - 2);
-      }
+        check_combing_SSE2_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
+      srcpp += src_pitch * (Height - 2);
+      srcp += src_pitch * (Height - 2);
+      srcpn += src_pitch * (Height - 2);
+      cmkw += cmk_pitch * (Height - 2);
     }
     else
     {
+      // C version
+      // no top, no bottom
+      // fixme: to check_combing_c_M1 and check_combing_c_Luma_M1
+      // chroma: inc=1 lumaonly: inc=2
       for (int y = 1; y < Height - 1; ++y)
       {
         for (int x = 0; x < Width; x += inc)
@@ -390,6 +237,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
         cmkw += cmk_pitch;
       }
     }
+    // bottom
     for (int x = 0; x < Width; x += inc)
     {
       if ((srcp[x] - srcpp[x])*(srcp[x] - srcpp[x]) > cthreshsq)
@@ -406,8 +254,10 @@ cjump:
  
     unsigned char *cmkpp = cmkp - cmk_pitch;
     unsigned char *cmkpn = cmkp + cmk_pitch;
+    // middle section
     for (int y = 1; y < Height - 1; ++y)
     {
+      // no left, no right
       for (int x = 4; x < Width - 4; x += 4)
       {
         if ((cmkp[x + 1] == 0xFF && (cmkpp[x - 3] == 0xFF || cmkpp[x + 1] == 0xFF || cmkpp[x + 5] == 0xFF ||
@@ -431,13 +281,8 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
   memset(cArray, 0, arraysize * sizeof(int));
   int Heighta = (Height >> (yshift - 1)) << (yshift - 1);
   if (Heighta == Height) Heighta = Height - yhalf;
-  const int Widtha = (Width >> (xshift - 1)) << (xshift - 1);
+  const int Widtha = (Width >> (xshift - 1)) << (xshift - 1); // whole blocks
   const bool use_sse2_sum = (use_sse2 && xhalf == 16 && yhalf == 8) ? true : false;
-  const bool use_sse2a_sum = (use_sse2 && xhalf == 16 && yhalf == 8 && !((intptr_t(cmkp) | cmk_pitch) & 15)) ? true : false;
-#ifdef ALLOW_MMX
-  const bool use_isse_sum = (use_isse && xhalf == 16 && yhalf == 8) ? true : false;
-  const bool use_mmx_sum = (use_mmx && xhalf == 16 && yhalf == 8) ? true : false;
-#endif
   for (int y = 1; y < yhalf; ++y)
   {
     const int temp1 = (y >> yshift)*xblocks4;
@@ -462,13 +307,14 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
   {
     const int temp1 = (y >> yshift)*xblocks4;
     const int temp2 = ((y + yhalf) >> yshift)*xblocks4;
-    if (use_sse2a_sum)
+    // fixme: everything aligned
+    if (use_sse2_sum)
     {
       // aligned
       for (int x = 0; x < Widtha; x += xhalf)
       {
         int sum = 0;
-        compute_sum_8x16_sse2_luma<true>(cmkpp + x, cmk_pitch, sum);
+        compute_sum_16x8_sse2_luma(cmkpp + x, cmk_pitch, sum);
         if (sum)
         {
           const int box1 = (x >> xshift) << 2;
@@ -480,62 +326,6 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
         }
       }
     }
-    if (use_sse2_sum)
-    {
-      // unaligned
-      for (int x = 0; x < Widtha; x += xhalf)
-      {
-        int sum = 0;
-        compute_sum_8x16_sse2_luma<false>(cmkpp + x, cmk_pitch, sum);
-        if (sum)
-        {
-          const int box1 = (x >> xshift) << 2;
-          const int box2 = ((x + xhalf) >> xshift) << 2;
-          cArray[temp1 + box1 + 0] += sum;
-          cArray[temp1 + box2 + 1] += sum;
-          cArray[temp2 + box1 + 2] += sum;
-          cArray[temp2 + box2 + 3] += sum;
-        }
-      }
-    }
-#ifdef ALLOW_MMX
-    else if (use_isse_sum)
-    {
-      for (int x = 0; x < Widtha; x += xhalf)
-      {
-        int sum = 0;
-        compute_sum_8x16_isse_luma(cmkpp + x, cmk_pitch, sum);
-        if (sum)
-        {
-          const int box1 = (x >> xshift) << 2;
-          const int box2 = ((x + xhalf) >> xshift) << 2;
-          cArray[temp1 + box1 + 0] += sum;
-          cArray[temp1 + box2 + 1] += sum;
-          cArray[temp2 + box1 + 2] += sum;
-          cArray[temp2 + box2 + 3] += sum;
-        }
-      }
-      _mm_empty(); // __asm emms;
-    }
-    else if (use_mmx_sum)
-    {
-      for (int x = 0; x < Widtha; x += xhalf)
-      {
-        int sum = 0;
-        compute_sum_8x16_mmx_luma(cmkpp + x, cmk_pitch, sum);
-        if (sum)
-        {
-          const int box1 = (x >> xshift) << 2;
-          const int box2 = ((x + xhalf) >> xshift) << 2;
-          cArray[temp1 + box1 + 0] += sum;
-          cArray[temp1 + box2 + 1] += sum;
-          cArray[temp2 + box1 + 2] += sum;
-          cArray[temp2 + box2 + 3] += sum;
-        }
-      }
-      _mm_empty(); // __asm emms;
-    }
-#endif
     else
     {
       for (int x = 0; x < Widtha; x += xhalf)
@@ -566,6 +356,7 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
         }
       }
     }
+    // rest, after the aligned (whole-block) part
     for (int x = Widtha; x < Width; x += 2)
     {
       const unsigned char *cmkppT = cmkpp;
@@ -645,1048 +436,13 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
-  buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch,
-    tpitch, Width, Height >> 1, env);
-  const unsigned char *dppp = tbuffer - tpitch;
-  const unsigned char *dpp = tbuffer;
-  const unsigned char *dp = tbuffer + tpitch;
-  const unsigned char *dpn = tbuffer + tpitch * 2;
-  const unsigned char *dpnn = tbuffer + tpitch * 3;
-  int count;
-  bool upper, lower, upper2, lower2;
-#ifdef USE_C_NO_ASM
-  // reconstructed from inline asm by pf
-  if (mChroma) // TFM YUY2's mChroma bool parameter
-  {
-    for (int y = 2; y < Height - 2; y+=2) {
-      for (int ebx = 4; ebx < Width - 4; ebx += 1) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
-      {
-        if (dp[ebx] < 3) {
-          goto chroma_sec;
-        } // continue in TFMYUY2 1051;
-        if (dp[ebx - 2] < 3 && dp[ebx + 2] < 3 &&
-          dpp[ebx - 2] < 3 && dpp[ebx] < 3 && dpp[ebx + 2] < 3 &&
-          dpn[ebx - 2] < 3 && dpn[ebx] < 3 && dpn[ebx + 2] < 3)
-        {
-          goto chroma_sec;
-        }// continue in TFMYUY2 1051;
-        dstp[ebx]++;
-        if (dp[ebx] <= 19) {
-          goto chroma_sec;
-        }// continue in TFMYUY2 1051;
-        //mov eax, dpp
-        //  mov ecx, dp
-        //  mov edx, dpn
-        int edi = 0;
-        lower = 0;
-        upper = 0;
-        if (dpp[ebx - 2] > 19) edi++;
-        if (dpp[ebx] > 19) edi++;
-        if (dpp[ebx + 2] > 19) edi++;
-        if (edi != 0) upper = 1;
-        if (dp[ebx - 2] > 19) edi++;
-        if (dp[ebx + 2] > 19) edi++;
-        int esi = edi;
-        if (dpn[ebx - 2] > 19) edi++;
-        if (dpn[ebx] > 19) edi++;
-        if (dpn[ebx + 2] > 19) edi++;
-        if (edi <= 2) {
-          goto chroma_sec; // continue in TFMYUY2 1051;
-        }// continue in TFMYUY2 1051;
-        count = edi;
-        if (esi != edi) {
-          lower = 1;
-          if (upper != 0) {
-            dstp[ebx] += 2;
-            goto chroma_sec; // continue in TFMYUY2 1051;
-          }
-        }
-        // b111:
-        int eax = ebx - 8;
-        if (eax < 0) eax = 0;
-        // p31:
-        lower2 = 0;
-        upper2 = 0;
-        int edx = ebx + 10;
-        if (edx > Width) edx = Width;
-        // p41:
-  //-----------
-        if (y != 2) { // cmp y, 2,  je p51
-          int esi = eax;
-          do {
-            if (dppp[esi] > 19) {
-              upper2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
-        }
-        // p51 :
-        { // blocked for local vars
-          int esi = eax;
-          do {
-            if (dpp[esi] > 19)
-              upper = 1;
-            if (dpn[esi] > 19)
-              lower = 1;
-            if (upper != 0 && lower != 0)
-              break;
-            esi += 2;
-          } while (esi < edx);
-        }
-        //---------
-        // p121
-        //    p12:
-        if (y != Height - 4) {
-
-          int esi = eax;
-          do {
-            if (dpnn[esi] > 19) {
-              lower2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
-        }
-        //p13 :
-        if (upper == 0) { // cmp upper, 0, jne p16
-                          //  cmp lower, 0
-                          //je p17
-                          //cmp lower2, 0
-                          //je p17
-                          //jmp p18
-          if (lower == 0 || lower2 == 0) {
-            // p17:
-            if (count > 4)
-              dstp[ebx] += 4;
-          }
-          else {
-            dstp[ebx] += 2;
-            // p18
-          }
-        }
-        else {
-          if (lower != 0 || upper2 != 0) {
-            dstp[ebx] += 2;
-          }
-          else {
-            if (count > 4)
-              dstp[ebx] += 4;
-          }
-        }
-  //-------------- itt vége van egy ebx+=2-vel a másiknak   
-
-      chroma_sec:
-        ebx++;
-
-        if (dp[ebx] < 3) {
-          continue;
-        } // continue in TFMYUY2 1051;
-        if (dp[ebx - 4] < 3 && dp[ebx + 4] < 3 &&
-          dpp[ebx - 4] < 3 && dpp[ebx] < 3 && dpp[ebx + 4] < 3 &&
-          dpn[ebx - 4] < 3 && dpn[ebx] < 3 && dpn[ebx + 4] < 3)
-        {
-          continue;
-        }// continue in TFMYUY2 1051;
-        dstp[ebx]++;
-        if (dp[ebx] <= 19) {
-          continue;
-        }// continue in TFMYUY2 1051;
-         //mov eax, dpp
-         //  mov ecx, dp
-         //  mov edx, dpn
-        edi = 0;
-        lower = 0;
-        upper = 0;
-        if (dpp[ebx - 4] > 19) edi++;
-        if (dpp[ebx] > 19) edi++;
-        if (dpp[ebx + 4] > 19) edi++;
-        if (edi != 0) upper = 1;
-        if (dp[ebx - 4] > 19) edi++;
-        if (dp[ebx + 4] > 19) edi++;
-        esi = edi;
-        if (dpn[ebx - 4] > 19) edi++;
-        if (dpn[ebx] > 19) edi++;
-        if (dpn[ebx + 4] > 19) edi++;
-        if (edi <= 2) {
-          continue; // continue in TFMYUY2 1051;
-        }// continue in TFMYUY2 1051;
-        count = edi;
-        if (esi != edi) {
-          lower = 1;
-          if (upper != 0) {
-            dstp[ebx] += 2;
-            continue;
-          }
-        }
-        // b111:
-        eax = ebx - 8 - 8; // was: -8 in the first chroma part
-        int edx_tmp = (ebx & 2) + 1; // diff from 1st part, comparison is with 0 there
-        if (eax < edx_tmp) eax = edx_tmp; // diff from 1st part
-        // p31:/p3c
-        lower2 = 0;
-        upper2 = 0;
-        edx = ebx + 10 + 8; // was: +10 in the first chroma part
-        if (edx > Width) edx = Width;
-       // p41:
-       //-----------
-        if (y != 2) { // cmp y, 2,  je p51
-          int esi = eax;
-          do {
-            if (dppp[esi] > 19) {
-              upper2 = 1;
-              break;
-            }
-            esi += 4; // was: += 2 in the first chroma part
-          } while (esi < edx);
-        }
-        // p51 :
-        { // blocked for local vars
-          int esi = eax;
-          do {
-            if (dpp[esi] > 19)
-              upper = 1;
-            if (dpn[esi] > 19)
-              lower = 1;
-            if (upper != 0 && lower != 0)
-              break;
-            esi += 4;  // was: += 2 in the first chroma part
-          } while (esi < edx);
-        }
-        //---------
-        // p121
-        //    p12:
-        if (y != Height - 4) {
-
-          int esi = eax;
-          do {
-            if (dpnn[esi] > 19) {
-              lower2 = 1;
-              break;
-            }
-            esi += 4;  // was: += 2 in the first chroma part
-          } while (esi < edx);
-        }
-        //p13 :
-        if (upper == 0) { // cmp upper, 0, jne p16
-                          //  cmp lower, 0
-                          //je p17
-                          //cmp lower2, 0
-                          //je p17
-                          //jmp p18
-          if (lower == 0 || lower2 == 0) {
-            // p17:
-            if (count > 4)
-              dstp[ebx] += 4;
-          }
-          else {
-            dstp[ebx] += 2;
-            // p18
-          }
-        }
-        else {
-          if (lower != 0 || upper2 != 0) {
-            dstp[ebx] += 2;
-          }
-          else {
-            if (count > 4)
-              dstp[ebx] += 4;
-          }
-        }
-
-      }
-      dppp += tpitch;
-      dpp += tpitch;
-      dp += tpitch;
-      dpn += tpitch;
-      dpnn += tpitch;
-      dstp += dst_pitch;
-
-    }
-  }
-  else {
-    // TFMYUV2 1051
-    //env->ThrowError("not implemented yet"); // to be checked. What options do we need
-    for (int y = 2; y < Height - 2; y += 2) {
-      for (int ebx = 4; ebx < Width - 4; ebx += 2) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
-      {
-        if (dp[ebx] < 3) {
-          continue; // goto chroma_sec;
-        } // continue in TFMYUY2 1051;
-        if (dp[ebx - 2] < 3 && dp[ebx + 2] < 3 &&
-          dpp[ebx - 2] < 3 && dpp[ebx] < 3 && dpp[ebx + 2] < 3 &&
-          dpn[ebx - 2] < 3 && dpn[ebx] < 3 && dpn[ebx + 2] < 3)
-        {
-          continue; // goto chroma_sec;
-        }// continue in TFMYUY2 1051;
-        dstp[ebx]++;
-        if (dp[ebx] <= 19) {
-          continue; //  goto chroma_sec;
-        }// continue in TFMYUY2 1051;
-         //mov eax, dpp
-         //  mov ecx, dp
-         //  mov edx, dpn
-        int edi = 0;
-        lower = 0;
-        upper = 0;
-        if (dpp[ebx - 2] > 19) edi++;
-        if (dpp[ebx] > 19) edi++;
-        if (dpp[ebx + 2] > 19) edi++;
-        if (edi != 0) upper = 1;
-        if (dp[ebx - 2] > 19) edi++;
-        if (dp[ebx + 2] > 19) edi++;
-        int esi = edi;
-        if (dpn[ebx - 2] > 19) edi++;
-        if (dpn[ebx] > 19) edi++;
-        if (dpn[ebx + 2] > 19) edi++;
-        if (edi <= 2) {
-          continue; //  goto chroma_sec; // continue in TFMYUY2 1051;
-        }// continue in TFMYUY2 1051;
-        count = edi;
-        if (esi != edi) {
-          lower = 1;
-          if (upper != 0) {
-            dstp[ebx] += 2;
-            continue; // goto chroma_sec; // continue in TFMYUY2 1051;
-          }
-        }
-        // b111:
-        int eax = ebx - 8;
-        if (eax < 0) eax = 0;
-        // p31:
-        lower2 = 0;
-        upper2 = 0;
-        int edx = ebx + 10;
-        if (edx > Width) edx = Width;
-        // p41:
-        //-----------
-        if (y != 2) { // cmp y, 2,  je p51
-          int esi = eax;
-          do {
-            if (dppp[esi] > 19) {
-              upper2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
-        }
-        // p51 :
-        { // blocked for local vars
-          int esi = eax;
-          do {
-            if (dpp[esi] > 19)
-              upper = 1;
-            if (dpn[esi] > 19)
-              lower = 1;
-            if (upper != 0 && lower != 0)
-              break;
-            esi += 2;
-          } while (esi < edx);
-        }
-        //---------
-        // p121
-        //    p12:
-        if (y != Height - 4) {
-
-          int esi = eax;
-          do {
-            if (dpnn[esi] > 19) {
-              lower2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
-        }
-        //p13 :
-        if (upper == 0) { // cmp upper, 0, jne p16
-                          //  cmp lower, 0
-                          //je p17
-                          //cmp lower2, 0
-                          //je p17
-                          //jmp p18
-          if (lower == 0 || lower2 == 0) {
-            // p17:
-            if (count > 4)
-              dstp[ebx] += 4;
-          }
-          else {
-            dstp[ebx] += 2;
-            // p18
-          }
-        }
-        else {
-          if (lower != 0 || upper2 != 0) {
-            dstp[ebx] += 2;
-          }
-          else {
-            if (count > 4)
-              dstp[ebx] += 4;
-          }
-        }
-      }
-      dppp += tpitch;
-      dpp += tpitch;
-      dp += tpitch;
-      dpn += tpitch;
-      dpnn += tpitch;
-      dstp += dst_pitch;
-
-    }
-
-  }
-#else
-  if (mChroma)
-  {
-    // TFMYUV2 636
-    __asm
-    {
-      push ebx // pf170421
-
-      mov y, 2
-      yloopl:
-      mov edi, Width
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov ebx, 4
-        mov esi, dstp
-        sub edi, 4
-        xloopl:
-      cmp BYTE PTR[ecx + ebx], 3
-        ja b1l
-        inc ebx
-        jmp chroma_sec
-        b1l :
-      cmp BYTE PTR[ecx + ebx - 2], 3
-        ja p1l
-        cmp BYTE PTR[ecx + ebx + 2], 3
-        ja p1l
-        cmp BYTE PTR[eax + ebx - 2], 3
-        ja p1l
-        cmp BYTE PTR[eax + ebx], 3
-        ja p1l
-        cmp BYTE PTR[eax + ebx + 2], 3
-        ja p1l
-        cmp BYTE PTR[edx + ebx - 2], 3
-        ja p1l
-        cmp BYTE PTR[edx + ebx], 3
-        ja p1l
-        cmp BYTE PTR[edx + ebx + 2], 3
-        ja p1l
-        inc ebx
-        jmp chroma_sec
-        p1l :
-      inc BYTE PTR[esi + ebx]
-        cmp BYTE PTR[ecx + ebx], 19
-        ja b2l
-        inc ebx
-        jmp chroma_sec
-        b2l :
-      xor edi, edi
-        cmp BYTE PTR[eax + ebx - 2], 19
-        mov lower, 0
-        mov upper, 0
-        jbe b3l
-        inc edi
-        b3l :
-      cmp BYTE PTR[eax + ebx], 19
-        jbe b4l
-        inc edi
-        b4l :
-      cmp BYTE PTR[eax + ebx + 2], 19
-        jbe b5l
-        inc edi
-        b5l :
-      or edi, edi
-        jz p2l
-        mov upper, 1
-        p2l :
-        cmp BYTE PTR[ecx + ebx - 2], 19
-        jbe b6l
-        inc edi
-        b6l :
-      cmp BYTE PTR[ecx + ebx + 2], 19
-        jbe b7l
-        inc edi
-        b7l :
-      mov esi, edi
-        cmp BYTE PTR[edx + ebx - 2], 19
-        jbe b8l
-        inc edi
-        b8l :
-      cmp BYTE PTR[edx + ebx], 19
-        jbe b9l
-        inc edi
-        b9l :
-      cmp BYTE PTR[edx + ebx + 2], 19
-        jbe b10l
-        inc edi
-        b10l :
-      cmp edi, 2
-        jg c1l
-        c2l :
-      mov edi, Width
-        inc ebx
-        mov esi, dstp
-        sub edi, 4
-        jmp chroma_sec
-        c1l :
-      cmp edi, esi
-        mov count, edi
-        je b11l
-        mov lower, 1
-        cmp upper, 0
-        je b11l
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp c2l
-        b11l :
-      mov eax, ebx
-        add eax, -8
-        jge p3l
-        xor eax, eax
-        p3l :
-      mov edx, ebx
-        mov ecx, Width
-        mov lower2, 0
-        add edx, 10
-        mov upper2, 0
-        cmp edx, ecx
-        jle p4l
-        mov edx, ecx
-        p4l :
-      cmp y, 2
-        je p5l
-        mov esi, eax
-        mov ecx, dppp
-        p6l :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p7l
-        add esi, 2
-        cmp esi, edx
-        jl p6l
-        jmp p5l
-        p7l :
-      mov upper2, 1
-        p5l :
-        mov esi, eax
-        mov ecx, dpp
-        mov edi, dpn
-        p11l :
-      cmp BYTE PTR[ecx + esi], 19
-        jbe p8l
-        mov upper, 1
-        p8l :
-        cmp BYTE PTR[edi + esi], 19
-        jbe p9l
-        mov lower, 1
-        p9l :
-        cmp upper, 0
-        je p10l
-        cmp lower, 0
-        jne p12l
-        p10l :
-      add esi, 2
-        cmp esi, edx
-        jl p11l
-        p12l :
-      mov esi, Height
-        add esi, -4
-        cmp y, esi
-        je p13l
-        mov esi, eax
-        mov ecx, dpnn
-        p14l :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p15l
-        add esi, 2
-        cmp esi, edx
-        jl p14l
-        jmp p13l
-        p15l :
-      mov lower2, 1
-        p13l :
-        cmp upper, 0
-        jne p16l
-        cmp lower, 0
-        je p17l
-        cmp lower2, 0
-        je p17l
-        jmp p18l
-        p16l :
-      cmp lower, 0
-        jne p18l
-        cmp upper2, 0
-        jne p18l
-        jmp p17l
-        p18l :
-      mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp end_xloopl
-        p17l :
-      cmp count, 4
-        jle end_xloopl
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 4
-        end_xloopl :
-        mov edi, Width
-        inc ebx
-        sub edi, 4
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov esi, dstp
-        chroma_sec :
-      cmp BYTE PTR[ecx + ebx], 3
-        ja b1c
-        inc ebx
-        cmp ebx, edi
-        jl xloopl
-        jmp end_yloopl
-        b1c :
-      cmp BYTE PTR[ecx + ebx - 4], 3
-        ja p1c
-        cmp BYTE PTR[ecx + ebx + 4], 3
-        ja p1c
-        cmp BYTE PTR[eax + ebx - 4], 3
-        ja p1c
-        cmp BYTE PTR[eax + ebx], 3
-        ja p1c
-        cmp BYTE PTR[eax + ebx + 4], 3
-        ja p1c
-        cmp BYTE PTR[edx + ebx - 4], 3
-        ja p1c
-        cmp BYTE PTR[edx + ebx], 3
-        ja p1c
-        cmp BYTE PTR[edx + ebx + 4], 3
-        ja p1c
-        inc ebx
-        cmp ebx, edi
-        jl xloopl
-        jmp end_yloopl
-        p1c :
-      inc BYTE PTR[esi + ebx]
-        cmp BYTE PTR[ecx + ebx], 19
-        ja b2c
-        inc ebx
-        cmp ebx, edi
-        jl xloopl
-        jmp end_yloopl
-        b2c :
-      xor edi, edi
-        cmp BYTE PTR[eax + ebx - 4], 19
-        mov lower, 0
-        mov upper, 0
-        jbe b3c
-        inc edi
-        b3c :
-      cmp BYTE PTR[eax + ebx], 19
-        jbe b4c
-        inc edi
-        b4c :
-      cmp BYTE PTR[eax + ebx + 4], 19
-        jbe b5c
-        inc edi
-        b5c :
-      or edi, edi
-        jz p2c
-        mov upper, 1
-        p2c :
-        cmp BYTE PTR[ecx + ebx - 4], 19
-        jbe b6c
-        inc edi
-        b6c :
-      cmp BYTE PTR[ecx + ebx + 4], 19
-        jbe b7c
-        inc edi
-        b7c :
-      mov esi, edi
-        cmp BYTE PTR[edx + ebx - 4], 19
-        jbe b8c
-        inc edi
-        b8c :
-      cmp BYTE PTR[edx + ebx], 19
-        jbe b9c
-        inc edi
-        b9c :
-      cmp BYTE PTR[edx + ebx + 4], 19
-        jbe b10c
-        inc edi
-        b10c :
-      cmp edi, 2
-        jg c1c
-        c2c :
-      mov edi, Width
-        inc ebx
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloopl
-        mov esi, dstp
-        jmp xloopl
-        c1c :
-      cmp edi, esi
-        mov count, edi
-        je b11c
-        mov lower, 1
-        cmp upper, 0
-        je b11c
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp c2c
-        b11c :
-      mov eax, ebx
-        add eax, -16
-        mov edx, ebx
-        and edx, 2
-        inc edx
-        cmp eax, edx
-        jge p3c
-        mov eax, edx
-        p3c :
-      mov edx, ebx
-        mov ecx, Width
-        mov lower2, 0
-        add edx, 18
-        mov upper2, 0
-        cmp edx, ecx
-        jle p4c
-        mov edx, ecx
-        p4c :
-      cmp y, 2
-        je p5c
-        mov esi, eax
-        mov ecx, dppp
-        p6c :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p7c
-        add esi, 4
-        cmp esi, edx
-        jl p6c
-        jmp p5c
-        p7c :
-      mov upper2, 1
-        p5c :
-        mov esi, eax
-        mov ecx, dpp
-        mov edi, dpn
-        p11c :
-      cmp BYTE PTR[ecx + esi], 19
-        jbe p8c
-        mov upper, 1
-        p8c :
-        cmp BYTE PTR[edi + esi], 19
-        jbe p9c
-        mov lower, 1
-        p9c :
-        cmp upper, 0
-        je p10c
-        cmp lower, 0
-        jne p12c
-        p10c :
-      add esi, 4
-        cmp esi, edx
-        jl p11c
-        p12c :
-      mov esi, Height
-        add esi, -4
-        cmp y, esi
-        je p13c
-        mov esi, eax
-        mov ecx, dpnn
-        p14c :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p15c
-        add esi, 4
-        cmp esi, edx
-        jl p14c
-        jmp p13c
-        p15c :
-      mov lower2, 1
-        p13c :
-        cmp upper, 0
-        jne p16c
-        cmp lower, 0
-        je p17c
-        cmp lower2, 0
-        je p17c
-        jmp p18c
-        p16c :
-      cmp lower, 0
-        jne p18c
-        cmp upper2, 0
-        jne p18c
-        jmp p17c
-        p18c :
-      mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp end_xloopc
-        p17c :
-      cmp count, 4
-        jle end_xloopc
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 4
-        end_xloopc :
-        mov edi, Width
-        inc ebx
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloopl
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov esi, dstp
-        jmp xloopl
-        end_yloopl :
-      mov edi, tpitch
-        mov eax, dst_pitch
-        mov ecx, Height
-        add y, 2
-        sub ecx, 2
-        add dppp, edi
-        add dpp, edi
-        add dp, edi
-        add dpn, edi
-        add dpnn, edi
-        add dstp, eax
-        cmp y, ecx
-        jl yloopl
-
-        pop ebx // pf170421
-    }
-  }
-  else
-  {
-    // TFMYUV2 1051
-    __asm
-    {
-      push ebx // pf170421
-
-      mov y, 2
-      yloop:
-      mov edi, Width
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov ebx, 4
-        mov esi, dstp
-        sub edi, 4
-        xloop:
-      cmp BYTE PTR[ecx + ebx], 3
-        ja b1
-        add ebx, 2
-        cmp ebx, edi
-        jl xloop
-        jmp end_yloop
-        b1 :
-      cmp BYTE PTR[ecx + ebx - 2], 3
-        ja p1
-        cmp BYTE PTR[ecx + ebx + 2], 3
-        ja p1
-        cmp BYTE PTR[eax + ebx - 2], 3
-        ja p1
-        cmp BYTE PTR[eax + ebx], 3
-        ja p1
-        cmp BYTE PTR[eax + ebx + 2], 3
-        ja p1
-        cmp BYTE PTR[edx + ebx - 2], 3
-        ja p1
-        cmp BYTE PTR[edx + ebx], 3
-        ja p1
-        cmp BYTE PTR[edx + ebx + 2], 3
-        ja p1
-        add ebx, 2
-        cmp ebx, edi
-        jl xloop
-        jmp end_yloop
-        p1 :
-      inc BYTE PTR[esi + ebx]
-        cmp BYTE PTR[ecx + ebx], 19
-        ja b2
-        add ebx, 2
-        cmp ebx, edi
-        jl xloop
-        jmp end_yloop
-        b2 :
-      xor edi, edi
-        cmp BYTE PTR[eax + ebx - 2], 19
-        mov lower, 0
-        mov upper, 0
-        jbe b3
-        inc edi
-        b3 :
-      cmp BYTE PTR[eax + ebx], 19
-        jbe b4
-        inc edi
-        b4 :
-      cmp BYTE PTR[eax + ebx + 2], 19
-        jbe b5
-        inc edi
-        b5 :
-      or edi, edi
-        jz p2
-        mov upper, 1
-        p2 :
-        cmp BYTE PTR[ecx + ebx - 2], 19
-        jbe b6
-        inc edi
-        b6 :
-      cmp BYTE PTR[ecx + ebx + 2], 19
-        jbe b7
-        inc edi
-        b7 :
-      mov esi, edi
-        cmp BYTE PTR[edx + ebx - 2], 19
-        jbe b8
-        inc edi
-        b8 :
-      cmp BYTE PTR[edx + ebx], 19
-        jbe b9
-        inc edi
-        b9 :
-      cmp BYTE PTR[edx + ebx + 2], 19
-        jbe b10
-        inc edi
-        b10 :
-      cmp edi, 2
-        jg c1
-        c2 :
-      mov edi, Width
-        add ebx, 2
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloop
-        mov esi, dstp
-        jmp xloop
-        c1 :
-      cmp edi, esi
-        mov count, edi
-        je b11
-        mov lower, 1
-        cmp upper, 0
-        je b11
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp c2
-        b11 :
-      mov eax, ebx
-        add eax, -8
-        jge p3
-        xor eax, eax
-        p3 :
-      mov edx, ebx
-        mov ecx, Width
-        mov lower2, 0
-        add edx, 10
-        mov upper2, 0
-        cmp edx, ecx
-        jle p4
-        mov edx, ecx
-        p4 :
-      cmp y, 2
-        je p5
-        mov esi, eax
-        mov ecx, dppp
-        p6 :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p7
-        add esi, 2
-        cmp esi, edx
-        jl p6
-        jmp p5
-        p7 :
-      mov upper2, 1
-        p5 :
-        mov esi, eax
-        mov ecx, dpp
-        mov edi, dpn
-        p11 :
-      cmp BYTE PTR[ecx + esi], 19
-        jbe p8
-        mov upper, 1
-        p8 :
-        cmp BYTE PTR[edi + esi], 19
-        jbe p9
-        mov lower, 1
-        p9 :
-        cmp upper, 0
-        je p10
-        cmp lower, 0
-        jne p12
-        p10 :
-      add esi, 2
-        cmp esi, edx
-        jl p11
-        p12 :
-      mov esi, Height
-        add esi, -4
-        cmp y, esi
-        je p13
-        mov esi, eax
-        mov ecx, dpnn
-        p14 :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p15
-        add esi, 2
-        cmp esi, edx
-        jl p14
-        jmp p13
-        p15 :
-      mov lower2, 1
-        p13 :
-        cmp upper, 0
-        jne p16
-        cmp lower, 0
-        je p17
-        cmp lower2, 0
-        je p17
-        jmp p18
-        p16 :
-      cmp lower, 0
-        jne p18
-        cmp upper2, 0
-        jne p18
-        jmp p17
-        p18 :
-      mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp end_xloop
-        p17 :
-      cmp count, 4
-        jle end_xloop
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 4
-        end_xloop :
-        mov edi, Width
-        add ebx, 2
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloop
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov esi, dstp
-        jmp xloop
-        end_yloop :
-      mov edi, tpitch
-        mov eax, dst_pitch
-        mov ecx, Height
-        add y, 2
-        sub ecx, 2
-        add dppp, edi
-        add dpp, edi
-        add dp, edi
-        add dpn, edi
-        add dpnn, edi
-        add dstp, eax
-        cmp y, ecx
-        jl yloop
-
-        pop ebx // pf170421
-    }
-  }
-#endif
+  buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
+  AnalyzeDiffMask_YUY2(dstp, dst_pitch, tbuffer, tpitch, Width, Height, mChroma);
 }
 
+
+
+// debug Display
 void TFM::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
 {
   int x, y = y1 * 20, num, pitch = dst->GetPitch();
