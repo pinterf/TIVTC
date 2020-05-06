@@ -481,7 +481,6 @@
     <ClInclude Include="FieldDiff.h" />
     <ClInclude Include="Font.h" />
     <ClInclude Include="FrameDiff.h" />
-    <ClInclude Include="internal.h" />
     <ClInclude Include="MergeHints.h" />
     <ClInclude Include="PlanarFrame.h" />
     <ClInclude Include="profUtil.h" />

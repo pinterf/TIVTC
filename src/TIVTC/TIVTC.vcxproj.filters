@@ -113,9 +113,6 @@
     <ClInclude Include="FrameDiff.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="internal.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="MergeHints.h">
       <Filter>Header Files</Filter>
     </ClInclude>
