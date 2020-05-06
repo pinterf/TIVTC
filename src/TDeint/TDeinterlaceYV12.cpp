@@ -24,7 +24,7 @@
 */
 
 #include "TDeinterlace.h"
-#include "TDeintASM.h"
+#include "TCommonASM.h"
 #include <cassert>
 
 PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &wdtd)
@@ -1456,6 +1456,7 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
     return subtractFields1(prv, src, nxt, vit, aPn, aNn, aPm, aNm, fieldt, ordert, optt, d2, env);
   else if (_slow == 2)
     return subtractFields2(prv, src, nxt, vit, aPn, aNn, aPm, aNm, fieldt, ordert, optt, d2, env);
+
   PVideoFrame map = env->NewVideoFrame(vit);
   const int stop = vit.IsYUY2() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -1514,10 +1515,10 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
     const unsigned char *nxtnf = nxtpf + nxtf_pitch;
     unsigned char *mapn = mapp + map_pitch;
     if (fieldt != 1)
-      buildDiffMapPlane(prvpf - prvf_pitch, nxtpf - nxtf_pitch, mapp - map_pitch, prvf_pitch,
+      buildDiffMapPlane2(prvpf - prvf_pitch, nxtpf - nxtf_pitch, mapp - map_pitch, prvf_pitch,
         nxtf_pitch, map_pitch, Height >> 1, Width, optt, env);
     else
-      buildDiffMapPlane(prvnf - prvf_pitch, nxtnf - nxtf_pitch, mapn - map_pitch, prvf_pitch,
+      buildDiffMapPlane2(prvnf - prvf_pitch, nxtnf - nxtf_pitch, mapn - map_pitch, prvf_pitch,
         nxtf_pitch, map_pitch, Height >> 1, Width, optt, env);
     for (int y = 2; y < Height - 2; y += 2)
     {

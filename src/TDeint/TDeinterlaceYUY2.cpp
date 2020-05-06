@@ -24,7 +24,7 @@
 */
 
 #include "TDeinterlace.h"
-#include "TDeintASM.h"
+#include "TCommonASM.h"
 
 PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdtd)
 {
