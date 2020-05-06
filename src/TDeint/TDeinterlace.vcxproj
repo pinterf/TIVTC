@@ -181,7 +181,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)TDeinterlace.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -210,7 +210,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)TDeinterlace.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -245,7 +245,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -281,7 +281,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -317,7 +317,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -352,7 +352,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -386,7 +386,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -420,7 +420,7 @@
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)TDeinterlace.dll</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -431,6 +431,7 @@
   <ItemGroup>
     <ClCompile Include="..\common\TCommonASM.cpp" />
     <ClCompile Include="TDBuf.cpp" />
+    <ClCompile Include="TDeintASM.cpp" />
     <ClCompile Include="TDeinterlace.cpp" />
     <ClCompile Include="TDeinterlaceYUY2.cpp" />
     <ClCompile Include="TDeinterlaceYV12.cpp" />
@@ -450,6 +451,7 @@
     <ClInclude Include="..\include\avs\win.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="TDBuf.h" />
+    <ClInclude Include="TDeintASM.h" />
     <ClInclude Include="TDeinterlace.h" />
     <ClInclude Include="THelper.h" />
     <ClInclude Include="TSwitch.h" />

@@ -36,6 +36,9 @@
     <ClCompile Include="..\common\TCommonASM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="TDeintASM.cpp">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -81,6 +84,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\common\internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TDeintASM.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
