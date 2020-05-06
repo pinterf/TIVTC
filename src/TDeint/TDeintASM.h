@@ -31,29 +31,5 @@
 #include <emmintrin.h>
 #include "internal.h"
 
-  void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb,
-    __m128i thresh6w);
-  
-  void check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb,
-    __m128i thresh6w);
-  
-  void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-  
-  void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-  
-  void buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
-  
-  void buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
-  
-  template<int blockSizeY>
-  void compute_sum_8xN_sse2(const unsigned char *srcp, int pitch, int &sum);
-
-  void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum);
 
 #endif // __TDEINTASM_H__
