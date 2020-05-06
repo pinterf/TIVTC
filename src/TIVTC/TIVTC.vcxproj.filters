@@ -48,9 +48,6 @@
     <ClCompile Include="TDecimate.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TDecimateASM.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TDecimateBlur.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -72,9 +69,6 @@
     <ClCompile Include="TFM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TFMASM.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TFMD2V.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -85,6 +79,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TFMYV12.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\common\TCommonASM.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="calcCRC.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TFMASM.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TDecimateASM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -134,12 +140,6 @@
     <ClInclude Include="TFMPP.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TFMasm.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TDecimateASM.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\avisynth.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -162,6 +162,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\avs\win.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\TCommonASM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TFMasm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TDecimateASM.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
