@@ -26,114 +26,8 @@
 #include <intrin.h>
 #include <stdint.h>
 
-#define IS_BIT_SET(bitfield, bit) ((bitfield) & (1<<(bit)) ? true : false)
 
-#ifndef _XCR_XFEATURE_ENABLED_MASK
-#define _XCR_XFEATURE_ENABLED_MASK 0
-#endif
-
-// from avs+
-static int CPUCheckForExtensions()
-{
-  int result = 0;
-  int cpuinfo[4];
-
-  __cpuid(cpuinfo, 1);
-  if (IS_BIT_SET(cpuinfo[3], 0))
-    result |= CPUF_FPU;
-  if (IS_BIT_SET(cpuinfo[3], 23))
-    result |= CPUF_MMX;
-  if (IS_BIT_SET(cpuinfo[3], 25))
-    result |= CPUF_SSE | CPUF_INTEGER_SSE;
-  if (IS_BIT_SET(cpuinfo[3], 26))
-    result |= CPUF_SSE2;
-  if (IS_BIT_SET(cpuinfo[2], 0))
-    result |= CPUF_SSE3;
-  if (IS_BIT_SET(cpuinfo[2], 9))
-    result |= CPUF_SSSE3;
-  if (IS_BIT_SET(cpuinfo[2], 19))
-    result |= CPUF_SSE4_1;
-  if (IS_BIT_SET(cpuinfo[2], 20))
-    result |= CPUF_SSE4_2;
-  if (IS_BIT_SET(cpuinfo[2], 22))
-    result |= CPUF_MOVBE;
-  if (IS_BIT_SET(cpuinfo[2], 23))
-    result |= CPUF_POPCNT;
-  if (IS_BIT_SET(cpuinfo[2], 25))
-    result |= CPUF_AES;
-  if (IS_BIT_SET(cpuinfo[2], 29))
-    result |= CPUF_F16C;
-  // AVX
-  bool xgetbv_supported = IS_BIT_SET(cpuinfo[2], 27);
-  bool avx_supported = IS_BIT_SET(cpuinfo[2], 28);
-  if (xgetbv_supported && avx_supported)
-  {
-    unsigned long long xgetbv0 = _xgetbv(_XCR_XFEATURE_ENABLED_MASK);
-    if ((xgetbv0 & 0x6ull) == 0x6ull) {
-      result |= CPUF_AVX;
-      if (IS_BIT_SET(cpuinfo[2], 12))
-        result |= CPUF_FMA3;
-      __cpuid(cpuinfo, 7);
-      if (IS_BIT_SET(cpuinfo[1], 5))
-        result |= CPUF_AVX2;
-    }
-    if ((xgetbv0 & (0x7ull << 5)) && // OPMASK: upper-256 enabled by OS
-      (xgetbv0 & (0x3ull << 1))) { // XMM/YMM enabled by OS
-                                   // Verify that XCR0[7:5] = ‘111b’ (OPMASK state, upper 256-bit of ZMM0-ZMM15 and
-                                   // ZMM16-ZMM31 state are enabled by OS)
-                                   /// and that XCR0[2:1] = ‘11b’ (XMM state and YMM state are enabled by OS).
-      __cpuid(cpuinfo, 7);
-      if (IS_BIT_SET(cpuinfo[1], 16))
-        result |= CPUF_AVX512F;
-      if (IS_BIT_SET(cpuinfo[1], 17))
-        result |= CPUF_AVX512DQ;
-      if (IS_BIT_SET(cpuinfo[1], 21))
-        result |= CPUF_AVX512IFMA;
-      if (IS_BIT_SET(cpuinfo[1], 26))
-        result |= CPUF_AVX512PF;
-      if (IS_BIT_SET(cpuinfo[1], 27))
-        result |= CPUF_AVX512ER;
-      if (IS_BIT_SET(cpuinfo[1], 28))
-        result |= CPUF_AVX512CD;
-      if (IS_BIT_SET(cpuinfo[1], 30))
-        result |= CPUF_AVX512BW;
-      if (IS_BIT_SET(cpuinfo[1], 31))
-        result |= CPUF_AVX512VL;
-      if (IS_BIT_SET(cpuinfo[2], 1)) // [2]!
-        result |= CPUF_AVX512VBMI;
-    }
-  }
-
-  // 3DNow!, 3DNow!, ISSE, FMA4
-  __cpuid(cpuinfo, 0x80000000);
-  if (cpuinfo[0] >= 0x80000001)
-  {
-    __cpuid(cpuinfo, 0x80000001);
-
-    if (IS_BIT_SET(cpuinfo[3], 31))
-      result |= CPUF_3DNOW;
-
-    if (IS_BIT_SET(cpuinfo[3], 30))
-      result |= CPUF_3DNOW_EXT;
-
-    if (IS_BIT_SET(cpuinfo[3], 22))
-      result |= CPUF_INTEGER_SSE;
-
-    if (result & CPUF_AVX) {
-      if (IS_BIT_SET(cpuinfo[2], 16))
-        result |= CPUF_FMA4;
-    }
-  }
-
-  return result;
-}
-
-int GetCPUFlags() {
-  static int lCPUExtensionsAvailable = CPUCheckForExtensions();
-  return lCPUExtensionsAvailable;
-}
-
-PlanarFrame::PlanarFrame()
+PlanarFrame::PlanarFrame(int cpuFlags)
 {
   ypitch = uvpitch = 0;
   ywidth = uvwidth = 0;
@@ -141,10 +35,10 @@ PlanarFrame::PlanarFrame()
   y = u = v = NULL;
   useSIMD = true;
   packed = false;
-  cpu = getCPUInfo();
+  cpu = cpuFlags;
 }
 
-PlanarFrame::PlanarFrame(VideoInfo &viInfo)
+PlanarFrame::PlanarFrame(VideoInfo &viInfo, int cpuFlags)
 {
   ypitch = uvpitch = 0;
   ywidth = uvwidth = 0;
@@ -152,11 +46,11 @@ PlanarFrame::PlanarFrame(VideoInfo &viInfo)
   y = u = v = NULL;
   useSIMD = true;
   packed = false;
-  cpu = getCPUInfo();
+  cpu = cpuFlags;
   allocSpace(viInfo);
 }
 
-PlanarFrame::PlanarFrame(VideoInfo &viInfo, bool _packed)
+PlanarFrame::PlanarFrame(VideoInfo &viInfo, bool _packed, int cpuFlags)
 {
   ypitch = uvpitch = 0;
   ywidth = uvwidth = 0;
@@ -164,7 +58,7 @@ PlanarFrame::PlanarFrame(VideoInfo &viInfo, bool _packed)
   y = u = v = NULL;
   useSIMD = true;
   packed = _packed;
-  cpu = getCPUInfo();
+  cpu = cpuFlags;
   allocSpace(viInfo);
 }
 
@@ -259,11 +153,6 @@ bool PlanarFrame::allocSpace(int specs[4])
   return true;
 }
 
-int PlanarFrame::getCPUInfo()
-{
-  static const int cpu_saved = GetCPUFlags(); // copy from avs+
-  return cpu_saved;
-}
 
 void PlanarFrame::createPlanar(int yheight, int uvheight, int ywidth, int uvwidth)
 {

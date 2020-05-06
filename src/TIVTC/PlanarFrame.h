@@ -47,7 +47,6 @@ private:
   unsigned char *y, *u, *v;
   bool allocSpace(VideoInfo &viInfo);
   bool allocSpace(int specs[4]);
-  int getCPUInfo();
   void copyInternalFrom(PVideoFrame &frame, VideoInfo &viInfo);
   void copyInternalFrom(PlanarFrame &frame);
   void copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
@@ -63,9 +62,9 @@ private:
     unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
 
 public:
-  PlanarFrame();
-  PlanarFrame(VideoInfo &viInfo);
-  PlanarFrame(VideoInfo &viInfo, bool _packed);
+  PlanarFrame(int cpuInfo);
+  PlanarFrame(VideoInfo &viInfo, int cpuInfo);
+  PlanarFrame(VideoInfo &viInfo, bool _packed, int cpuInfo);
   ~PlanarFrame();
   void createPlanar(int yheight, int uvheight, int ywidth, int uvwidth);
   void createPlanar(int height, int width, int chroma_format);
