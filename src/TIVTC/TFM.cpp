@@ -798,8 +798,17 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     const int startx = IsYUY2 ? 16 : 8 >> vi.GetPlaneWidthSubsampling(plane);
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
-    if (b == 0) { y0a = y0; y1a = y1; }
-    else { y0a = y0 >> 1; y1a = y1 >> 1; }
+    if (b == 0)
+    { 
+      y0a = y0; 
+      y1a = y1;
+    }
+    else 
+    { 
+      const int ysubsampling = vi.GetPlaneHeightSubsampling(plane);
+      y0a = y0 >> ysubsampling;
+      y1a = y1 >> ysubsampling;
+    }
     if (match1 < 3)
     {
       curf = srcp + ((3 - field)*src_pitch);
@@ -1104,8 +1113,19 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     const int startx = IsYUY2 ? 16 : 8 >> vi.GetPlaneWidthSubsampling(plane);
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
-    if (b == 0) { y0a = y0; y1a = y1; tp = tpitchy; }
-    else { y0a = y0 >> 1; y1a = y1 >> 1; tp = tpitchuv; }
+    if (b == 0)
+    { 
+      y0a = y0; 
+      y1a = y1; 
+      tp = tpitchy;
+    }
+    else
+    { 
+      const int ysubsampling = vi.GetPlaneHeightSubsampling(plane);
+      y0a = y0 >> ysubsampling;
+      y1a = y1 >> ysubsampling;
+      tp = tpitchuv;
+    }
     if (match1 < 3)
     {
       curf = srcp + ((3 - field)*src_pitch);
@@ -1440,13 +1460,24 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
-    memset(mapp, 0, Height*map_pitch);
+    memset(mapp, 0, Height * map_pitch);
     const bool IsYUY2 = (np == 1);
     const int startx = IsYUY2 ? 16 : 8 >> vi.GetPlaneWidthSubsampling(plane);
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
-    if (b == 0) { y0a = y0; y1a = y1; tp = tpitchy; }
-    else { y0a = y0 >> 1; y1a = y1 >> 1; tp = tpitchuv; } // YV12 specific
+    if (b == 0) 
+    { 
+      y0a = y0;
+      y1a = y1;
+      tp = tpitchy;
+    }
+    else 
+    { 
+      const int ysubsampling = vi.GetPlaneHeightSubsampling(plane);
+      y0a = y0 >> ysubsampling;
+      y1a = y1 >> ysubsampling;
+      tp = tpitchuv;
+    }
     if (match1 < 3)
     {
       curf = srcp + ((3 - field)*src_pitch);
@@ -2583,23 +2614,18 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   }
   tpitchy = tpitchuv = -20;
   
-  const int ALIGN_BUF = 64; // must be <= as Avisynth's alignment. 64 is enough for a decade
+  const int ALIGN_BUF = 64;
   if (vi.IsPlanar())
   {
-    // pinterf: fix for avisynth+ (frame aligment>16 in general)
-    // we allocate (height >> 1) * AlignNumber(vi.width,16) for tbuffer
-    // But later on, widthA = GetRowSize(PLANAR_Y_ALIGNED) is used as pitch to fill this buffer, which is 32 aligned in Avisynth+
-    // E.g. width=2D0 height=1E0 -> Allocate 2D0*F0, filled 2E0*F0
-    //tpitchy = (vi.width & 15) ? vi.width + 16 - (vi.width & 15) : vi.width;
-    //tpitchuv = ((vi.width >> 1) & 15) ? (vi.width >> 1) + 16 - ((vi.width >> 1) & 15) : (vi.width >> 1);
     tpitchy = AlignNumber(vi.width, ALIGN_BUF);
-    tpitchuv = AlignNumber(vi.width >> 1, ALIGN_BUF); // YV12 specific!
+    const int widthUV = vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U);
+    tpitchuv = AlignNumber(widthUV, ALIGN_BUF);
   }
   else {
-    //tpitchy = ((vi.width << 1) & 15) ? (vi.width << 1) + 16 - ((vi.width << 1) & 15) : (vi.width << 1);
     tpitchy = AlignNumber((vi.width << 1), ALIGN_BUF);
   }
-  tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1)*tpitchy, ALIGN_BUF); // 16 would be is enough for sse2
+  // 16 would be is enough for sse2 but maybe we'll do AVX2?
+  tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1) * tpitchy, ALIGN_BUF);
   if (tbuffer == NULL)
     env->ThrowError("TFM:  malloc failure (tbuffer)!");
   mode7_field = field;
