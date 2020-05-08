@@ -23,7 +23,7 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.15 (20190508):
+# TIVTC v1.0.15 (20200508):
 
 **v1.0.15 (20200508)**
 - Fix random crashes (due to old plugin assumed that Avisynth framebuffer alignment is at most 16 bytes)
