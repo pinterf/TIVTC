@@ -36,8 +36,8 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
   diff = NULL;
   if (vi.BitsPerComponent() != 8)
     env->ThrowError("FrameDiff:  Only 8 bit clip data supported!");
-  if (vi.IsRGB() || vi.IsYV411())
-    env->ThrowError("FrameDiff:  RGB or 411 data not supported!");
+  if (vi.IsRGB())
+    env->ThrowError("FrameDiff:  RGB data not supported!");
   if (vi.height & 1)
     env->ThrowError("FrameDiff:  height must be mod 2!");
   if (vi.height < 8)

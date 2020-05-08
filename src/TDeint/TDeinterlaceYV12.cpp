@@ -241,6 +241,8 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
         expandMap_Planar<422>(mask);
       else if (vi_saved.Is444())
         expandMap_Planar<444>(mask);
+      else if (vi_saved.IsYV411())
+        expandMap_Planar<411>(mask);
       else
         env->ThrowError("TDeint: unsupported video format");
     }
@@ -251,6 +253,8 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
         linkFULL_Planar<422>(mask);
       else if (vi_saved.Is444())
         linkFULL_Planar<444>(mask);
+      else if (vi_saved.IsYV411())
+        linkFULL_Planar<411>(mask);
       else
         env->ThrowError("TDeint: unsupported video format");
     }
@@ -261,6 +265,8 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
         linkYtoUV_Planar<422>(mask);
       else if (vi_saved.Is444())
         linkYtoUV_Planar<444>(mask);
+      else if (vi_saved.IsYV411())
+        linkYtoUV_Planar<411>(mask);
       else {
         env->ThrowError("TDeint: unsupported video format");
       }
@@ -273,6 +279,8 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
         linkUVtoY_Planar<422>(mask);
       else if (vi_saved.Is444())
         linkUVtoY_Planar<444>(mask);
+      else if (vi_saved.IsYV411())
+        linkUVtoY_Planar<411>(mask);
       else {
         env->ThrowError("TDeint: unsupported video format");
       }
@@ -774,7 +782,7 @@ void TDeinterlace::expandMap_Planar(PVideoFrame &mask)
     const int dis = 
       b == 0 ? 
       expand : // luma
-      (expand >> (planarType == 444 ? 0 : planarType == 411 ? 2 : 1)); // chroma
+      (expand >> (planarType == 444 ? 0 : planarType == 411 ? 2 : 1 /* 422, 420 */)); // chroma
     // though no 411 support overall
     maskp += mask_pitch*field;
     for (int y = field; y < Height; y += 2)
@@ -847,7 +855,7 @@ void TDeinterlace::linkFULL_Planar(PVideoFrame &mask)
     }
   }
   else {
-    // 422, 444
+    // 411, 422, 444
     for (int y = field; y < HeightUV; y+=2) // always by 2
     {
       for (int x = 0; x < WidthUV; ++x)
@@ -861,13 +869,22 @@ void TDeinterlace::linkFULL_Planar(PVideoFrame &mask)
             maskpV[x] = maskpU[x] = 0x3C;
           }
         }
-        else {
+        else if constexpr (planarType == 444) {
           // 444
           if (
             (maskpY[x] == 0x3C) ||
             maskpV[x] == 0x3C || maskpU[x] == 0x3C)
           {
             maskpY[x] = 0x3C;
+            maskpV[x] = maskpU[x] = 0x3C;
+          }
+        }
+        else if constexpr (planarType == 411) {
+          if (
+            ((uint32_t *)(maskpY))[x] == 0x3C3C3C3C
+            || maskpV[x] == 0x3C || maskpU[x] == 0x3C)
+          {
+            ((unsigned short*)maskpY)[x] = (unsigned short)0x3C3C;
             maskpV[x] = maskpU[x] = 0x3C;
           }
         }
@@ -914,7 +931,7 @@ void TDeinterlace::linkYtoUV_Planar(PVideoFrame &mask)
     }
   }
   else {
-    // 422, 444
+    // 422, 444, 411
     for (int y = field; y < HeightUV; y+=2) // always by 2
     {
       for (int x = 0; x < WidthUV; ++x)
@@ -925,8 +942,14 @@ void TDeinterlace::linkYtoUV_Planar(PVideoFrame &mask)
             maskpV[x] = maskpU[x] = 0x3C;
           }
         }
-        else { // 444
+        else if constexpr (planarType == 444) {
           if (maskpY[x] == 0x3C)
+          {
+            maskpV[x] = maskpU[x] = 0x3C;
+          }
+        }
+        else if constexpr (planarType == 411) {
+          if (((uint32_t*)maskpY)[x] == 0x3C3C3C3C)
           {
             maskpV[x] = maskpU[x] = 0x3C;
           }
@@ -1266,7 +1289,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
             cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
             cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF)))
         {
-          // fixme: template?
+          // fixme: move to template
           // like in Link chroma
           if (planarType == 420) {
             ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
@@ -1285,9 +1308,9 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
             cmkpp[x] = 0xFF;
           }
           else if (planarType == 411) {
-            ((uint32_t*)cmkp)[x] = 0xFFFFFFFF;
-            ((uint32_t*)cmkpn)[x] = 0xFFFFFFFF;
-            ((uint32_t*)cmkpp)[x] = 0xFFFFFFFF;
+            ((uint32_t*)cmkp)[x] = (uint32_t)0xFFFFFFFF;
+            ((uint32_t*)cmkpn)[x] = (uint32_t)0xFFFFFFFF;
+            ((uint32_t*)cmkpp)[x] = (uint32_t)0xFFFFFFFF;
           }
         }
       }

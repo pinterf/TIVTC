@@ -276,8 +276,8 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
       for (int i = 0; i < 500; ++i) sa[i] = -1;
     }
   }
-  if (vi.IsRGB() || vi.IsYV411())
-    env->ThrowError("TDeint:  RGB or 411 data not supported!");
+  if (vi.IsRGB())
+    env->ThrowError("TDeint:  RGB data not supported!");
   if (vi.BitsPerComponent() != 8)
     env->ThrowError("TDeint:  Only 8 bit clip data supported!");
   if (mode != 0 && mode != 1 && mode != -1 && mode != -2)

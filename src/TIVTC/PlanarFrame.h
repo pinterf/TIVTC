@@ -28,11 +28,12 @@
 #include <malloc.h>
 #include "internal.h"
 
-#define MIN_ALIGNMENT 32
+#define MIN_ALIGNMENT 64
 
 #define PLANAR_420 1
 #define PLANAR_422 2
 #define PLANAR_444 3
+#define PLANAR_411 4
 
 __declspec(align(16)) const int64_t Ymask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 

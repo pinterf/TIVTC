@@ -545,7 +545,7 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
           }
         }
         else if constexpr (planarType == 411) {
-          if (((uint32_t*)maskpY)[x] == 0xFFFFFFFF) // horizontal subsampling
+          if (((uint32_t*)maskpY)[x] == (uint32_t)0xFFFFFFFF) // horizontal subsampling
           {
             maskpV[x] = maskpU[x] = 0xFF;
           }

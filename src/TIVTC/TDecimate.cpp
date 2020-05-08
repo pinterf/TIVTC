@@ -2848,7 +2848,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   {
     if (chroma)
     {
-      // fixme: only valid if chroma 422 and 444 cases are divided back to yv12 chroma weight relative to luma
       const int blockx_chroma = blockx >> vi.GetPlaneWidthSubsampling(PLANAR_U);
       const int blocky_chroma = blocky >> vi.GetPlaneHeightSubsampling(PLANAR_U);
       if (ssd) 

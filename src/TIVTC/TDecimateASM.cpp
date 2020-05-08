@@ -189,8 +189,39 @@ void calcSAD_SSE2_16xN(const unsigned char* ptr1, const unsigned char* ptr2,
   sad = _mm_cvtsi128_si32(sum);
 }
 
+// only 411 uses
+template<int blkSizeY>
+void calcSAD_C_2xN(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int& sad)
+{
+  int tmpsum = 0;
+  for (int i = 0; i < blkSizeY; i++) {
+    tmpsum += abs(ptr1[0] - ptr2[0]);
+    tmpsum += abs(ptr1[1] - ptr2[1]);
+    ptr1 += pitch1;
+    ptr2 += pitch2;
+  }
 
-// new
+  sad = tmpsum;
+}
+
+template<int blkSizeY>
+void calcSSD_C_2xN(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int& sad)
+{
+  int tmpsum = 0;
+  for (int i = 0; i < blkSizeY; i++) {
+    const int tmp0 = ptr1[0] - ptr2[0];
+    const int tmp1 = ptr1[1] - ptr2[1];
+    tmpsum += tmp0 * tmp0 + tmp1 * tmp1;
+    ptr1 += pitch1;
+    ptr2 += pitch2;
+  }
+
+  sad = tmpsum;
+}
+
+
 template<int blkSizeY>
 void calcSAD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
@@ -402,6 +433,7 @@ void calcSAD_SSE2_32x16_YUY2_lumaonly(const unsigned char *ptr1, const unsigned 
   sad = _mm_cvtsi128_si32(sum);
 }
 
+
 template<int blkSizeY>
 void calcSSD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
@@ -579,6 +611,7 @@ template void calcSSD_SSE2_8xN<16>(const unsigned char* ptr1, const unsigned cha
 template void calcSSD_SSE2_8xN<8>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
 template void calcSSD_SSE2_4xN<4>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
 template void calcSSD_SSE2_4xN<8>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
+template void calcSSD_SSE2_4xN<16>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
 
 // YUY2 16x16 luma+chroma
 void calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
@@ -909,6 +942,8 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
         SAD_fn = calcSAD_SSE2_8xN<16>;
       else if (xsubsampling == 1 && ysubsampling == 1) // YV12
         SAD_fn = calcSAD_SSE2_8xN<8>;
+      else if (xsubsampling == 2 && ysubsampling == 0) // YV411
+        SAD_fn = calcSAD_SSE2_4xN<16>;
     }
     else {
       if (xsubsampling == 0 && ysubsampling == 0) // YV24 or luma
@@ -917,6 +952,8 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
         SAD_fn = calcSSD_SSE2_8xN<16>;
       else if (xsubsampling == 1 && ysubsampling == 1) // YV12
         SAD_fn = calcSSD_SSE2_8xN<8>;
+      else if (xsubsampling == 1 && ysubsampling == 0) // YV411
+        SAD_fn = calcSSD_SSE2_4xN<16>;
     }
     // other formats are forbidden and were pre-checked
 
@@ -1180,6 +1217,8 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
         SAD_fn = calcSAD_SSE2_4xN<8>;
       else if (xsubsampling == 1 && ysubsampling == 1) // YV12
         SAD_fn = calcSAD_SSE2_4xN<4>;
+      else if (xsubsampling == 2 && ysubsampling == 0) // YV411
+        SAD_fn = calcSAD_C_2xN<8>;
     }
     else {
       if (xsubsampling == 0 && ysubsampling == 0) // YV24 or luma
@@ -1188,6 +1227,8 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
         SAD_fn = calcSSD_SSE2_4xN<8>;
       else if (xsubsampling == 1 && ysubsampling == 1) // YV12
         SAD_fn = calcSSD_SSE2_4xN<4>;
+      else if (xsubsampling == 2 && ysubsampling == 0) // YV411
+        SAD_fn = calcSSD_C_2xN<8>;
     }
     // other formats are forbidden and were pre-checked
 

@@ -163,20 +163,25 @@ void PlanarFrame::createPlanar(int yheight, int uvheight, int ywidth, int uvwidt
 void PlanarFrame::createPlanar(int height, int width, int chroma_format)
 {
   int specs[4];
-  if (chroma_format <= 1) // 420
+  if (chroma_format <= PLANAR_420) // 420
   {
     specs[0] = height; specs[1] = height >> 1;
     specs[2] = width; specs[3] = width >> 1;
   }
-  else if (chroma_format == 2) // 422
+  else if (chroma_format == PLANAR_422) // 422
   {
     specs[0] = height; specs[1] = height;
     specs[2] = width; specs[3] = width >> 1;
   }
-  else // 444
+  else if (chroma_format == PLANAR_444) // 444
   {
     specs[0] = height; specs[1] = height;
     specs[2] = width; specs[3] = width;
+  }
+  else if (chroma_format == PLANAR_411) // 411
+  {
+    specs[0] = height; specs[1] = height;
+    specs[2] = width; specs[3] = width >> 2;
   }
   allocSpace(specs);
 }
