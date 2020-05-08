@@ -36,12 +36,16 @@
 class TFMPP : public GenericVideoFilter
 {
 private:
-  const char *ovr;
-  int PP, PPS, nfrms, mthresh, mthreshS, setArraySize;
-  int *setArray, opt;
-  bool display, uC2, usehints;
   char buf[512];
+  int PP, mthresh;
+  const char* ovr;
+  bool display;
   PClip clip2;
+  bool usehints;
+  int opt;
+  bool uC2;
+  int PPS, nfrms, mthreshS, setArraySize;
+  int* setArray;
   PlanarFrame *mmask;
   void buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     PlanarFrame *mask, int use, int np, IScriptEnvironment *env);

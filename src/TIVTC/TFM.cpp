@@ -769,7 +769,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n,
   IScriptEnvironment *env)
 {
-  int b, ret, y0a, y1a;
+  int ret, y0a, y1a;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -781,7 +781,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0, accumNm = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (b = 0; b < stop; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     mapp = map->GetPtr(b);
@@ -1080,7 +1080,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 {
   if (slow == 2)
     return compareFieldsSlow2(prv, src, nxt, match1, match2, norm1, norm2, mtn1, mtn2, np, n, env);
-  int b, ret, y0a, y1a, tp;
+  int ret, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1093,7 +1093,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   unsigned long accumNm = 0, accumPml = 0, accumNml = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (b = 0; b < stop; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     mapp = map->GetPtr(b);
@@ -1431,7 +1431,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env)
 {
-  int b, ret, y0a, y1a, tp;
+  int ret, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1445,7 +1445,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   unsigned long accumNm = 0, accumPml = 0, accumNml = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (b = 0; b < stop; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     mapp = map->GetPtr(b);
@@ -3374,7 +3374,7 @@ TFM::~TFM()
               strcat(tempBuf, tb2);
             }
             strcat(tempBuf, "\n");
-            fprintf(f, tempBuf);
+            fprintf(f, "%s", tempBuf);
           }
         }
         generateOvrHelpOutput(f);

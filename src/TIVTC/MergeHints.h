@@ -32,8 +32,8 @@ class MergeHints : public GenericVideoFilter
 {
 private:
   char buf[512];
-  bool debug;
   PClip hintClip;
+  bool debug;
 
 public:
   MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnvironment *env);

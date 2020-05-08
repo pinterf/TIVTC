@@ -95,23 +95,54 @@ uint64_t calcLumaDiffYUY2_SAD(const unsigned char* prvp, const unsigned char* nx
 class TDecimate : public GenericVideoFilter
 {
 private:
-  int nfrms, nfrmsN, nt, blockx, blocky, linearCount, maxndl;
-  int blocky_shift, blockx_shift, blockx_half, blocky_half, mode, conCycleTP, opt;
-  int cycleR, cycle, hybrid, vidDetect, conCycle, vfrDec, lastn;
+  int mode;
+  int cycleR, cycle;
+  double rate, dupThresh;
+  int hybrid;
+  double vidThresh;
+  int conCycleTP;
+  int vidDetect;
+  double sceneThresh;
+  int conCycle;
+  const char* ovr;
+  const char* input;
+  int nt;
+  const char* output;
+  const char* mkvOut;
+  const char* tfmIn;
+  int blockx, blocky;
+  int vfrDec;
+  bool debug, display;
+  bool batch;
+  bool tcfv1;
+  bool se;
+  int maxndl;
+  bool chroma;
+  bool m2PA;
+  bool exPP;
+  bool noblend;
+  bool predenoise;
+  bool ssd; // sum of squared distances (false = SAD)
+  int sdlim;
+  int opt;
+  PClip clip2;
+  const char* orgOut;
+  Cycle prev, curr, next, nbuf;
+
+  int nfrms, nfrmsN, linearCount;
+  int blocky_shift, blockx_shift, blockx_half, blocky_half;
+  int lastn;
   int lastFrame, lastCycle, lastGroup, lastType, retFrames;
   uint64_t MAX_DIFF, sceneThreshU, sceneDivU, diff_thresh, same_thresh;
-  double rate, fps, mkvfps, mkvfps2, dupThresh, vidThresh, sceneThresh;
-  bool debug, display, useTFMPP, batch, tcfv1, se, cve, ecf, fullInfo;
-  bool noblend, m2PA, predenoise, chroma, exPP, ssd, usehints, useclip2;
+  double fps, mkvfps, mkvfps2;
+  bool useTFMPP, cve, ecf, fullInfo;
+  bool usehints, useclip2;
   uint64_t *diff, *metricsArray, *metricsOutArray, *mode2_metrics;
-  int *aLUT, *mode2_decA, *mode2_order, sdlim;
+  int *aLUT, *mode2_decA, *mode2_order;
   unsigned int outputCrc;
   unsigned char *ovrArray;
-  const char *ovr, *input, *output, *mkvOut, *tfmIn, *orgOut;
   int mode2_num, mode2_den, mode2_numCycles, mode2_cfs[10];
-  Cycle prev, curr, next, nbuf;
   FILE *mkvOutF;
-  PClip clip2;
   char buf[8192], outputFull[270];
 
   void init_mode_5(IScriptEnvironment* env);

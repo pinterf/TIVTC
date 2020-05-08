@@ -76,22 +76,54 @@ struct SCTRACK {
 class TFM : public GenericVideoFilter
 {
 private:
-  int order, field, mode, cthresh, MI, y0, y1, PP, PPS, MIS;
-  const char *ovr, *input, *output, *outputC, *d2v, *trimIn;
-  bool debug, chroma, mChroma, display;
-  int cNum, nfrms, orderS, fieldS, modeS, blockx, blocky, opt;
-  int xhalf, yhalf, xshift, yshift, ovrDefault, flags, slow, metric;
-  int vidCount, setArraySize, fieldO, micout, micmatching, mode7_field;
+  /*
+  order(_order), field(_field), mode(_mode), PP(_PP), ovr(_ovr), input(_input), output(_output),
+    outputC(_outputC), debug(_debug), display(_display), slow(_slow), mChroma(_mChroma), cNum(_cNum),
+    cthresh(_cthresh), MI(_MI), chroma(_chroma), blockx(_blockx), blocky(_blocky), y0(_y0),
+    y1(_y1), d2v(_d2v), ovrDefault(_ovrDefault), flags(_flags), scthresh(_scthresh), micout(_micout),
+    micmatching(_micmatching), trimIn(_trimIn), usehints(_usehints), metric(_metric),
+    batch(_batch), ubsco(_ubsco), mmsco(_mmsco), opt(_opt)
+*/
+
+  int order, field, mode;
+  int PP;
+  const char* ovr;
+  const char* input;
+  const char* output;
+  const char* outputC;
+  bool debug, display;
+  int slow;
+  bool mChroma;
+  int cNum;
+  int cthresh;
+  int MI;
+  bool chroma;
+  int blockx, blocky;
+  int y0, y1;
+  const char* d2v;
+  int ovrDefault;
+  int flags;
+  double scthresh;
+  int micout, micmatching;
+  const char* trimIn;
+  bool usehints;
+  bool metric;
+  bool batch, ubsco, mmsco;
+  int opt;
+
+  int PPS, MIS;
+  int nfrms, orderS, fieldS, modeS;
+  int xhalf, yhalf, xshift, yshift;
+  int vidCount, setArraySize, fieldO, mode7_field;
   unsigned int outputCrc;
   unsigned long diffmaxsc;
   int *cArray, *setArray;
-  bool *trimArray, usehints, batch, ubsco, mmsco;
+  bool *trimArray;
   double d2vpercent;
   unsigned char *ovrArray, *outArray, *d2vfilmarray, *tbuffer;
   int tpitchy, tpitchuv, *moutArray, *moutArrayE;
   MTRACK lastMatch;
   SCTRACK sclast;
-  double scthresh;
   char buf[4096], outputFull[270], outputCFull[270];
   PlanarFrame *map, *cmask;
   void buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,

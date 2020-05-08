@@ -40,12 +40,13 @@
 class FrameDiff : public GenericVideoFilter
 {
 private:
-  double thresh;
   char buf[512];
   bool predenoise, ssd, rpos;
   int nt, nfrms, blockx, blocky, mode, display;
-  int blocky_shift, blockx_shift, blocky_half, blockx_half, opt;
+  double thresh;
+  int opt;
   bool chroma, debug, prevf, norm;
+  int blocky_shift, blockx_shift, blocky_half, blockx_half;
   uint64_t *diff, MAX_DIFF, threshU;
   void calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env);
   void fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);

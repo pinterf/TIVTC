@@ -50,23 +50,61 @@ class TDeinterlace : public GenericVideoFilter
   friend class TDHelper;
   TDBuf *db;
   VideoInfo vi_saved;
-  int mode, order, field, ovrDefault, type, mtnmode;
-  int mthreshL, mthreshC, map, cthresh, MI, link;
-  int countOvr, nfrms, nfrms2, orderS, fieldS, metric;
-  int mthreshLS, mthreshCS, typeS, cthresh6, AP;
-  int blockx_half, blocky_half, blockx_shift, blocky_shift, blockx, blocky;
+
+/*
+  mode(_mode), order(_order), field(_field), mthreshL(_mthreshL),
+  mthreshC(_mthreshC), map(_map), ovr(_ovr), ovrDefault(_ovrDefault), type(_type),
+  debug(_debug), mtnmode(_mtnmode), sharp(_sharp), hints(_hints), clip2(_clip2), full(_full),
+  cthresh(_cthresh), chroma(_chroma), MI(_MI), tryWeave(_tryWeave), link(_link),
+  denoise(_denoise), AP(_AP), blockx(_blockx), blocky(_blocky), APType(_APType),
+  edeint(_edeint), emask(_emask), metric(_metric), expand(_expand), slow(_slow),
+  emtn(_emtn), tshints(_tshints), opt(_opt)
+*/
+
+  int mode;
+  int order;
+  int field;
+  int mthreshL, mthreshC;
+  int map;
+  const char* ovr;
+  int ovrDefault;
+  int type;
+  bool debug;
+  int mtnmode;
+  bool sharp;
+  bool hints;
+  PClip clip2;
+  bool full;
+  int cthresh;
+  bool chroma;
+  int MI;
+  bool tryWeave;
+  int link;
+  bool denoise;
+  int AP;
+  int blockx, blocky;
+  int APType;
+  PClip edeint;
+  PClip emask;
+  int metric;
+  int expand;
+  int slow;
+  PClip emtn;
+  bool tshints;
+  int opt;
+
+  int countOvr, nfrms, nfrms2, orderS, fieldS;
+  int mthreshLS, mthreshCS, typeS, cthresh6;
+  int blockx_half, blocky_half, blockx_shift, blocky_shift;
   std::vector<int> input;
   int* cArray;
-  int APType, opt, sa_pos, rmatch;
+  int sa_pos, rmatch;
   unsigned int passHint;
   int accumNn, accumPn, accumNm, accumPm;
-  bool debug, sharp, hints, full, chroma;
-  bool autoFO, useClip2, tryWeave, denoise, tshints;
-  int expand, slow, tpitchy, tpitchuv;
-  const char* ovr;
+  bool autoFO, useClip2;
+  int tpitchy, tpitchuv;
   unsigned char *tbuffer;
   char buf[120];
-  PClip clip2, edeint, emask, emtn;
 
   void createMotionMap4_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,

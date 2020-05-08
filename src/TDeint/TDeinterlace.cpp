@@ -247,7 +247,8 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   bool _chroma, int _MI, bool _tryWeave, int _link, bool _denoise, int _AP,
   int _blockx, int _blocky, int _APType, PClip _edeint, PClip _emask, int _metric,
   int _expand, int _slow, PClip _emtn, bool _tshints, int _opt, IScriptEnvironment* env) :
-  GenericVideoFilter(_child), mode(_mode), order(_order), field(_field), mthreshL(_mthreshL),
+  GenericVideoFilter(_child),
+  mode(_mode), order(_order), field(_field), mthreshL(_mthreshL),
   mthreshC(_mthreshC), map(_map), ovr(_ovr), ovrDefault(_ovrDefault), type(_type),
   debug(_debug), mtnmode(_mtnmode), sharp(_sharp), hints(_hints), clip2(_clip2), full(_full),
   cthresh(_cthresh), chroma(_chroma), MI(_MI), tryWeave(_tryWeave), link(_link),

@@ -61,7 +61,7 @@ void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
     int dst_pitch = dst->GetPitch(plane), x, y;
     if (vi_t.IsPlanar())
     {
-      if ((cpu&CPUF_SSE2) && width >= 8)
+      if (use_sse2 && width >= 8)
       {
         // always mod 8, sse2 unaligned!
         HorizontalBlur_SSE2_Planar(srcp, dstp, src_pitch, dst_pitch, widtha, height);
@@ -96,7 +96,7 @@ void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
       // YUY2
       if (bchroma)
       {
-        if ((cpu&CPUF_SSE2) && width >= 8)
+        if (use_sse2 && width >= 8)
         {
           HorizontalBlur_SSE2_YUY2(srcp, dstp, src_pitch, dst_pitch, widtha, height);
           if (width != widtha)
@@ -146,7 +146,7 @@ void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
       else
       {
         // YUY2 luma only
-        if ((cpu&CPUF_SSE2) && width >= 8)
+        if (use_sse2 && width >= 8)
         {
           HorizontalBlur_SSE2_YUY2_lumaonly(srcp, dstp, src_pitch, dst_pitch, widtha, height);
           if (width != widtha)
@@ -201,7 +201,7 @@ void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
     unsigned char* dstp = dst->GetWritePtr(plane);
     int dst_pitch = dst->GetPitch(plane);
 
-    if (cpu & CPUF_SSE2 && widtha2 >= 16)
+    if (use_sse2 && widtha2 >= 16)
     {
       // 16x block is Ok
       VerticalBlurSSE2(srcp, dstp, src_pitch, dst_pitch, widtha2, height);

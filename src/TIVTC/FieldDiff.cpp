@@ -26,8 +26,9 @@
 #include <emmintrin.h>
 
 FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _debug,
-  bool _sse, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child), nt(_nt),
-  chroma(_chroma), display(_display), debug(_debug), sse(_sse), opt(_opt)
+  bool _sse, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child),
+  nt(_nt), opt(_opt),
+  chroma(_chroma), debug(_debug), display(_display), sse(_sse)
 {
   if (!vi.IsYUV())
     env->ThrowError("FieldDiff:  only YUV input supported!");
@@ -112,7 +113,7 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
 int64_t FieldDiff::getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
   IScriptEnvironment *env)
 {
-  int b, x, y;
+  int x, y;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   const int stop = chromaIn ? np : 1; // YUY2 or Planar Luma-only is 1 plane
   const int inc = (np == 1 && !chromaIn) ? 2 : 1; // YUY2 lumaonly is 2, planar and YUY2 LumaChroma is 1
@@ -129,7 +130,7 @@ int64_t FieldDiff::getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn
 
   __m128i nt6_si128 = _mm_set1_epi16(nt6);
 
-  for (b = 0; b < stop; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     srcp = src->GetReadPtr(plane);
@@ -239,7 +240,7 @@ int64_t FieldDiff::getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn
 int64_t FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
   IScriptEnvironment *env)
 {
-  int b, x, y;
+  int x, y;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   const int stop = chromaIn ? np : 1;
   const int inc = (np == 1 && !chromaIn) ? 2 : 1;
@@ -256,7 +257,7 @@ int64_t FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
 
   __m128i nt6_si128 = _mm_set1_epi16(nt6);
 
-  for (b = 0; b < stop; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     srcp = src->GetReadPtr(plane);

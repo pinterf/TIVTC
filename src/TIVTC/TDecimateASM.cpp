@@ -1436,7 +1436,7 @@ void calcDiff_SADorSSD_Generic_c(const unsigned char* prvp, const unsigned char*
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
-  int heighta, heights = height, widtha, widths = width;
+  int heighta, widtha;
   const unsigned char* prvpT, * curpT;
   const bool IsPlanar = (np == 3);
   int diffs;

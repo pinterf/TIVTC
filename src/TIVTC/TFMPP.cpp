@@ -171,7 +171,7 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     maskw += msk_pitch;
     if (use == 1)
     {
-      if (cpu&CPUF_SSE2)
+      if (use_sse2)
         buildMotionMask1_SSE2(srcp, prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpu);
       else
       {
@@ -195,7 +195,7 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     }
     else if (use == 2)
     {
-      if (cpu&CPUF_SSE2)
+      if (use_sse2)
         buildMotionMask1_SSE2(srcp, nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
       else
       {
@@ -219,7 +219,8 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     }
     else
     {
-      if (cpu&CPUF_SSE2)
+      // use not 1 or 2
+      if (use_sse2)
       {
         buildMotionMask2_SSE2(prvp, srcp, nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
         for (int y = 1; y < height; ++y)
@@ -277,6 +278,8 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       linkPlanar<422>(mask);
     else if (vi.Is444())
       linkPlanar<444>(mask);
+    else if (vi.IsYV411())
+      linkPlanar<411>(mask);
   }
   else
   {
@@ -453,10 +456,8 @@ void TFMPP::linkYUY2(PlanarFrame *mask)
 
 void TFMPP::denoisePlanar(PlanarFrame *mask)
 {
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < 3; ++b)
   {
-    const int plane = planes[b];
     unsigned char *maskpp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
     unsigned char *maskp = maskpp + msk_pitch;
@@ -523,7 +524,7 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
       }
     }
   }
-  else { // 422 444
+  else { // 422 444 411
     for (int y = 1; y < HeightUV - 1; ++y)
     {
       maskpY += mask_pitchY;
@@ -539,6 +540,12 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
         }
         else if constexpr (planarType == 444) {
           if (maskpY[x] == 0xFF)
+          {
+            maskpV[x] = maskpU[x] = 0xFF;
+          }
+        }
+        else if constexpr (planarType == 411) {
+          if (((uint32_t*)maskpY)[x] == 0xFFFFFFFF) // horizontal subsampling
           {
             maskpV[x] = maskpU[x] = 0xFF;
           }

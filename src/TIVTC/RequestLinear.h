@@ -40,8 +40,9 @@ class RequestLinear : public GenericVideoFilter
 {
 private:
   char buf[512];
-  bool debug, rall;
-  int last_request, rlim, clim, elim, start_pos;
+  int last_request, rlim, clim, elim;
+  bool rall, debug;
+  int start_pos;
   RFrame **frames;
   int mapn(int n);
   int getCachePos(int n);

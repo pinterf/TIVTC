@@ -64,9 +64,9 @@ class ShowCombedTIVTC : public GenericVideoFilter
 {
 private:
   char buf[512];
+  int cthresh, MI, blockx, blocky, display, opt, metric;
   bool debug, chroma, fill;
-  int cthresh, MI, blockx, blocky, display, opt;
-  int yhalf, xhalf, yshift, xshift, nfrms, *cArray, metric;
+  int yhalf, xhalf, yshift, xshift, nfrms, *cArray;
   PlanarFrame *cmask;
   void fillCombedYUY2(PVideoFrame &src, int &MICount,
     int &b_over, int &c_over, IScriptEnvironment *env);
@@ -92,9 +92,10 @@ public:
 
 ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _MI,
   int _blockx, int _blocky, int _metric, bool _debug, int _display, bool _fill,
-  int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child), cthresh(_cthresh),
-  chroma(_chroma), MI(_MI), blockx(_blockx), blocky(_blocky), metric(_metric),
-  debug(_debug), display(_display), fill(_fill), opt(_opt)
+  int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child),
+  cthresh(_cthresh), MI(_MI), blockx(_blockx), blocky(_blocky),
+  display(_display), opt(_opt), metric(_metric),
+  debug(_debug), chroma(_chroma), fill(_fill)
 {
   cArray = NULL;
   cmask = NULL;

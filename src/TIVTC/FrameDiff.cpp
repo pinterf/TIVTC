@@ -27,9 +27,11 @@
 
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
   bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise, bool _ssd,
-  bool _rpos, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child), mode(_mode), prevf(_prevf),
-  nt(_nt), blockx(_blockx), blocky(_blocky), chroma(_chroma), thresh(_thresh), display(_display),
-  debug(_debug), norm(_norm), predenoise(_predenoise), ssd(_ssd), rpos(_rpos), opt(_opt)
+  bool _rpos, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child),
+  predenoise(_predenoise), ssd(_ssd), rpos(_rpos),
+  nt(_nt), blockx(_blockx), blocky(_blocky), mode(_mode), display(_display),
+  thresh(_thresh),
+  opt(_opt), chroma(_chroma), debug(_debug), prevf(_prevf), norm(_norm)
 {
   diff = NULL;
   if (vi.BitsPerComponent() != 8)
@@ -403,15 +405,12 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
   // core start
 
   const unsigned char* prvp, * curp;
-  int prv_pitch, cur_pitch, width, height, y, x;
+  int prv_pitch, cur_pitch, width, height;
 
   int xblocks = ((d.vi.width + d.blockx_half) >> d.blockx_shift) + 1;
   int xblocks4 = xblocks << 2;
   int yblocks = ((d.vi.height + d.blocky_half) >> d.blocky_shift) + 1;
   int arraysize = (xblocks * yblocks) << 2;
-
-  int temp1, temp2, box1, box2;
-  int yhalf, xhalf, yshift, xshift, b;
 
   long cpu = env->GetCPUFlags();
   if (d.opt == 0) cpu = 0;
@@ -424,7 +423,7 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
 
-  for (b = 0; b < stop; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     prvp = prev->GetReadPtr(plane);
@@ -482,7 +481,7 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
         {
           if (d.np == 3 || !d.chroma) // planar or YUY2 luma+chroma
           {
-            for (x = 0; x < arraysize; x += 4)
+            for (int x = 0; x < arraysize; x += 4)
               d.metricF += d.diff[x];
           }
           else

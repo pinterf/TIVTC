@@ -1395,7 +1395,7 @@ int TDecimate::checkForD2VDecFrame(Cycle &p, Cycle &c, Cycle &n)
 */
 bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n)
 {
-  int dupsP = 0, savedp = -20, dupsC = 0, dupsN = 0, savedn = -20;
+  int dupsP = 0, savedp = -20, dupsN = 0, savedn = -20;
   int c1 = -20, c2 = -20, i, v, mp, mc;
   uint64_t lowest = ULLONG_MAX;
   for (v = -1, i = p.cycleS; i < p.cycleE; ++i)
@@ -2129,7 +2129,7 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
 {
   const unsigned char *srcp1, *srcp2;
   unsigned char *dstp;
-  int b, x, y, width, height;
+  int x, y, width, height;
   int s1_pitch, dst_pitch, s2_pitch, widthM;
 
   long cpu = env->GetCPUFlags();
@@ -2137,7 +2137,7 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
   bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (b = 0; b < np; ++b)
+  for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
     srcp1 = src1->GetReadPtr(plane);
@@ -2189,9 +2189,9 @@ int TDecimate::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np, int
 void TDecimate::setBlack(PVideoFrame &dst, int np)
 {
   unsigned char *dstp;
-  int b, x, y, pitch, width, height;
+  int x, y, pitch, width, height;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (b = 0; b < np; ++b)
+  for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
     dstp = dst->GetWritePtr(plane);
@@ -2319,7 +2319,7 @@ void FloatToFPS(double n, unsigned &num, unsigned &den, IScriptEnvironment* env)
 
 AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-  int hybrid = args[8].IsInt() ? args[8].AsInt() : 0;
+  //int hybrid = args[8].IsInt() ? args[8].AsInt() : 0; // unused
   int vidDetect = args[9].IsInt() ? args[9].AsInt() : 3;
   int cc;
   if (vidDetect >= 3) cc = 1;
@@ -2670,14 +2670,17 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
   bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl, bool _m2PA,
   bool _predenoise, bool _noblend, bool _ssd, int _usehints, PClip _clip2,
-  int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env) : GenericVideoFilter(_child), mode(_mode),
-  cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh), vidThresh(_vidThresh),
-  sceneThresh(_sceneThresh), hybrid(_hybrid), vidDetect(_vidDetect), conCycle(_conCycle),
-  conCycleTP(_conCycleTP), ovr(_ovr), output(_output), input(_input), tfmIn(_tfmIn),
-  mkvOut(_mkvOut), nt(_nt), blockx(_blockx), blocky(_blocky), debug(_debug),
-  display(_display), vfrDec(_vfrDec), batch(_batch), tcfv1(_tcfv1), se(_se),
-  chroma(_chroma), exPP(_exPP), maxndl(_maxndl), m2PA(_m2PA), predenoise(_predenoise),
-  noblend(_noblend), ssd(_ssd), clip2(_clip2), sdlim(_sdlim), opt(_opt), orgOut(_orgOut),
+  int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env) : GenericVideoFilter(_child),
+  mode(_mode),
+  cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh),
+  hybrid(_hybrid), vidThresh(_vidThresh),
+  conCycleTP(_conCycleTP), vidDetect(_vidDetect), sceneThresh(_sceneThresh),
+  conCycle(_conCycle), ovr(_ovr), input(_input),
+  nt(_nt), output(_output), mkvOut(_mkvOut), tfmIn(_tfmIn), blockx(_blockx), blocky(_blocky),
+  vfrDec(_vfrDec), debug(_debug), display(_display), batch(_batch), tcfv1(_tcfv1), se(_se),
+  maxndl(_maxndl), chroma(_chroma), m2PA(_m2PA), exPP(_exPP),
+  noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
+  opt(_opt), clip2(_clip2), orgOut(_orgOut),
   prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0)
 {
   diff = metricsArray = metricsOutArray = mode2_metrics = NULL;
@@ -3344,7 +3347,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               if (*linep != 0 && *linep != 10)
               {
                 r = *linep;
-                if (r == 45 && useTFMPP) q = q;
+                if (r == 45 && useTFMPP)
+                {
+                  // intentional noop q = q; 
+                }
                 else if (r == 43 && q < 5 && useTFMPP)
                 {
                   if (fieldt == 0) q = 5;
