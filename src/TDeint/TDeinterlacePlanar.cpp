@@ -1049,6 +1049,72 @@ void TDeinterlace::denoisePlanar(PVideoFrame &mask)
   }
 }
 
+template<int planarType>
+static void HandleChromaCombing(PVideoFrame& cmask) {
+  unsigned char* cmkp = cmask->GetWritePtr(PLANAR_Y);
+  unsigned char* cmkpU = cmask->GetWritePtr(PLANAR_U);
+  unsigned char* cmkpV = cmask->GetWritePtr(PLANAR_V);
+  const int Width = cmask->GetRowSize(PLANAR_V);
+  const int Height = cmask->GetHeight(PLANAR_V);
+  const int cmk_pitch = cmask->GetPitch(PLANAR_Y) << 1;
+  const int cmk_pitchUV = cmask->GetPitch(PLANAR_V);
+  unsigned char* cmkpp = cmkp - (cmk_pitch >> 1);
+  unsigned char* cmkpn = cmkp + (cmk_pitch >> 1);
+  unsigned char* cmkpnn = cmkpn + (cmk_pitch >> 1);
+  unsigned char* cmkppU = cmkpU - cmk_pitchUV;
+  unsigned char* cmkpnU = cmkpU + cmk_pitchUV;
+  unsigned char* cmkppV = cmkpV - cmk_pitchUV;
+  unsigned char* cmkpnV = cmkpV + cmk_pitchUV;
+
+  for (int y = 1; y < Height - 1; ++y)
+  {
+    cmkpp += cmk_pitch;
+    cmkp += cmk_pitch;
+    cmkpn += cmk_pitch;
+    cmkpnn += cmk_pitch;
+    
+    cmkppV += cmk_pitchUV;
+    cmkpV += cmk_pitchUV;
+    cmkpnV += cmk_pitchUV;
+
+    cmkppU += cmk_pitchUV;
+    cmkpU += cmk_pitchUV;
+    cmkpnU += cmk_pitchUV;
+    for (int x = 1; x < Width - 1; ++x)
+    {
+      if ((cmkpV[x] == 0xFF && (cmkpV[x - 1] == 0xFF || cmkpV[x + 1] == 0xFF ||
+        cmkppV[x - 1] == 0xFF || cmkppV[x] == 0xFF || cmkppV[x + 1] == 0xFF ||
+        cmkpnV[x - 1] == 0xFF || cmkpnV[x] == 0xFF || cmkpnV[x + 1] == 0xFF)) ||
+        (cmkpU[x] == 0xFF && (cmkpU[x - 1] == 0xFF || cmkpU[x + 1] == 0xFF ||
+          cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
+          cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF)))
+      {
+        if constexpr(planarType == 420) {
+          ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
+          ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
+          if (y & 1) ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
+          else ((unsigned short*)cmkpnn)[x] = (unsigned short)0xFFFF;
+        }
+        else if constexpr (planarType == 422) {
+          ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
+          ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
+          ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
+        }
+        else if constexpr (planarType == 444) {
+          cmkp[x] = 0xFF;
+          cmkpn[x] = 0xFF;
+          cmkpp[x] = 0xFF;
+        }
+        else if constexpr (planarType == 411) {
+          ((uint32_t*)cmkp)[x] = (uint32_t)0xFFFFFFFF;
+          ((uint32_t*)cmkpn)[x] = (uint32_t)0xFFFFFFFF;
+          ((uint32_t*)cmkpp)[x] = (uint32_t)0xFFFFFFFF;
+        }
+      }
+    }
+  }
+}
+
 bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironment *env)
 {
   PVideoFrame cmask = env->NewVideoFrame(vi_saved);
@@ -1247,74 +1313,10 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
   // Includes chroma combing in the decision about whether a frame is combed.
   if (chroma)
   {
-    unsigned char *cmkp = cmask->GetWritePtr(PLANAR_Y);
-    unsigned char *cmkpU = cmask->GetWritePtr(PLANAR_U);
-    unsigned char *cmkpV = cmask->GetWritePtr(PLANAR_V);
-    const int Width = cmask->GetRowSize(PLANAR_V);
-    const int Height = cmask->GetHeight(PLANAR_V);
-    const int cmk_pitch = cmask->GetPitch(PLANAR_Y) << 1;
-    const int cmk_pitchUV = cmask->GetPitch(PLANAR_V);
-    unsigned char *cmkpp = cmkp - (cmk_pitch >> 1);
-    unsigned char *cmkpn = cmkp + (cmk_pitch >> 1);
-    unsigned char *cmkpnn = cmkpn + (cmk_pitch >> 1);
-    unsigned char *cmkppU = cmkpU - cmk_pitchUV;
-    unsigned char *cmkpnU = cmkpU + cmk_pitchUV;
-    unsigned char *cmkppV = cmkpV - cmk_pitchUV;
-    unsigned char *cmkpnV = cmkpV + cmk_pitchUV;
-
-    int planarType;
-    if (vi_saved.Is420()) planarType = 420;
-    else if (vi_saved.Is422()) planarType = 422;
-    else if (vi_saved.Is444()) planarType = 444;
-    else if (vi_saved.IsYV411()) planarType = 411;
-
-    for (int y = 1; y < Height - 1; ++y)
-    {
-      cmkpp += cmk_pitch;
-      cmkp += cmk_pitch;
-      cmkpn += cmk_pitch;
-      cmkpnn += cmk_pitch;
-      cmkppV += cmk_pitchUV;
-      cmkpV += cmk_pitchUV;
-      cmkpnV += cmk_pitchUV;
-      cmkppU += cmk_pitchUV;
-      cmkpU += cmk_pitchUV;
-      cmkpnU += cmk_pitchUV;
-      for (int x = 1; x < Width - 1; ++x)
-      {
-        if ((cmkpV[x] == 0xFF && (cmkpV[x - 1] == 0xFF || cmkpV[x + 1] == 0xFF ||
-          cmkppV[x - 1] == 0xFF || cmkppV[x] == 0xFF || cmkppV[x + 1] == 0xFF ||
-          cmkpnV[x - 1] == 0xFF || cmkpnV[x] == 0xFF || cmkpnV[x + 1] == 0xFF)) ||
-          (cmkpU[x] == 0xFF && (cmkpU[x - 1] == 0xFF || cmkpU[x + 1] == 0xFF ||
-            cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
-            cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF)))
-        {
-          // fixme: move to template
-          // like in Link chroma
-          if (planarType == 420) {
-            ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
-            ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
-            if (y & 1) ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
-            else ((unsigned short*)cmkpnn)[x] = (unsigned short)0xFFFF;
-          }
-          else if (planarType == 422) {
-            ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
-            ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
-            ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
-          }
-          else if (planarType == 444) {
-            cmkp[x] = 0xFF;
-            cmkpn[x] = 0xFF;
-            cmkpp[x] = 0xFF;
-          }
-          else if (planarType == 411) {
-            ((uint32_t*)cmkp)[x] = (uint32_t)0xFFFFFFFF;
-            ((uint32_t*)cmkpn)[x] = (uint32_t)0xFFFFFFFF;
-            ((uint32_t*)cmkpp)[x] = (uint32_t)0xFFFFFFFF;
-          }
-        }
-      }
-    }
+    if (vi_saved.Is420()) HandleChromaCombing<420>(cmask);
+    else if (vi_saved.Is422()) HandleChromaCombing<422>(cmask);
+    else if (vi_saved.Is444()) HandleChromaCombing<444>(cmask);
+    else if (vi_saved.IsYV411()) HandleChromaCombing<411>(cmask);
   }
   // end of chroma handling
 
