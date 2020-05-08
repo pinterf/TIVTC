@@ -58,7 +58,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     if (!combed && field != -1 && n != nfrms) use += 2;
     if (use > 0)
     {
-      dst = has_at_least_v8 ? env->NewVideoFrame(vi, &src) : env->NewVideoFrame(vi);
+      dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
       buildMotionMask(prv, src, nxt, mmask, use, np, env);
       if (uC2) {
         PVideoFrame frame = clip2->GetFrame(n, env);
