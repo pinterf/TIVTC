@@ -434,7 +434,7 @@
     <ClCompile Include="TDeintASM.cpp" />
     <ClCompile Include="TDeinterlace.cpp" />
     <ClCompile Include="TDeinterlaceYUY2.cpp" />
-    <ClCompile Include="TDeinterlaceYV12.cpp" />
+    <ClCompile Include="TDeinterlacePlanar.cpp" />
     <ClCompile Include="THelper.cpp" />
     <ClCompile Include="TSwitch.cpp" />
   </ItemGroup>

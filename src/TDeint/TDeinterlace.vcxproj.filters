@@ -24,9 +24,6 @@
     <ClCompile Include="TDeinterlaceYUY2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TDeinterlaceYV12.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="THelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -38,6 +35,9 @@
     </ClCompile>
     <ClCompile Include="TDeintASM.cpp">
       <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TDeinterlacePlanar.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

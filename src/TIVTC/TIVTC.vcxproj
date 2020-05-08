@@ -456,13 +456,13 @@
     <ClCompile Include="TDecimateMode7.cpp" />
     <ClCompile Include="TDecimateOut.cpp" />
     <ClCompile Include="TDecimateYUY2.cpp" />
-    <ClCompile Include="TDecimateYV12.cpp" />
+    <ClCompile Include="TDecimatePlanar.cpp" />
     <ClCompile Include="TFM.cpp" />
     <ClCompile Include="TFMASM.cpp" />
     <ClCompile Include="TFMD2V.cpp" />
     <ClCompile Include="TFMPP.cpp" />
     <ClCompile Include="TFMYUY2.cpp" />
-    <ClCompile Include="TFMYV12.cpp" />
+    <ClCompile Include="TFMPlanar.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\internal.h" />

@@ -63,9 +63,6 @@
     <ClCompile Include="TDecimateYUY2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TDecimateYV12.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TFM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -78,9 +75,6 @@
     <ClCompile Include="TFMYUY2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TFMYV12.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\common\TCommonASM.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -91,6 +85,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TDecimateASM.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TDecimatePlanar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TFMPlanar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
