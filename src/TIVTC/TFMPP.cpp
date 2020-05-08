@@ -148,12 +148,10 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   if (opt == 0) cpu = 0;
   bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
   {
-    int plane;
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_U;
-    else plane = PLANAR_V;
+    const int plane = planes[b];
     const unsigned char *prvpp = prv->GetReadPtr(plane);
     const int prv_pitch = prv->GetPitch(plane);
     const unsigned char *prvp = prvpp + prv_pitch;
@@ -455,12 +453,10 @@ void TFMPP::linkYUY2(PlanarFrame *mask)
 
 void TFMPP::denoisePlanar(PlanarFrame *mask)
 {
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < 3; ++b)
   {
-    int plane;
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    const int plane = planes[b];
     unsigned char *maskpp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
     unsigned char *maskp = maskpp + msk_pitch;
@@ -559,16 +555,13 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   if (opt == 0) cpu = 0;
   bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
   {
-    int plane;
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_U;
-    else plane = PLANAR_V;
+    const int plane = planes[b];
     const unsigned char *srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int width = src->GetRowSize(plane);
-    const int widtha = src->GetRowSize(plane + 8);
     const int height = src->GetHeight(plane);
     const unsigned char *srcpp = srcp - src_pitch;
     const unsigned char *srcpn = srcp + src_pitch;
@@ -587,7 +580,7 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     {
       if (use_sse2)
       {
-        blendDeint_SSE2(srcp, dstp, src_pitch, dst_pitch, widtha, height - 2);
+        blendDeint_SSE2(srcp, dstp, src_pitch, dst_pitch, width, height - 2);
         srcpp += src_pitch*(height - 2);
         srcp += src_pitch*(height - 2);
         srcpn += src_pitch*(height - 2);
@@ -612,7 +605,7 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     {
       if (use_sse2)
       {
-        blendDeintMask_SSE2(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, widtha, height - 2);
+        blendDeintMask_SSE2(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, height - 2);
         srcpp += src_pitch*(height - 2);
         srcp += src_pitch*(height - 2);
         srcpn += src_pitch*(height - 2);
@@ -722,12 +715,10 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   if (opt == 0) cpu = 0;
   bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
   {
-    int plane;
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_U;
-    else plane = PLANAR_V;
+    const int plane = planes[b];
     const unsigned char *srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane) << 1;
     const int width = src->GetRowSize(plane);
@@ -1620,13 +1611,13 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
 
   const unsigned char *srcp, *maskp, *dntp;
   unsigned char *dstp;
-  int b, plane, x, y, width, height;
+  int x, y, width, height;
   int src_pitch, msk_pitch, dst_pitch, dnt_pitch;
-  for (b = 0; b < np; ++b)
+
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  for (int b = 0; b < np; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    const int plane = planes[b];
     srcp = src->GetReadPtr(plane);
     width = src->GetRowSize(plane);
     height = src->GetHeight(plane);

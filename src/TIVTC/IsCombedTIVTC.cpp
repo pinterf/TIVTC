@@ -489,12 +489,12 @@ void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame &src, int &MICount,
   {
     cthreshb_m128i = _mm_set1_epi32(cthresh*cthresh);
   }
-  for (int b = chroma ? 3 : 1; b > 0; --b)
+
+  const int stop = chroma ? 3 : 1;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  for (int b = 0; b < stop; ++b)
   {
-    int plane;
-    if (b == 3) plane = PLANAR_U;
-    else if (b == 2) plane = PLANAR_V;
-    else plane = PLANAR_Y;
+    const int plane = planes[b];
     const unsigned char *srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int Width = src->GetRowSize(plane);
@@ -503,8 +503,8 @@ void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame &src, int &MICount,
     const unsigned char *srcppp = srcpp - src_pitch;
     const unsigned char *srcpn = srcp + src_pitch;
     const unsigned char *srcpnn = srcpn + src_pitch;
-    unsigned char *cmkp = cmask->GetPtr(b - 1);
-    const int cmk_pitch = cmask->GetPitch(b - 1);
+    unsigned char *cmkp = cmask->GetPtr(b);
+    const int cmk_pitch = cmask->GetPitch(b);
     if (cthresh < 0) { memset(cmkp, 255, Height*cmk_pitch); continue; }
     memset(cmkp, 0, Height*cmk_pitch);
     if (metric == 0)

@@ -777,7 +777,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
   int incl = np == 3 ? 1 : mChroma ? 1 : 2;  // pixel increments: 2 if YUY2 with no-chroma option otherwise 1
-  int stop = np == 3 ? mChroma ? 3 : 1 : 1; // Planar (np==3) -> chroma dependent plane number 1 or 3. YUY2 (np==1) -> 1
+  int stop = np == 3 ? mChroma ? 3 : 1 : 1; // if Planar and need chroma -> 3 planes
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0, accumNm = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -2310,12 +2310,11 @@ void TFM::createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
 {
   if (cfrm == match)
     return;
-  int b, plane;
-  for (b = 0; b < np; ++b)
+
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  for (int b = 0; b < np; ++b)
   {
-    if (b == 0) plane = PLANAR_Y;
-    else if (b == 1) plane = PLANAR_V;
-    else plane = PLANAR_U;
+    const int plane = planes[b];
     if (match == 0)
     {
       env->BitBlt(dst->GetWritePtr(plane) + (1 - field)*dst->GetPitch(plane), dst->GetPitch(plane) << 1,
