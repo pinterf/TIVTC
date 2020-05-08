@@ -2846,13 +2846,19 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     if (chroma)
     {
       // fixme: only valid if chroma 422 and 444 cases are divided back to yv12 chroma weight relative to luma
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*2.0));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*2.0);
+      const int blockx_chroma = blockx >> vi.GetPlaneWidthSubsampling(PLANAR_U);
+      const int blocky_chroma = blocky >> vi.GetPlaneHeightSubsampling(PLANAR_U);
+      if (ssd) 
+        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0* blockx_chroma * blocky_chroma *2.0));
+      else 
+        MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*2.0);
     }
     else
     {
-      if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
-      else MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
+      if (ssd) 
+        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky));
+      else
+        MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
     }
     if (ssd)
     {
@@ -2867,6 +2873,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   else
   {
+    // YUY2
     if (chroma)
     {
       if (ssd) MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*4.0*0.625));

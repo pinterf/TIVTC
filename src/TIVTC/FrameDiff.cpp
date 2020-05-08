@@ -73,10 +73,15 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
       // fixme: common metrics, like in mvtools? 4:2:2 has greater chroma weight!
       // keep xhalfS and yhalfS if YV16/24 ssd/sad is converted to YV12-like metrics
       // or else use blockXC and blockYC
-      if (ssd) 
-        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*2.0)); // 2 chroma planes
+      
+      // Y: 219 = 235-15
+      // UV: 224 = 240-16
+      const int blockx_chroma = blockx >> vi.GetPlaneWidthSubsampling(PLANAR_U);
+      const int blocky_chroma = blocky >> vi.GetPlaneHeightSubsampling(PLANAR_U);
+      if (ssd)
+        MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0* blockx_chroma * blocky_chroma *2.0)); // *2: 2 chroma planes
       else 
-        MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*2.0);
+        MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0* blockx_chroma * blocky_chroma *2.0);
     }
     else
     {
@@ -92,7 +97,7 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
     // YUY2
     if (chroma)
     {
-      if (ssd) // fixme: why *4*0.625 (*2.5) and why yhalfS is /2 however no subsampling
+      if (ssd) // fixme: why *4*0.625 (*2.5)
         MAX_DIFF = (uint64_t)(sqrt(219.0*219.0*blockx*blocky + 224.0*224.0*blockx_half*blocky_half*4.0*0.625));
       else 
         MAX_DIFF = (uint64_t)(219.0*blockx*blocky + 224.0*blockx_half*blocky_half*4.0*0.625);
