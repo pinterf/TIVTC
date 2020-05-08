@@ -105,18 +105,14 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
         MAX_DIFF = (uint64_t)(219.0*blockx*blocky);
     }
   }
-  // fixme: done diff size: here is for blocks. xhalfS is really blockx >> 1
+  // diff size: here is for blocks. xhalfS is really blockx >> 1
   diff = (uint64_t*)_aligned_malloc((((vi.width + (blockx >> 1)) >> blockx_shift) + 1) * (((vi.height + (blocky >> 1)) >> blocky_shift) + 1) 
-    * 4 // fixme: check why 4?
+    * 4 // diff blocks are 2x2
     * sizeof(uint64_t), 16);
   //diff = (uint64_t*)_aligned_malloc((((vi.width + xhalfS) >> xshiftS) + 1)*(((vi.height + yhalfS) >> yshiftS) + 1) * 4 * sizeof(uint64_t), 16);
   if (diff == NULL) env->ThrowError("FrameDiff:  malloc failure (diff)!");
   nfrms = vi.num_frames - 1;
-#ifdef AVISYNTH_2_5
-  child->SetCacheHints(CACHE_RANGE, 3);
-#else
   child->SetCacheHints(CACHE_GENERIC, 3);
-#endif
   threshU = uint64_t(double(MAX_DIFF)*thresh / 100.0 + 0.5);
   if (debug)
   {
@@ -474,7 +470,7 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
     }
 
     if (d.metricF_needed) { // called from TDecimate. from FrameDiff:false
-      if (b == 0)
+      if (b == 0) // luma
       {
         d.metricF = 0;
         if (d.scene)

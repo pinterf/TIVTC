@@ -28,13 +28,12 @@
 TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size(_size)
 {
   constexpr int FRAME_ALIGN = 64;
-  // fixme: align to 32 at least
   y = u = v = NULL;
   fnum.resize(size);
-  if (_cp == 3) // YV12, YV16, Yv24 planar
+  if (_cp == 3) // count of planes YV12, YV16, YV24 planar
   {
     widthy = _width;
-    widthuv = planarType == 444 ? _width : _width / 2;
+    widthuv = planarType == 444 ? _width : planarType == 411 ? _width / 4 : _width / 2;
     heighty = _height;
     heightuv = planarType == 420 ? _height / 2 : _height;
     lpitchy = ((widthy + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
@@ -45,9 +44,9 @@ TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size
   else
   {
     // YUY2
-    widthy = _width * 2;
+    widthy = _width * 2; // *2 row size, no chroma plane, interleaved YUYV YUYV...
     heighty = _height;
-    lpitchy = ((widthy + 15) >> 4) << 4;
+    lpitchy = ((widthy + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
     pitchy = lpitchy*size;
     heightuv = widthuv = pitchuv = lpitchuv = 0;
   }

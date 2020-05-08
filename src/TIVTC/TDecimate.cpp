@@ -2199,8 +2199,10 @@ void TDecimate::setBlack(PVideoFrame &dst, int np)
     height = dst->GetHeight(plane);
     if (np == 3)
     {
-      if (b == 0) memset(dstp, 0, pitch*height);
-      else memset(dstp, 128, pitch*height);
+      if (b == 0) 
+        memset(dstp, 0, pitch*height);
+      else 
+        memset(dstp, 128, pitch*height);
     }
     else
     {
@@ -2752,9 +2754,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  clip2 must be YUV colorspace!");
   if (clip2)
   {
-#ifdef AVISYNTH_2_5
-    clip2->SetCacheHints(CACHE_RANGE, 2);
-#endif
+    clip2->SetCacheHints(CACHE_GENERIC, 2);
     useclip2 = true;
   }
   else useclip2 = false;
@@ -2779,11 +2779,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     nbuf.sdlim = sdlim;
   }
   if (mode == 4 || mode == 5 || mode == 6) {
-#ifdef AVISYNTH_2_5
-    child->SetCacheHints(CACHE_RANGE, 3); // fixed to diameter (07/30/2005)
-#else
     child->SetCacheHints(CACHE_GENERIC, 3);
-#endif
   }
   else if (mode != 2 && mode != 7)
   {
@@ -2791,13 +2787,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     if (cacheRange < 1) cacheRange = 1;
     if (*input || cycle >= 26)
     {
-#ifdef AVISYNTH_2_5
-      if (cacheRange > 100) child->SetCacheHints(CACHE_ALL, 999);
-      else child->SetCacheHints(CACHE_RANGE, cacheRange);
-#else
-      if (cacheRange > 100) child->SetCacheHints(CACHE_GENERIC, 100);
-      else child->SetCacheHints(CACHE_GENERIC, cacheRange);
-#endif
+      if (cacheRange > 100)
+        child->SetCacheHints(CACHE_GENERIC, 100);
+      else
+        child->SetCacheHints(CACHE_GENERIC, cacheRange);
     }
     else
     {
@@ -3413,14 +3406,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     }
   }
 
-  // 170607 Moved into GetFrame.
-  // fullinfo depends on usehints, but both tfmFullInfo and metricsFullInfo was local
-  // In 1.0.9 usehints detection is moved out of constructor, into the first getframe.
-  // So these two have to be class variable as well
-#ifdef OLD_USEHINT_DETECT
-  if (metricsFullInfo && (tfmFullInfo || !usehints)) fullInfo = true; 
-  else fullInfo = false;
-#endif
   if (mode < 2)
   {
     if (hybrid != 3)
@@ -3447,22 +3432,15 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     {
       if (curr.length < 0)
         env->ThrowError("TDecimate:  unknown error with mode 2!");
-#ifdef AVISYNTH_2_5
-      if (curr.length <= 50) child->SetCacheHints(CACHE_RANGE, (curr.length * 2) + 1);
-      else child->SetCacheHints(CACHE_ALL, 999);
-#else
-      if (curr.length <= 50) child->SetCacheHints(CACHE_GENERIC, (curr.length * 2) + 1);
-      else child->SetCacheHints(CACHE_GENERIC, 100);
-#endif
+      if (curr.length <= 50) 
+        child->SetCacheHints(CACHE_GENERIC, (curr.length * 2) + 1);
+      else 
+        child->SetCacheHints(CACHE_GENERIC, 100);
       mode2_order = (int*)malloc(max(curr.length + 10, 100) * sizeof(int));
       mode2_metrics = (uint64_t*)malloc(max(curr.length + 10, 100) * sizeof(uint64_t));
     }
     else {
-#ifdef AVISYNTH_2_5
-        child->SetCacheHints(CACHE_RANGE, 3);  // fixed to diameter (07/30/2005)
-#else
       child->SetCacheHints(CACHE_GENERIC, 3);  // fixed to diameter (07/30/2005)
-#endif
     }
     unsigned int num, den;
     FloatToFPS(arate, num, den, env);
@@ -3492,11 +3470,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     mode2_decA = (int *)malloc(vi.num_frames * sizeof(int));
     if (mode2_decA == NULL) env->ThrowError("TDecimate:  malloc failure (mode2_decA)!");
     for (int j = 0; j < vi.num_frames; ++j) mode2_decA[j] = -20;
-#ifdef AVISYNTH_2_5
-    child->SetCacheHints(CACHE_RANGE, int((fps / rate) + 1.0) * 2 + 3);  // fixed to diameter (07/30/2005)
-#else
     child->SetCacheHints(CACHE_GENERIC, int((fps / rate) + 1.0) * 2 + 3);  // fixed to diameter (07/30/2005)
-#endif
     diff_thresh = uint64_t((vidThresh*MAX_DIFF) / 100.0);
     same_thresh = uint64_t((dupThresh*MAX_DIFF) / 100.0);
   }

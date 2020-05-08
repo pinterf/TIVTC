@@ -58,7 +58,7 @@
 
 // All the rest of this code was just copied from tdecimate.cpp because I'm
 // too lazy to make it work such that it could call that code.
-// Fixme: !! Do here, then copy back to TDecimate! Or better: put at one place
+// pinterf 2020: moved the three versions to common codebase again: CalcMetricsExtracted().
 struct CalcMetricData {
   int np;
   bool predenoise;

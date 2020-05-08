@@ -25,6 +25,7 @@
 #include <windows.h>
 #include "internal.h"
 #include "TDeinterlace.h"
+#include "avs/alignment.h"
 
 PVideoFrame __stdcall TDeinterlace::GetFrame(int n, IScriptEnvironment* env)
 {
@@ -312,11 +313,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     env->ThrowError("TDeint:  expand must be greater than or equal to 0!");
   if (slow < 0 || slow > 2)
     env->ThrowError("TDeint:  slow must be set to 0, 1, or 2!");
-#ifdef AVISYNTH_2_5
-  child->SetCacheHints(CACHE_RANGE, 5);
-#else
   child->SetCacheHints(CACHE_GENERIC, 5);
-#endif
   useClip2 = false;
   if ((hints || !full) && mode == 0 && clip2)
   {
@@ -371,11 +368,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     if ((mode == 0 && vi.num_frames != vi1.num_frames) ||
       (mode == 1 && vi.num_frames * 2 != vi1.num_frames))
       env->ThrowError("TDeint:  number of frames in emtn clip doesn't match that of the input clip!");
-#ifdef AVISYNTH_2_5
-    emtn->SetCacheHints(CACHE_RANGE, 5);
-#else
     emtn->SetCacheHints(CACHE_GENERIC, 5);
-#endif
   }
 
   // like in FrameDiff
@@ -395,7 +388,8 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     if (cArray == NULL) env->ThrowError("TDeint:  malloc failure!");
   }
 
-  const int planarType = vi.Is444() ? 444 : vi.Is422() ? 422 : 420; // 411 not supported, YUY2: n/a
+  // though 411 not supported, YUY2: n/a
+  const int planarType = vi.Is444() ? 444 : vi.Is422() ? 422 : vi.IsYV411() ? 411 : 420;
   db = new TDBuf((mtnmode & 1) ? 7 : mode == 1 ? 4 : 3, vi.width, vi.height, vi.IsPlanar() ? 3 : 1, planarType);
   if (vi.IsYUY2())
   {
@@ -404,20 +398,16 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   }
   if (slow > 0)
   {
-    // fixme: alignnot 16
-    // must be greater than Avisynth's internal alignment, because GetRowSize(PLANAR_XXX_ALIGNED) is used at many places
-    // check why is aligned used?
-    // We'll set it to max
     constexpr int ALIGN = 64;
     if (vi.IsPlanar())
     {
-      tpitchy = (vi.width & (ALIGN - 1)) ? vi.width + ALIGN - (vi.width & (ALIGN - 1)) : vi.width;
+      tpitchy = AlignNumber(vi.width, ALIGN);
       const int widthUV = vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U);
-      tpitchuv = (widthUV & (ALIGN - 1)) ? widthUV + ALIGN - (widthUV & (ALIGN - 1)) : widthUV;
+      tpitchuv = AlignNumber(widthUV, ALIGN);
     }
     else {
       // YUY2
-      tpitchy = ((vi.width << 1) & (ALIGN - 1)) ? (vi.width << 1) + ALIGN - ((vi.width << 1) & (ALIGN - 1)) : (vi.width << 1);
+      tpitchy = AlignNumber(vi.width << 1, ALIGN);
     }
     tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1) * tpitchy, ALIGN);
     if (tbuffer == NULL)
@@ -760,11 +750,7 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
     try
     {
       v = env->Invoke("InternalCache", v).AsClip();
-#ifdef AVISYNTH_2_5
-      v->SetCacheHints(CACHE_RANGE, 5);
-#else
       v->SetCacheHints(CACHE_GENERIC, 5);
-#endif
     }
     catch (IScriptEnvironment::NotFound) {}
   }
@@ -784,11 +770,7 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
     try
     {
       ret = env->Invoke("InternalCache", ret.AsClip()).AsClip();
-#ifdef AVISYNTH_2_5
-      ret.AsClip()->SetCacheHints(CACHE_RANGE, 3);
-#else
       ret.AsClip()->SetCacheHints(CACHE_GENERIC, 3);
-#endif
     }
     catch (IScriptEnvironment::NotFound) {}
     ret = new TDHelper(ret.AsClip(), args[2].AsInt(order), args[3].AsInt(field),

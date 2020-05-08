@@ -233,10 +233,6 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
   for (int y = 2; y < Height - 2; y += 2) {
     for (int x = 1; x < Width - 1; x++) {
       int eax, esi, edi, edx;
-      //mov eax, dpp
-      //  mov ecx, dp
-      //  mov edx, dpn
-      //  mov esi, dstp
 
       if (dp[x] <= 3) continue;
       if (dp[x - 1] <= 3 && dp[x + 1] <= 3 &&

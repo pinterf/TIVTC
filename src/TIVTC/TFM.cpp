@@ -1096,8 +1096,6 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   for (b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
-    // FIXME check where using PlanarTools with oridinal planes are assuming
-    // b=0: PLANAR_Y   b=1: PLANAR_U or V    b=2 PLANAR_V or U ???
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -2448,8 +2446,6 @@ void TFM::buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxt
 
 }
 
-// fixme: don't call with aligned width!'
-// this version has extras regarding YUY2: see comment in TDeint
 void TFM::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
   int prv_pitch, int nxt_pitch, int tpitch, int width, int height,
   IScriptEnvironment *env)
@@ -2457,7 +2453,6 @@ void TFM::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
   long cpu = env->GetCPUFlags();
   //if (opt == 0) cpu = 0;
 
-  // made common with TDeint
   const bool YUY2_LumaOnly = vi.IsYUY2() && !mChroma;
   do_buildABSDiffMask(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height, YUY2_LumaOnly, cpu);
 }

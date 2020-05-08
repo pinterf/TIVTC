@@ -57,11 +57,7 @@ TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debu
   nfrms = vi.num_frames;
   vi.num_frames >>= 1;
   vi.SetFPS(vi.fps_numerator, vi.fps_denominator * 2);
-#ifdef AVISYNTH_2_5
-  child->SetCacheHints(CACHE_RANGE, 3);
-#else
   child->SetCacheHints(CACHE_GENERIC, 3);
-#endif
   if (_lim < 0.0) lim = ULONG_MAX;
   else
   {

@@ -552,7 +552,6 @@ void TDeinterlace::createMotionMap5_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame 
     const int mask_pitch = mask->GetPitch(plane[b]) << 1;
     memset(maskw, 10, (mask_pitch >> 1)*Height);
     maskw += (mask_pitch >> 1)*field;
-// not used    const int mthresh = b == 0 ? mthreshL : mthreshC;
     if (field^order)
     {
       const int val1 = mtnmode > 2 ? (rmatch == 0 ? 10 : 30) : 40;
@@ -775,7 +774,8 @@ void TDeinterlace::expandMap_Planar(PVideoFrame &mask)
     const int dis = 
       b == 0 ? 
       expand : // luma
-      (expand >> (planarType == 444 ? 0 : 1)); // chroma
+      (expand >> (planarType == 444 ? 0 : planarType == 411 ? 2 : 1)); // chroma
+    // though no 411 support overall
     maskp += mask_pitch*field;
     for (int y = field; y < Height; y += 2)
     {
@@ -1243,6 +1243,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
     if (vi_saved.Is420()) planarType = 420;
     else if (vi_saved.Is422()) planarType = 422;
     else if (vi_saved.Is444()) planarType = 444;
+    else if (vi_saved.IsYV411()) planarType = 411;
 
     for (int y = 1; y < Height - 1; ++y)
     {
@@ -1283,6 +1284,11 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
             cmkpn[x] = 0xFF;
             cmkpp[x] = 0xFF;
           }
+          else if (planarType == 411) {
+            ((uint32_t*)cmkp)[x] = 0xFFFFFFFF;
+            ((uint32_t*)cmkpn)[x] = 0xFFFFFFFF;
+            ((uint32_t*)cmkpp)[x] = 0xFFFFFFFF;
+          }
         }
       }
     }
@@ -1303,7 +1309,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironm
   int Heighta = (Height >> (blocky_shift - 1)) << (blocky_shift - 1);
   if (Heighta == Height) Heighta = Height - blocky_half;
   const int Widtha = (Width >> (blockx_shift - 1)) << (blockx_shift - 1);
-  // quick case for 16x16 base
+  // quick case for 8x8 base
   const bool use_sse2_8x8_sum = (use_sse2 && blockx_half == 8 && blocky_half == 8) ? true : false;
   
   // top y block
@@ -1478,7 +1484,7 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
     const int Height = src->GetHeight(plane);
     const unsigned char *nxtp = nxt->GetReadPtr(plane);
     int nxt_pitch = nxt->GetPitch(plane);
-    const int startx = vit.IsYUY2() ? 16 : 8 >> vit.GetPlaneWidthSubsampling(plane); // stop > 1 ? (b == 0 ? 8 : 4) : 16; // fixed: YV12/YUY2 specific
+    const int startx = vit.IsYUY2() ? 16 : 8 >> vit.GetPlaneWidthSubsampling(plane);
     const int stopx = Width - startx;
     const unsigned char *prvpf, *curf, *nxtpf;
     int prvf_pitch, curf_pitch, nxtf_pitch;
@@ -1595,7 +1601,7 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
     const int Height = src->GetHeight(plane);
     const unsigned char* nxtp = nxt->GetReadPtr(plane);
     const int nxt_pitch = nxt->GetPitch(plane);
-    const int startx = vit.IsYUY2() ? 16 : 8 >> vit.GetPlaneWidthSubsampling(plane); // stop > 1 ? (b == 0 ? 8 : 4) : 16; // fixed: YV12/YUY2 specific
+    const int startx = vit.IsYUY2() ? 16 : 8 >> vit.GetPlaneWidthSubsampling(plane);
     const int stopx = Width - startx;
     memset(mapp, 0, Height * (map_pitch >> 1));
     const unsigned char* prvpf, * curf, * nxtpf;
@@ -1633,8 +1639,11 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
     const unsigned char* curnf = curf + curf_pitch;
     const unsigned char* nxtnf = nxtpf + nxtf_pitch;
     unsigned char* mapn = mapp + map_pitch;
-    if (b == 0) tp = tpitchy;
-    else tp = tpitchuv;
+    
+    if (b == 0) 
+      tp = tpitchy;
+    else
+      tp = tpitchuv;
     
     if (vit.IsPlanar()) // plane count 3: planar YV12
     {
@@ -1737,7 +1746,6 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
     const unsigned char* nxtp = nxt->GetReadPtr(plane);
     const int nxt_pitch = nxt->GetPitch(plane);
     const int startx = vit.IsYUY2() ? 16 : (8 >> vit.GetPlaneWidthSubsampling(plane));
-    // stop > 1 ? (b == 0 ? 8 : 4) : 16; // fixed: YV12/YUY2 specific
     const int stopx = Width - startx;
     memset(mapp, 0, Height * (map_pitch >> 1));
     const unsigned char* prvpf, * curf, * nxtpf;
@@ -2180,7 +2188,7 @@ void TDeinterlace::ELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
     const int mask_pitch = mask->GetPitch(plane);
     const unsigned char *srcpp = srcp - src_pitch;
     const unsigned char *srcpn = srcp + src_pitch;
-    const int ustop = 8 >> vi.GetPlaneWidthSubsampling(plane); // YV12 specific fixed. b == 0 ? 8 : 4;
+    const int ustop = 8 >> vi.GetPlaneWidthSubsampling(plane);
     for (int y = 0; y < Height; ++y)
     {
       for (int x = 0; x < Width; ++x)
@@ -2691,11 +2699,10 @@ void TDeinterlace::smartELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
 void TDeinterlace::createWeaveFramePlanar(PVideoFrame &dst, PVideoFrame &prv,
   PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env)
 {
-  // planar and hbd compatible fixme: getting planes in a usual manner
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < 3; ++b)
   {
-    const int plane = planes[b];;
+    const int plane = planes[b];
     if (field^order)
     {
       if (rmatch == 0)

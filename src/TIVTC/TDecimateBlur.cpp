@@ -241,7 +241,6 @@ void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
 }
 
 // always mod 8, sse2 unaligned
-// fixme: this one is always sse2
 void HorizontalBlur_SSE2_Planar(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
@@ -268,7 +267,6 @@ void HorizontalBlur_SSE2_Planar(const unsigned char *srcp, unsigned char *dstp, 
   }
 }
 
-// fixme: always sse2
 void HorizontalBlur_SSE2_YUY2_lumaonly(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {

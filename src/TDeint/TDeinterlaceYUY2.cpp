@@ -1852,7 +1852,6 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
   }
 }
 
-// fixme: check call with np param
 void TDeinterlace::copyForUpsize(PVideoFrame &dst, PVideoFrame &src, int np, IScriptEnvironment *env)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -1879,7 +1878,6 @@ void TDeinterlace::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironm
   }
 }
 
-// fixme: check np at call
 // for Planar (np=3) and YUY2 (np=1)
 void TDeinterlace::setMaskForUpsize(PVideoFrame &msk, int np)
 {

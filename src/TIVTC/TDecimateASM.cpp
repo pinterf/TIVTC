@@ -1196,7 +1196,7 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
     xshifta = xshiftS - xsubsampling; //  xshiftS or  xshiftS - 1;
     xhalfa = xhalfS >> xsubsampling; // xhalfS  or xhalfS >> 1;
     // these are the same for luma and chroma as well, 8x8
-    // FIXME: check, really?
+    // FIXME: check, really? Really.
     yshift = yshiftS - 3;
     yhalf = yhalfS >> 3; // div 8
     xshift = xshiftS - 3;
