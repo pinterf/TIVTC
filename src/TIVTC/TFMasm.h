@@ -30,49 +30,16 @@
 #include <emmintrin.h>
 #include "internal.h"
 
-  void checkSceneChangeYUY2_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
-    const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
-    int nxt_pitch, unsigned long &diffp, unsigned long &diffn);
-  void checkSceneChangeYUY2_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
-    int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp);
-  void checkSceneChangeYV12_1_SSE2(const unsigned char *prvp, const unsigned char *srcp,
-    int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp);
-  void checkSceneChangeYV12_2_SSE2(const unsigned char *prvp, const unsigned char *srcp,
-    const unsigned char *nxtp, int height, int width, int prv_pitch, int src_pitch,
-    int nxt_pitch, unsigned long &diffp, unsigned long &diffn);
+void checkSceneChangeYUY2_1_SSE2(const unsigned char* prvp, const unsigned char* srcp,
+  int height, int width, int prv_pitch, int src_pitch, unsigned long& diffp);
+void checkSceneChangeYUY2_2_SSE2(const unsigned char* prvp, const unsigned char* srcp,
+  const unsigned char* nxtp, int height, int width, int prv_pitch, int src_pitch,
+  int nxt_pitch, unsigned long& diffp, unsigned long& diffn);
 
-#if 0
-  check in TDeint -> common
-  void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb,
-    __m128i thresh6w);
-  
-  void check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb,
-    __m128i thresh6w);
-  
-  void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-  
-  void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-    int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-  
-  void buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
-  
-  void buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
-#endif
-
-#if 0
-  // buggy + template + from common with TDeint place
-  void compute_sum_8x8_sse2(const unsigned char *srcp, int pitch, int &sum);
-#endif
-
-#if 0
-  // buggy + template + from common with TDeint place
-  template<bool aligned>
-  void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum);
-#endif
+void checkSceneChangeYV12_1_SSE2(const unsigned char* prvp, const unsigned char* srcp,
+  int height, int width, int prv_pitch, int src_pitch, unsigned long& diffp);
+void checkSceneChangeYV12_2_SSE2(const unsigned char* prvp, const unsigned char* srcp,
+  const unsigned char* nxtp, int height, int width, int prv_pitch, int src_pitch,
+  int nxt_pitch, unsigned long& diffp, unsigned long& diffn);
 
 #endif // TFMASM_H__
