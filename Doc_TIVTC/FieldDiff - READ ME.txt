@@ -6,7 +6,7 @@
 GENERAL INFO:
 
 
-     ** Currently FieldDiff only supports YV12 and YUY2 colorspaces!
+     ** Currently FieldDiff only supports 8 bit planar YUV and YUY2 colorspaces!
 
       FieldDiff calculates a field difference metric using the 5 point metric that TFM
    uses and then outputs it via the debug or display options. It operates on full frames
@@ -66,9 +66,11 @@ PARAMETERS:
 
          Controls which optimizations are used.  Possible settings:
 
+         Note: do not use in production, only for debug, can be changed later, e.g. when AVX2 gets number 5
+
             0 - use c routines
-            1 - use mmx routines
-            2 - use isse routines
+            1 - (removed in 2020 -- use mmx routines)
+            2 - (removed in 2020 -- use isse routines)
             3 - use sse2 routines
             4 - auto detect
 
@@ -78,6 +80,9 @@ PARAMETERS:
 
 CHANGE LIST:
 
+   (same number) (20200508 - pinterf)
+      - opt = 1 and opt = 2 is like opt = 3
+      - add all planar YUV support (422, 444, 411) besides 420
 
    v1.3 - (03/23/2006)
 

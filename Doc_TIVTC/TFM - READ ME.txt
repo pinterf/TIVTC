@@ -21,7 +21,7 @@ CONTENTS OF FILE:
 A.)  GENERAL INFO:
 
 
-     * Currently TFM only supports YV12 and YUY2 colorspaces!
+     * Currently TFM only supports 8 bit planar YUV and YUY2 colorspaces!
 
       TFM is a field matching filter that recovers the original progressive frames from a
    telecined stream.  It does not decimate the resulting duplicate frames though, so to
@@ -274,9 +274,11 @@ C.)  ADVANCED PARAMETERS:
 
          Controls which optimizations are used.  Possible settings:
 
+         Note: do not use in production, only for debug, can be changed later, e.g. when AVX2 gets number 5
+
             0 - use c routines
-            1 - use mmx routines
-            2 - use isse routines
+            1 - (removed in 2020 -- use mmx routines)
+            2 - (removed in 2020 -- use isse routines)
             3 - use sse2 routines
             4 - auto detect
 
@@ -897,6 +899,9 @@ F.)  OVERRIDES:
 
 G.)  CHANGE LIST:
 
+   (same number) (20200508 - pinterf)
+      - opt = 1 and opt = 2 is like opt = 3
+      - add all planar YUV support (422, 444, 411) besides 420
 
     01/17/2008  v1.0.4
 

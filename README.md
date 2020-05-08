@@ -1,11 +1,16 @@
-# TIVTC v1.0.15-test (20200506 - refactor and planar project work in progress) 
-# TDeInt v1.2 (20200505)
+# TIVTC v1.0.15 (20200508) 
+# TDeInt v1.3 (20200508)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
 # TDeint (see change log of TIVTC later) 
 
-** TDeInt v1.2 (20200505 - work in progress) **
+** TDeInt v1.3 (20200508) **
+- Add YV411 support, now all 8 bit planar YUV formats supported (except on debug display modes)
+- more code clean and refactor
+- Give error on greyscale or 10+ bit videos
+
+** TDeInt v1.2 (20200505) **
 - Add AviSynth+ V8 interface support: passing frame properties
 - Add planar YV16 and YV24 color spaces (The Big Work)
   result: YV16 output is identical with YUY2 (but a bit slower at the moment)
@@ -18,13 +23,20 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.15 (20190506-):
+# TIVTC v1.0.15 (20190508):
 
-**v1.0.15-test (20200506)**
-- Support planar YV16 and YV24 besides YV12 (YUY2 was not removed)
-- Huge refactor and code clean (common parts with TDeint source)
-- only C and SSE2 inside
-- parameter opt=0 disables SSE2
+**v1.0.15 (20200508)**
+- Fix random crashes (due to old plugin assumed that Avisynth framebuffer alignment is at most 16 bytes)
+- Other small fixes, which I do not know what affected
+- Support planar YV411, YV16 and YV24 besides YV12 (YUY2 was not removed)
+  (except on debug display modes)
+- Huge refactor and code clean, made some parts common with TDeint, code un-duplicate-triplicate
+- only C and SSE2, no MMX, no ISSE
+- parameter opt=0 disables SSE2, 1-3 enables (was: 1:MMX 2:ISSE 3:SSE2)
+- Add ClangCL, and XP configurations to the solutions. (note: MSVC can be quicker(!))
+- Add AviSynth+ V8 interface support: passing frame properties
+- Give error on greyscale or 10+ bit videos
+- Todo: more refactor needed before moving to 10+ bit depth support
 
 **v1.0.14 (20190207)**
 - Fix: option slow=2 field<>0. Thanks to 299792458m. 

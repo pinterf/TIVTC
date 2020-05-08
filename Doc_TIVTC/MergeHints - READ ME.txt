@@ -6,7 +6,7 @@
 GENERAL INFO:
 
 
-     * Currently MergeHints only supports YV12 and YUY2 colorspaces!
+     * Currently MergeHints only supports 8 bit planar YUV and YUY2 colorspaces!
 
       MergeHints transfers hints present in one clip into another.  It will work with
    any filter that uses the method of hiding hints in the least significant bit of the
@@ -72,6 +72,9 @@ PARAMETERS:
 
 CHANGE LIST:
 
+   (same number) (20200508 - pinterf)
+      - opt = 1 and opt = 2 is like opt = 3
+      - add all planar YUV support (422, 444, 411) besides 420
 
    v1.2 - (10/22/2006)
 

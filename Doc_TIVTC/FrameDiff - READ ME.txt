@@ -6,7 +6,7 @@
 GENERAL INFO:
 
 
-     ** Currently FrameDiff only supports YV12 and YUY2 colorspaces!
+     ** Currently FrameDiff only supports 8 bit planar YUV and YUY2 colorspaces!
 
       FrameDiff exposes tdecimate's metric calculation routines to allow for some
    interesting operations and visualizations. There is also a version of FrameDiff
@@ -174,9 +174,11 @@ PARAMETERS:
 
          Controls which optimizations are used.  Possible settings:
 
+         Note: do not use in production, only for debug, can be changed later, e.g. when AVX2 gets number 5
+
             0 - use c routines
-            1 - use mmx routines
-            2 - use isse routines
+            1 - (removed in 2020 -- use mmx routines)
+            2 - (removed in 2020 -- use isse routines)
             3 - use sse2 routines
             4 - auto detect
 
@@ -186,6 +188,9 @@ PARAMETERS:
 
 CHANGE LIST:
 
+   (same number) (20200508 - pinterf)
+      - opt = 1 and opt = 2 is like opt = 3
+      - add all planar YUV support (422, 444, 411) besides 420
 
    v1.6 - (11/21/2007)
 

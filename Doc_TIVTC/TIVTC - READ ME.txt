@@ -1,7 +1,9 @@
 
-                           TIVTC v1.0.5   HELP FILE - (17 January, 2008)
+                           TIVTC v1.0.15   HELP FILE - (08 May, 2020)
 
 INFO:
+   Base on TIVTC v1.0.5   HELP FILE - (08 January, 2008)
+
 
        TIVTC is actually a combination of 7 different filters and 3 conditional functions.
    The seven filters included are TFM, TDecimate, MergeHints, FrameDiff, FieldDiff,
@@ -26,8 +28,12 @@ INFO:
                             FrameDiff       v1.6       (21 November 2007)
                             ShowcombedTIVTC v1.2       (23 March 2006)
                             RequestLinear   v1.2       (21 November 2007)
-
-
+  
+  
+  Beginning with 1.0.15 all filters were updated to support planar YUV colorspaces, their unique version is not maintained 
+  currencly (pinterf)
+  
+  Project (along with TDeint) is hosted at https://github.com/pinterf/TIVTC
 
 
 
