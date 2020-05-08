@@ -310,7 +310,6 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
   {
     const int temp1 = (y >> yshift)*xblocks4;
     const int temp2 = ((y + yhalf) >> yshift)*xblocks4;
-    // fixme: everything aligned
     if (use_sse2_sum)
     {
       // aligned

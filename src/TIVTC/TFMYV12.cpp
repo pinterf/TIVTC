@@ -428,8 +428,7 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
   return false;
 }
 
-// fixme: rename like TDeint::buildDiffMapPlane_Planar
-void TFM::buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
+void TFM::buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,
   unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
