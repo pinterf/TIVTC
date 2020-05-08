@@ -94,7 +94,7 @@ private:
   double scthresh;
   char buf[4096], outputFull[270], outputCFull[270];
   PlanarFrame *map, *cmask;
-  void buildDiffMapPlaneYV12(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,
     unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
   void buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,

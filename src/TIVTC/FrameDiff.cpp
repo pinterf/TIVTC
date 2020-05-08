@@ -377,6 +377,7 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScri
   uint64_t dummy_metricF;
   d.metricF = &dummy_metricF;
   d.scene = false; // n/a
+
   CalcMetricsExtracted(env, prevt, currt, d);
 }
 
@@ -400,8 +401,8 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 
   // core start
 
-  const unsigned char* prvp, * curp, * prvpT, * curpT;
-  int prv_pitch, cur_pitch, width, height, y, x, difft;
+  const unsigned char* prvp, * curp;
+  int prv_pitch, cur_pitch, width, height, y, x;
 
   int xblocks = ((d.vi.width + d.blockx_half) >> d.blockx_shift) + 1;
   int xblocks4 = xblocks << 2;
@@ -410,16 +411,15 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 
   int temp1, temp2, box1, box2;
   int yhalf, xhalf, yshift, xshift, b;
-  int widtha, heighta, u, v, diffs;
 
   long cpu = env->GetCPUFlags();
   if (d.opt == 0) cpu = 0;
 
   memset(d.diff, 0, arraysize * sizeof(uint64_t));
 
-  const bool IsYUY2 = (d.np == 1); // fixme: we have also vi here
+  const bool IsYUY2 = d.vi.IsYUY2();
   const int stop = d.chroma ? d.np : 1; // chroma: full 3 planes at planar, 1 at YUY2 or planar luma-only
-  const int inc = IsYUY2 ? (d.chroma ? 1 : 2) : 1; // fixed YV12/YUY
+  const int inc = IsYUY2 ? (d.chroma ? 1 : 2) : 1; // 2 is YUY2 luma only, otherwise 1
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
 
@@ -457,177 +457,19 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
     else
     {
     use_c:
-      if (d.vi.IsPlanar())
-      {
-        const int ysubsampling = d.vi.GetPlaneHeightSubsampling(plane);
-        const int xsubsampling = d.vi.GetPlaneWidthSubsampling(plane);
-        yshift = d.blocky_shift - ysubsampling;
-        yhalf = d.blocky_half >> ysubsampling;
-        xshift = d.blockx_shift - xsubsampling;
-        xhalf = d.blockx_half >> xsubsampling;
+      if (!d.ssd) {
+        // SAD
+        if (inc == 2) // YUY2 luma only
+          calcDiff_SADorSSD_Generic_c<true, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+        else
+          calcDiff_SADorSSD_Generic_c<true, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
       }
       else {
-        // YUY2
-        yshift = d.blocky_shift;
-        yhalf = d.blocky_half;
-        xshift = d.blockx_shift + 1;
-        xhalf = d.blockx_half << 1;
-      }
-
-      heighta = (height >> (yshift - 1)) << (yshift - 1);
-      widtha = (width >> (xshift - 1)) << (xshift - 1);
-      if (d.ssd)
-      {
-        for (y = 0; y < heighta; y += yhalf)
-        {
-          temp1 = (y >> yshift) * xblocks4;
-          temp2 = ((y + yhalf) >> yshift) * xblocks4;
-          for (x = 0; x < widtha; x += xhalf)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              for (v = 0; v < xhalf; v += inc)
-              {
-                difft = prvpT[x + v] - curpT[x + v];
-                difft *= difft;
-                if (difft > d.nt) diffs += difft;
-              }
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > d.nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              d.diff[temp1 + box1 + 0] += diffs;
-              d.diff[temp1 + box2 + 1] += diffs;
-              d.diff[temp2 + box1 + 2] += diffs;
-              d.diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          for (x = widtha; x < width; x += inc)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              difft = prvpT[x] - curpT[x];
-              difft *= difft;
-              if (difft > d.nt) diffs += difft;
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > d.nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              d.diff[temp1 + box1 + 0] += diffs;
-              d.diff[temp1 + box2 + 1] += diffs;
-              d.diff[temp2 + box1 + 2] += diffs;
-              d.diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          prvp += prv_pitch * yhalf;
-          curp += cur_pitch * yhalf;
-        }
-        for (y = heighta; y < height; ++y)
-        {
-          temp1 = (y >> yshift) * xblocks4;
-          temp2 = ((y + yhalf) >> yshift) * xblocks4;
-          for (x = 0; x < width; x += inc)
-          {
-            difft = prvp[x] - curp[x];
-            difft *= difft;
-            if (difft > d.nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              d.diff[temp1 + box1 + 0] += difft;
-              d.diff[temp1 + box2 + 1] += difft;
-              d.diff[temp2 + box1 + 2] += difft;
-              d.diff[temp2 + box2 + 3] += difft;
-            }
-          }
-          prvp += prv_pitch;
-          curp += cur_pitch;
-        }
-      }
-      else
-      {
-        for (y = 0; y < heighta; y += yhalf)
-        {
-          temp1 = (y >> yshift) * xblocks4;
-          temp2 = ((y + yhalf) >> yshift) * xblocks4;
-          for (x = 0; x < widtha; x += xhalf)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              for (v = 0; v < xhalf; v += inc)
-              {
-                difft = abs(prvpT[x + v] - curpT[x + v]);
-                if (difft > d.nt) diffs += difft;
-              }
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > d.nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              d.diff[temp1 + box1 + 0] += diffs;
-              d.diff[temp1 + box2 + 1] += diffs;
-              d.diff[temp2 + box1 + 2] += diffs;
-              d.diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          for (x = widtha; x < width; x += inc)
-          {
-            prvpT = prvp;
-            curpT = curp;
-            for (diffs = 0, u = 0; u < yhalf; ++u)
-            {
-              difft = abs(prvpT[x] - curpT[x]);
-              if (difft > d.nt) diffs += difft;
-              prvpT += prv_pitch;
-              curpT += cur_pitch;
-            }
-            if (diffs > d.nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              d.diff[temp1 + box1 + 0] += diffs;
-              d.diff[temp1 + box2 + 1] += diffs;
-              d.diff[temp2 + box1 + 2] += diffs;
-              d.diff[temp2 + box2 + 3] += diffs;
-            }
-          }
-          prvp += prv_pitch * yhalf;
-          curp += cur_pitch * yhalf;
-        }
-        for (y = heighta; y < height; ++y)
-        {
-          temp1 = (y >> yshift) * xblocks4;
-          temp2 = ((y + yhalf) >> yshift) * xblocks4;
-          for (x = 0; x < width; x += inc)
-          {
-            difft = abs(prvp[x] - curp[x]);
-            if (difft > d.nt)
-            {
-              box1 = (x >> xshift) << 2;
-              box2 = ((x + xhalf) >> xshift) << 2;
-              d.diff[temp1 + box1 + 0] += difft;
-              d.diff[temp1 + box2 + 1] += difft;
-              d.diff[temp2 + box1 + 2] += difft;
-              d.diff[temp2 + box2 + 3] += difft;
-            }
-          }
-          prvp += prv_pitch;
-          curp += cur_pitch;
-        }
+        // SSD
+        if (inc == 2) // YUY2 luma only
+          calcDiff_SADorSSD_Generic_c<false, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+        else
+          calcDiff_SADorSSD_Generic_c<false, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
       }
     }
 
@@ -644,11 +486,12 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
           }
           else
           {
-            if (d.ssd)  // fixme: why is YUY2 the name?
-              *d.metricF = TDecimate::calcLumaDiffYUY2SSD(prev->GetReadPtr(), curr->GetReadPtr(),
+            // YUY2 only, luma only chroma skip
+            if (d.ssd)
+              *d.metricF = calcLumaDiffYUY2_SSD(prev->GetReadPtr(), curr->GetReadPtr(),
                 prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.opt, env);
             else
-              *d.metricF = TDecimate::calcLumaDiffYUY2SAD(prev->GetReadPtr(), curr->GetReadPtr(),
+              *d.metricF = calcLumaDiffYUY2_SAD(prev->GetReadPtr(), curr->GetReadPtr(),
                 prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.opt, env);
           }
         }

@@ -86,6 +86,12 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 void blurFrame(PVideoFrame& src, PVideoFrame& dst, int np, int iterations,
   bool bchroma, IScriptEnvironment* env, VideoInfo& vi_t, int opti);
 
+uint64_t calcLumaDiffYUY2_SSD(const unsigned char* prvp, const unsigned char* nxtp,
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
+
+uint64_t calcLumaDiffYUY2_SAD(const unsigned char* prvp, const unsigned char* nxtp,
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
+
 class TDecimate : public GenericVideoFilter
 {
 private:
@@ -195,11 +201,4 @@ public:
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return cachehints == CACHE_GET_MTMODE ? MT_SERIALIZED : 0;
   }
-
-  static uint64_t calcLumaDiffYUY2SSD(const unsigned char* prvp, const unsigned char* nxtp,
-    int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
-  static uint64_t calcLumaDiffYUY2SAD(const unsigned char* prvp, const unsigned char* nxtp,
-    int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
-
-
 };

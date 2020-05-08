@@ -25,6 +25,7 @@
 
 #include "../TIVTC/TDecimate.h"
 #include "TDecimateASM.h"
+#include <assert.h>
 
 // Leak's sse2 blend routine
 void blend_SSE2_16(unsigned char* dstp, const unsigned char* srcp,
@@ -136,52 +137,56 @@ void calcLumaDiffYUY2SSD_SSE2_16(const unsigned char *prvp, const unsigned char 
 }
 
 template<int blkSizeY>
-void calcSAD_SSE2_16xN(const unsigned char *ptr1, const unsigned char *ptr2,
-  int pitch1, int pitch2, int &sad)
+void calcSAD_SSE2_16xN(const unsigned char* ptr1, const unsigned char* ptr2,
+  int pitch1, int pitch2, int& sad)
 {
-    __m128i tmpsum = _mm_setzero_si128();
-    // unrolled loop
-    for (int i = 0; i < blkSizeY / 8; i++) {
-      __m128i xmm0, xmm1;
-      xmm0 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1));
-      xmm1 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1 + pitch1));
-      xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2)));
-      xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2 + pitch2)));
-      ptr1 += pitch1 * 2;
-      __m128i tmp1 = _mm_add_epi32(xmm0, xmm1);
-      ptr2 += pitch2 * 2;
+  assert(0 == blkSizeY % 8);
 
-      xmm0 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1));
-      xmm1 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1 + pitch1));
-      xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2)));
-      xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2 + pitch2)));
-      ptr1 += pitch1 * 2;
-      __m128i tmp2 = _mm_add_epi32(xmm0, xmm1);
-      ptr2 += pitch2 * 2;
+  __m128i tmpsum = _mm_setzero_si128();
+  // unrolled loop
+  for (int i = 0; i < blkSizeY / 8; i++) {
+    __m128i xmm0, xmm1;
+    xmm0 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1));
+    xmm1 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
+    xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2)));
+    xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
+    __m128i tmp1 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
-      xmm0 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1));
-      xmm1 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1 + pitch1));
-      xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2)));
-      xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2 + pitch2)));
-      ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-      __m128i tmp3 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-      ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+    xmm0 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1));
+    xmm1 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
+    xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2)));
+    xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
+    __m128i tmp2 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
-      xmm0 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1));
-      xmm1 = _mm_load_si128(reinterpret_cast<const __m128i *>(ptr1 + pitch1));
-      xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2)));
-      xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i *>(ptr2 + pitch2)));
-      ptr1 += pitch1 * 2;
-      __m128i tmp4 = _mm_add_epi32(xmm0, xmm1);
-      ptr2 += pitch2 * 2;
+    xmm0 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1));
+    xmm1 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
+    xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2)));
+    xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
+    __m128i tmp3 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
-      xmm0 = _mm_add_epi32(tmp1, tmp2);
-      xmm1 = _mm_add_epi32(tmp3, tmp4);
-      tmpsum = _mm_add_epi32(tmpsum, xmm0);
-      tmpsum = _mm_add_epi32(tmpsum, xmm1);
-    }
-    __m128i sum = _mm_add_epi32(tmpsum, _mm_srli_si128(tmpsum, 8)); // add lo, hi
-    sad = _mm_cvtsi128_si32(sum);
+    xmm0 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1));
+    xmm1 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
+    xmm0 = _mm_sad_epu8(xmm0, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2)));
+    xmm1 = _mm_sad_epu8(xmm1, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
+    __m128i tmp4 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
+
+    xmm0 = _mm_add_epi32(tmp1, tmp2);
+    xmm1 = _mm_add_epi32(tmp3, tmp4);
+    tmpsum = _mm_add_epi32(tmpsum, xmm0);
+    tmpsum = _mm_add_epi32(tmpsum, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
+  }
+  __m128i sum = _mm_add_epi32(tmpsum, _mm_srli_si128(tmpsum, 8)); // add lo, hi
+  sad = _mm_cvtsi128_si32(sum);
 }
 
 
@@ -190,6 +195,8 @@ template<int blkSizeY>
 void calcSAD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
+  assert(0 == blkSizeY % 4);
+
   __m128i tmpsum = _mm_setzero_si128();
   // unrolled loop
   for (int i = 0; i < blkSizeY / 4; i++) {
@@ -198,17 +205,17 @@ void calcSAD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
     xmm1 = _mm_castps_si128(_mm_load_ss(reinterpret_cast<const float*>(ptr1 + pitch1)));
     xmm0 = _mm_sad_epu8(xmm0, _mm_castps_si128(_mm_load_ss(reinterpret_cast<const float*>(ptr2))));
     xmm1 = _mm_sad_epu8(xmm1, _mm_castps_si128(_mm_load_ss(reinterpret_cast<const float*>(ptr2 + pitch2))));
-    ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-    __m128i tmp1 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-    ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+    __m128i tmp1 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
     xmm0 = _mm_castps_si128(_mm_load_ss(reinterpret_cast<const float*>(ptr1)));
     xmm1 = _mm_castps_si128(_mm_load_ss(reinterpret_cast<const float*>(ptr1 + pitch1)));
     xmm0 = _mm_sad_epu8(xmm0, _mm_castps_si128(_mm_load_ss(reinterpret_cast<const float*>(ptr2))));
     xmm1 = _mm_sad_epu8(xmm1, _mm_castps_si128(_mm_load_ss(reinterpret_cast<const float*>(ptr2 + pitch2))));
-    ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-    __m128i tmp2 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-    ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+    __m128i tmp2 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
     xmm0 = _mm_add_epi32(tmp1, tmp2);
     tmpsum = _mm_add_epi32(tmpsum, xmm0);
@@ -221,6 +228,8 @@ template<int blkSizeY>
 void calcSAD_SSE2_8xN(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &sad)
 {
+  assert(0 == blkSizeY % 8);
+
   __m128i tmpsum = _mm_setzero_si128();
   // blkSizeY should be multiple of 8
   // unrolled loop
@@ -230,32 +239,32 @@ void calcSAD_SSE2_8xN(const unsigned char *ptr1, const unsigned char *ptr2,
     xmm1 = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
     xmm0 = _mm_sad_epu8(xmm0, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2)));
     xmm1 = _mm_sad_epu8(xmm1, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
-    ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-    __m128i tmp1 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-    ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+    __m128i tmp1 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
     xmm0 = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr1));
     xmm1 = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
     xmm0 = _mm_sad_epu8(xmm0, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2)));
     xmm1 = _mm_sad_epu8(xmm1, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
-    ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-    __m128i tmp2 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-    ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+    __m128i tmp2 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
     xmm0 = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr1));
     xmm1 = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
     xmm0 = _mm_sad_epu8(xmm0, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2)));
     xmm1 = _mm_sad_epu8(xmm1, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
-    ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-    __m128i tmp3 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-    ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+    __m128i tmp3 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2;
+    ptr2 += pitch2 * 2;
 
     xmm0 = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr1));
     xmm1 = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr1 + pitch1));
     xmm0 = _mm_sad_epu8(xmm0, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2)));
     xmm1 = _mm_sad_epu8(xmm1, _mm_loadl_epi64(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
-    // ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2] // no need more 
-    __m128i tmp4 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
+    __m128i tmp4 = _mm_add_epi32(xmm0, xmm1);
+    ptr1 += pitch1 * 2; // if last, no need more, hope compiler solves it
     ptr2 += pitch2 * 2;
 
     xmm0 = _mm_add_epi32(tmp1, tmp2);
@@ -279,33 +288,33 @@ void calcSAD_SSE2_8x8_YUY2_lumaonly(const unsigned char *ptr1, const unsigned ch
   xmm1 = _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr1 + pitch1)), lumaMask);
   xmm0 = _mm_sad_epu8(xmm0, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2)), lumaMask));
   xmm1 = _mm_sad_epu8(xmm1, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2 + pitch2)), lumaMask));
-  ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-  __m128i tmp1 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-  ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+  __m128i tmp1 = _mm_add_epi32(xmm0, xmm1);
+  ptr1 += pitch1 * 2;
+  ptr2 += pitch2 * 2;
 
   xmm0 = _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr1)), lumaMask);
   xmm1 = _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr1 + pitch1)), lumaMask);
   xmm0 = _mm_sad_epu8(xmm0, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2)), lumaMask));
   xmm1 = _mm_sad_epu8(xmm1, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2 + pitch2)), lumaMask));
-  ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-  __m128i tmp2 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-  ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+  __m128i tmp2 = _mm_add_epi32(xmm0, xmm1);
+  ptr1 += pitch1 * 2;
+  ptr2 += pitch2 * 2;
 
   xmm0 = _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr1)), lumaMask);
   xmm1 = _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr1 + pitch1)), lumaMask);
   xmm0 = _mm_sad_epu8(xmm0, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2)), lumaMask));
   xmm1 = _mm_sad_epu8(xmm1, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2 + pitch2)), lumaMask));
-  ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2]
-  __m128i tmp3 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-  ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2]
+  __m128i tmp3 = _mm_add_epi32(xmm0, xmm1);
+  ptr1 += pitch1 * 2;
+  ptr2 += pitch2 * 2;
 
   xmm0 = _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr1)), lumaMask);
   xmm1 = _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr1 + pitch1)), lumaMask);
   xmm0 = _mm_sad_epu8(xmm0, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2)), lumaMask));
   xmm1 = _mm_sad_epu8(xmm1, _mm_and_si128(_mm_loadl_epi64(reinterpret_cast<const __m128i *>(ptr2 + pitch2)), lumaMask));
-  // ptr1 += pitch1 * 2; // lea edi, [edi + edx * 2] // no need more 
-  __m128i tmp4 = _mm_add_epi32(xmm0, xmm1); // paddd xmm0, xmm1
-  // ptr2 += pitch2 * 2; //lea esi, [esi + ecx * 2] // no need more 
+  __m128i tmp4 = _mm_add_epi32(xmm0, xmm1);
+  // ptr1 += pitch1 * 2; // last one, no need more 
+  // ptr2 += pitch2 * 2;
 
   xmm0 = _mm_add_epi32(tmp1, tmp2);
   xmm1 = _mm_add_epi32(tmp3, tmp4);
@@ -333,9 +342,9 @@ void calcSAD_SSE2_32x16(const unsigned char* ptr1, const unsigned char* ptr2,
     xmm2 = _mm_sad_epu8(xmm2, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
     xmm3 = _mm_sad_epu8(xmm3, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2 + 16)));
 
-    ptr1 += pitch1 * 2;
     __m128i tmp1 = _mm_add_epi32(xmm0, xmm1);
     __m128i tmp2 = _mm_add_epi32(xmm2, xmm3);
+    ptr1 += pitch1 * 2;
     ptr2 += pitch2 * 2;
 
     xmm0 = _mm_load_si128(reinterpret_cast<const __m128i*>(ptr1));
@@ -347,9 +356,9 @@ void calcSAD_SSE2_32x16(const unsigned char* ptr1, const unsigned char* ptr2,
     xmm2 = _mm_sad_epu8(xmm2, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2)));
     xmm3 = _mm_sad_epu8(xmm3, _mm_load_si128(reinterpret_cast<const __m128i*>(ptr2 + pitch2 + 16)));
 
-    ptr1 += pitch1 * 2;
     __m128i tmp3 = _mm_add_epi32(xmm0, xmm1);
     __m128i tmp4 = _mm_add_epi32(xmm2, xmm3);
+    ptr1 += pitch1 * 2;
     ptr2 += pitch2 * 2;
 
     xmm0 = _mm_add_epi32(tmp1, tmp2);
@@ -381,9 +390,9 @@ void calcSAD_SSE2_32x16_YUY2_lumaonly(const unsigned char *ptr1, const unsigned 
     xmm2 = _mm_sad_epu8(xmm2, _mm_and_si128(_mm_load_si128(reinterpret_cast<const __m128i *>(ptr2 + pitch2)), luma));
     xmm3 = _mm_sad_epu8(xmm3, _mm_and_si128(_mm_load_si128(reinterpret_cast<const __m128i *>(ptr2 + pitch2 + 16)), luma));
 
-    ptr1 += pitch1 * 2;
     __m128i tmp1 = _mm_add_epi32(xmm0, xmm1);
     __m128i tmp2 = _mm_add_epi32(xmm2, xmm3);
+    ptr1 += pitch1 * 2;
     ptr2 += pitch2 * 2;
 
     xmm0 = _mm_add_epi32(tmp1, tmp2);
@@ -397,6 +406,8 @@ template<int blkSizeY>
 void calcSSD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
+  assert(0 == blkSizeY % 2);
+
   __m128i tmpsum = _mm_setzero_si128();
   __m128i zero = _mm_setzero_si128();
   // two lines at a time -> 4 = 2x2
@@ -436,6 +447,8 @@ template<int blkSizeY>
 void calcSSD_SSE2_8xN(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
+  assert(0 == blkSizeY % 2);
+
   // even blkSize Y 8x8, 8x16
   __m128i tmpsum = _mm_setzero_si128();
   __m128i zero = _mm_setzero_si128();
@@ -518,6 +531,8 @@ template<int blkSizeY>
 void calcSSD_SSE2_16xN(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
+  assert(0 == blkSizeY % 2);
+
   __m128i tmpsum = _mm_setzero_si128();
   __m128i zero = _mm_setzero_si128();
   // two lines at a time -> 16 = 8x2
@@ -565,6 +580,7 @@ template void calcSSD_SSE2_8xN<8>(const unsigned char* ptr1, const unsigned char
 template void calcSSD_SSE2_4xN<4>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
 template void calcSSD_SSE2_4xN<8>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
 
+// YUY2 16x16 luma+chroma
 void calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
@@ -696,6 +712,7 @@ void HorizontalBlurSSE2_Planar_R(const unsigned char *srcp, unsigned char *dstp,
   __m128i zero = _mm_setzero_si128();
   while (height--) {
     for (int x = 0; x < width; x += 8) {
+      // we have -1/+1 here, cannot be called for leftmost/rightmost blocks
       __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 1));
       __m128i center = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x));
       __m128i right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 1));
@@ -729,7 +746,9 @@ void HorizontalBlurSSE2_YUY2_R_luma(const unsigned char *srcp, unsigned char *ds
   __m128i zero = _mm_setzero_si128();
   while (height--) {
     for (int x = 0; x < width; x += 8) {
-      __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 2)); // same as Y12 but +/-2 instead of +/-1
+      // we have -2/+2 here, cannot be called for leftmost/rightmost blocks
+      // same as planar case but +/-2 instead of +/-1
+      __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 2));
       __m128i center = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x));
       __m128i right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 2));
       __m128i left_lo = _mm_unpacklo_epi8(left, zero);
@@ -765,7 +784,9 @@ void HorizontalBlurSSE2_YUY2_R(const unsigned char *srcp, unsigned char *dstp, i
   while (height--) {
     for (int x = 0; x < width; x += 8) {
       // luma part
-      __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 2)); // same as Y12 but +/-2 instead of +/-1
+      // we have -2/+2 here, cannot be called for leftmost/rightmost blocks
+      // same as Y12 but +/-2 instead of +/-1
+      __m128i left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 2));
       __m128i center = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x));
       __m128i right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 2));
       __m128i left_lo = _mm_unpacklo_epi8(left, zero);
@@ -784,9 +805,10 @@ void HorizontalBlurSSE2_YUY2_R(const unsigned char *srcp, unsigned char *dstp, i
       res_hi = _mm_srli_epi16(_mm_add_epi16(res_hi, two), 2);
       __m128i res1 = _mm_packus_epi16(res_lo, res_hi);
 
-      // chroma part
-      left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 4)); // same as Y12 but +/-2 instead of +/-1
-                                                                              // we have already filler center 
+      // YUY2 chroma part
+      // same as Planar but +/-2 instead of +/-1
+      // we have already filled center 
+      left = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x - 4));
       right = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(srcp + x + 4));
       left_lo = _mm_unpacklo_epi8(left, zero);
       center_lo = _mm_unpacklo_epi8(center, zero);
@@ -875,7 +897,7 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
     // whole blocks
     heighta = (height >> h_to_shift) << h_to_shift; // mod16 for luma, mod8 or 16 for chroma
     widtha = (width >> w_to_shift) << w_to_shift; // mod16 for luma, mod8 or 16 for chroma
-    height >>= h_to_shift;
+    height >>= h_to_shift; // whole blocks
     width >>= w_to_shift;
 
     using SAD_fn_t = decltype(calcSAD_SSE2_16xN<16>);
@@ -898,11 +920,19 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
     }
     // other formats are forbidden and were pre-checked
 
+    // number of whole blocks
     for (y = 0; y < height; ++y)
     {
+      // at other places:
+      // for (y = 0; y < heighta; y += yhalf)
+      //   const int temp1 = (y >> blocky_shift)*xblocks4;
+      //   const int temp2 = ((y + blocky_half) >> blocky_shift) * xblocks4;
+      // FIXME: why >>1 and +1>>1 here? 
+      // Fact 1: y here goes in block-counter mode
+      // Fact 2: Because we do 32x32 but with 16x16 luma (and divided chroma) blocks?
       temp1 = (y >> 1) * xblocks4;
       temp2 = ((y + 1) >> 1) * xblocks4;
-      for (x = 0; x < width; ++x)
+      for (x = 0; x < width; ++x) // width is the number of blocks
       {
         SAD_fn(ptr1 + (x << w_to_shift), ptr2 + (x << w_to_shift), pitch1, pitch2, difft);
         box1 = (x >> 1) << 2;
@@ -933,8 +963,9 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
         diff[temp2 + box1 + 2] += difft;
         diff[temp2 + box2 + 3] += difft;
       }
-      ptr1 += pitch1 << w_to_shift; // += pitch1 * blocksize
-      ptr2 += pitch2 << w_to_shift;
+      // += pitch1 * vertical blocksize
+      ptr1 += pitch1 << h_to_shift;
+      ptr2 += pitch2 << h_to_shift;
     }
     for (y = heighta; y < heights; ++y)
     {
@@ -1006,6 +1037,7 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+        // 16 vertical lines at a time
         ptr1 += pitch1 << 4;
         ptr2 += pitch2 << 4;
       }
@@ -1071,6 +1103,7 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+        // 16 vertical lines at a time
         ptr1 += pitch1 << 4;
         ptr2 += pitch2 << 4;
       }
@@ -1133,8 +1166,8 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
     const int w_to_shift = 3 - xsubsampling;
     const int h_to_shift = 3 - ysubsampling;
     // whole blocks
-    heighta = (height >> h_to_shift) << h_to_shift; // mod16 for luma, mod8 or 16 for chroma
-    widtha = (width >> w_to_shift) << w_to_shift; // mod16 for luma, mod8 or 16 for chroma
+    heighta = (height >> h_to_shift) << h_to_shift; // mod16 for luma, mod8 or 4 for chroma
+    widtha = (width >> w_to_shift) << w_to_shift; // mod16 for luma, mod8 or 4 for chroma
     height >>= h_to_shift;
     width >>= w_to_shift;
 
@@ -1165,7 +1198,7 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
     // these are the same for luma and chroma as well, 8x8
     // FIXME: check, really?
     yshift = yshiftS - 3;
-    yhalf = yhalfS >> 3;
+    yhalf = yhalfS >> 3; // div 8
     xshift = xshiftS - 3;
     xhalf = xhalfS >> 3;
     for (y = 0; y < height; ++y)
@@ -1202,8 +1235,8 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
         diff[temp2 + box1 + 2] += difft;
         diff[temp2 + box2 + 3] += difft;
       }
-      ptr1 += pitch1 << w_to_shift;
-      ptr2 += pitch2 << w_to_shift;
+      ptr1 += pitch1 << h_to_shift;
+      ptr2 += pitch2 << h_to_shift;
     }
     for (y = heighta; y < heights; ++y)
     {
@@ -1283,6 +1316,7 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+        // 8 lines
         ptr1 += pitch1 << 3;
         ptr2 += pitch2 << 3;
       }
@@ -1352,6 +1386,7 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
           diff[temp2 + box1 + 2] += difft;
           diff[temp2 + box2 + 3] += difft;
         }
+        // 8 lines
         ptr1 += pitch1 << 3;
         ptr2 += pitch2 << 3;
       }
@@ -1393,3 +1428,138 @@ void calcDiffSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* pt
 {
   calcDiff_SADorSSD_Generic_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
 }
+
+// true: SAD, false: SSD
+template<bool SAD, int inc>
+void calcDiff_SADorSSD_Generic_c(const unsigned char* prvp, const unsigned char* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi)
+{
+  int temp1, temp2, y, x, u, difft, box1, box2;
+  int yshift, yhalf, xshift, xhalf;
+  int heighta, heights = height, widtha, widths = width;
+  const unsigned char* prvpT, * curpT;
+  const bool IsPlanar = (np == 3);
+  int diffs;
+
+  if (IsPlanar)
+  {
+    const int ysubsampling = vi.GetPlaneHeightSubsampling(plane);
+    const int xsubsampling = vi.GetPlaneWidthSubsampling(plane);
+    yshift = yshiftS - ysubsampling;
+    yhalf = yhalfS >> ysubsampling;
+    xshift = xshiftS - xsubsampling;
+    xhalf = xhalfS >> xsubsampling;
+  }
+  else {
+    // YUY2
+    yshift = yshiftS;
+    yhalf = yhalfS;
+    xshift = xshiftS + 1;
+    xhalf = xhalfS << 1;
+  }
+
+  heighta = (height >> (yshift - 1)) << (yshift - 1);
+  widtha = (width >> (xshift - 1)) << (xshift - 1);
+  // whole blocks
+  for (y = 0; y < heighta; y += yhalf)
+  {
+    temp1 = (y >> yshift) * xblocks4;
+    temp2 = ((y + yhalf) >> yshift) * xblocks4;
+    for (x = 0; x < widtha; x += xhalf)
+    {
+      prvpT = prvp;
+      curpT = curp;
+      for (diffs = 0, u = 0; u < yhalf; ++u)
+      {
+        for (int v = 0; v < xhalf; v += inc)
+        {
+          if constexpr (SAD)
+            difft = abs(prvpT[x + v] - curpT[x + v]);
+          else {
+            difft = prvpT[x + v] - curpT[x + v];
+            difft *= difft;
+          }
+          if (difft > nt) diffs += difft;
+        }
+        prvpT += prv_pitch;
+        curpT += cur_pitch;
+      }
+      if (diffs > nt)
+      {
+        box1 = (x >> xshift) << 2;
+        box2 = ((x + xhalf) >> xshift) << 2;
+        diff[temp1 + box1 + 0] += diffs;
+        diff[temp1 + box2 + 1] += diffs;
+        diff[temp2 + box1 + 2] += diffs;
+        diff[temp2 + box2 + 3] += diffs;
+      }
+    }
+    // rest non - whole block on the right
+    for (x = widtha; x < width; x += inc)
+    {
+      prvpT = prvp;
+      curpT = curp;
+      for (diffs = 0, u = 0; u < yhalf; ++u)
+      {
+        if constexpr (SAD)
+          difft = abs(prvpT[x] - curpT[x]);
+        else {
+          difft = prvpT[x] - curpT[x];
+          difft *= difft;
+        }
+        if (difft > nt) diffs += difft;
+        prvpT += prv_pitch;
+        curpT += cur_pitch;
+      }
+      if (diffs > nt)
+      {
+        box1 = (x >> xshift) << 2;
+        box2 = ((x + xhalf) >> xshift) << 2;
+        diff[temp1 + box1 + 0] += diffs;
+        diff[temp1 + box2 + 1] += diffs;
+        diff[temp2 + box1 + 2] += diffs;
+        diff[temp2 + box2 + 3] += diffs;
+      }
+    }
+    prvp += prv_pitch * yhalf;
+    curp += cur_pitch * yhalf;
+  }
+  // rest non-whole block at the bottom
+  for (y = heighta; y < height; ++y)
+  {
+    temp1 = (y >> yshift) * xblocks4;
+    temp2 = ((y + yhalf) >> yshift) * xblocks4;
+    for (x = 0; x < width; x += inc)
+    {
+      if constexpr (SAD)
+        difft = abs(prvp[x] - curp[x]);
+      else {
+        difft = prvp[x] - curp[x];
+        difft *= difft;
+      }
+      if (difft > nt)
+      {
+        box1 = (x >> xshift) << 2;
+        box2 = ((x + xhalf) >> xshift) << 2;
+        diff[temp1 + box1 + 0] += difft;
+        diff[temp1 + box2 + 1] += difft;
+        diff[temp2 + box1 + 2] += difft;
+        diff[temp2 + box2 + 3] += difft;
+      }
+    }
+    prvp += prv_pitch;
+    curp += cur_pitch;
+  }
+}
+
+// instantiate
+template void calcDiff_SADorSSD_Generic_c<false, 1>(const unsigned char* prvp, const unsigned char* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+template void calcDiff_SADorSSD_Generic_c<false, 2>(const unsigned char* prvp, const unsigned char* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+template void calcDiff_SADorSSD_Generic_c<true, 1>(const unsigned char* prvp, const unsigned char* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+template void calcDiff_SADorSSD_Generic_c<true, 2>(const unsigned char* prvp, const unsigned char* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+
+
