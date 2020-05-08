@@ -769,7 +769,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n,
   IScriptEnvironment *env)
 {
-  int b, ret, startx, y0a, y1a;
+  int b, ret, y0a, y1a;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -794,7 +794,8 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
-    startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YUY2:16 YV12 luma:8 YV12 chroma:4
+    const bool IsYUY2 = (np == 1);
+    const int startx = IsYUY2 ? 16 : 8 >> vi.GetPlaneWidthSubsampling(plane);
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
     if (b == 0) { y0a = y0; y1a = y1; }
@@ -1070,29 +1071,24 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 {
   if (slow == 2)
     return compareFieldsSlow2(prv, src, nxt, match1, match2, norm1, norm2, mtn1, mtn2, np, n, env);
-  int b, plane, ret, startx, y0a, y1a, tp;
+  int b, ret, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
   unsigned char *mapp, *mapn;
-  int prv_pitch, src_pitch, Width, Widtha, Height, nxt_pitch;
+  int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
-  int incl = np == 3 ? 1 : mChroma ? 1 : 2; // fixme check yv12?
+  int incl = np == 3 ? 1 : mChroma ? 1 : 2; // YUY2 lumaonly: step 2
   int stop = np == 3 ? mChroma ? 3 : 1 : 1;
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0;
   unsigned long accumNm = 0, accumPml = 0, accumNml = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (b = 0; b < stop; ++b)
   {
-    if (b == 0) {
-      plane = PLANAR_Y;
-    }
-    else if (b == 1) {
-      plane = PLANAR_V;
-    }
-    else {
-      plane = PLANAR_U;
-    }
+    const int plane = planes[b];
+    // FIXME check where using PlanarTools with oridinal planes are assuming
+    // b=0: PLANAR_Y   b=1: PLANAR_U or V    b=2 PLANAR_V or U ???
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -1104,7 +1100,8 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
     memset(mapp, 0, Height*map_pitch);
-    startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YV12 specific
+    const bool IsYUY2 = (np == 1);
+    const int startx = IsYUY2 ? 16 : 8 >> vi.GetPlaneWidthSubsampling(plane);
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
     if (b == 0) { y0a = y0; y1a = y1; tp = tpitchy; }
@@ -1196,7 +1193,8 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
       {
         for (int x = startx; x < stopx; x += incl)
         {
-          int eax = (mapp[x] << 3) + mapn[x]; // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+          // diff from prev asm block (at buildDiffMapPlane2): <<3 instead of <<2
+          int eax = (mapp[x] << 3) + mapn[x];
           if ((eax & 0xFF) == 0)
             continue;
 
@@ -1415,7 +1413,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env)
 {
-  int b, plane, ret, startx, y0a, y1a, tp;
+  int b, ret, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1423,22 +1421,15 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   unsigned char *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
-  int incl = np == 3 ? 1 : mChroma ? 1 : 2; // fixme check yv12?
-  int stop = np == 3 ? mChroma ? 3 : 1 : 1;
+  int incl = np == 3 ? 1 : mChroma ? 1 : 2; // YUY2 luma only is 2
+  int stop = np == 3 ? mChroma ? 3 : 1 : 1; // planar with mChroma is 3 else 1
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0;
   unsigned long accumNm = 0, accumPml = 0, accumNml = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (b = 0; b < stop; ++b)
   {
-    if (b == 0) {
-      plane = PLANAR_Y;
-    }
-    else if (b == 1) {
-      plane = PLANAR_V;
-    }
-    else {
-      plane = PLANAR_U;
-    }
+    const int plane = planes[b];
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -1450,7 +1441,8 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
     memset(mapp, 0, Height*map_pitch);
-    startx = np > 1 ? (b == 0 ? 8 : 4) : 16; // YV12/YUY specific
+    const bool IsYUY2 = (np == 1);
+    const int startx = IsYUY2 ? 16 : 8 >> vi.GetPlaneWidthSubsampling(plane);
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
     if (b == 0) { y0a = y0; y1a = y1; tp = tpitchy; }
