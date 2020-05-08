@@ -774,18 +774,16 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
   unsigned char *mapp, *mapn;
-  int prv_pitch, src_pitch, Width, Widtha, Height, nxt_pitch;
+  int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
   int incl = np == 3 ? 1 : mChroma ? 1 : 2;  // pixel increments: 2 if YUY2 with no-chroma option otherwise 1
   int stop = np == 3 ? mChroma ? 3 : 1 : 1; // Planar (np==3) -> chroma dependent plane number 1 or 3. YUY2 (np==1) -> 1
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0, accumNm = 0;
   norm1 = norm2 = mtn1 = mtn2 = 0;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int planes_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
   for (b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
-    const int plane_aligned = planes_aligned[b];
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
     prvp = prv->GetReadPtr(plane);
@@ -793,7 +791,6 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     srcp = src->GetReadPtr(plane);
     src_pitch = src->GetPitch(plane);
     Width = src->GetRowSize(plane);
-    Widtha = src->GetRowSize(plane_aligned); // +8 = _ALIGNED
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
@@ -869,10 +866,10 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     mapn = mapp + map_pitch;
     if ((match1 >= 3 && field == 1) || (match1 < 3 && field != 1))
       buildDiffMapPlane2(prvpf - prvf_pitch, nxtpf - nxtf_pitch, mapp - map_pitch, prvf_pitch,
-        nxtf_pitch, map_pitch, Height >> 1, Widtha, env);
+        nxtf_pitch, map_pitch, Height >> 1, Width, env);
     else
       buildDiffMapPlane2(prvnf - prvf_pitch, nxtnf - nxtf_pitch, mapn - map_pitch, prvf_pitch,
-        nxtf_pitch, map_pitch, Height >> 1, Widtha, env);
+        nxtf_pitch, map_pitch, Height >> 1, Width, env);
 #ifdef USE_C_NO_ASM
     // TFM 874
     for (int y = 2; y < Height - 2; y += 2) {
@@ -1073,7 +1070,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 {
   if (slow == 2)
     return compareFieldsSlow2(prv, src, nxt, match1, match2, norm1, norm2, mtn1, mtn2, np, n, env);
-  int b, plane, plane_aligned, ret, startx, y0a, y1a, tp;
+  int b, plane, ret, startx, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
@@ -1088,13 +1085,13 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   for (b = 0; b < stop; ++b)
   {
     if (b == 0) {
-      plane = PLANAR_Y; plane_aligned = PLANAR_Y_ALIGNED;
+      plane = PLANAR_Y;
     }
     else if (b == 1) {
-      plane = PLANAR_V; plane_aligned = PLANAR_V_ALIGNED;
+      plane = PLANAR_V;
     }
     else {
-      plane = PLANAR_U; plane_aligned = PLANAR_U_ALIGNED;
+      plane = PLANAR_U;
     }
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
@@ -1103,7 +1100,6 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     srcp = src->GetReadPtr(plane);
     src_pitch = src->GetPitch(plane);
     Width = src->GetRowSize(plane);
-    Widtha = src->GetRowSize(plane_aligned); // +8 = _ALIGNED
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
@@ -1181,16 +1177,16 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     if (np == 3)
     {
       if ((match1 >= 3 && field == 1) || (match1 < 3 && field != 1))
-        buildDiffMapPlaneYV12(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlaneYV12(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
     else
     {
       if ((match1 >= 3 && field == 1) || (match1 < 3 && field != 1))
-        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
 #ifdef USE_C_NO_ASM
     // TFM 1144
@@ -1419,13 +1415,13 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env)
 {
-  int b, plane, plane_aligned, ret, startx, y0a, y1a, tp;
+  int b, plane, ret, startx, y0a, y1a, tp;
   const unsigned char *prvp, *srcp, *nxtp;
   const unsigned char *curpf, *curf, *curnf;
   const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
   const unsigned char *prvppf, *nxtppf, *prvnnf, *nxtnnf;
   unsigned char *mapp, *mapn;
-  int prv_pitch, src_pitch, Width, Widtha, Height, nxt_pitch;
+  int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
   int incl = np == 3 ? 1 : mChroma ? 1 : 2; // fixme check yv12?
   int stop = np == 3 ? mChroma ? 3 : 1 : 1;
@@ -1435,13 +1431,13 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   for (b = 0; b < stop; ++b)
   {
     if (b == 0) {
-      plane = PLANAR_Y; plane_aligned = PLANAR_Y_ALIGNED;
+      plane = PLANAR_Y;
     }
     else if (b == 1) {
-      plane = PLANAR_V; plane_aligned = PLANAR_V_ALIGNED;
+      plane = PLANAR_V;
     }
     else {
-      plane = PLANAR_U; plane_aligned = PLANAR_U_ALIGNED;
+      plane = PLANAR_U;
     }
     mapp = map->GetPtr(b);
     map_pitch = map->GetPitch(b);
@@ -1450,7 +1446,6 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     srcp = src->GetReadPtr(plane);
     src_pitch = src->GetPitch(plane);
     Width = src->GetRowSize(plane);
-    Widtha = src->GetRowSize(plane_aligned); // +8 = _ALIGNED
     Height = src->GetHeight(plane);
     nxtp = nxt->GetReadPtr(plane);
     nxt_pitch = nxt->GetPitch(plane);
@@ -1532,16 +1527,16 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     if (np == 3)
     {
       if ((match1 >= 3 && field == 1) || (match1 < 3 && field != 1))
-        buildDiffMapPlaneYV12(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlaneYV12(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlane_Planar(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
     else
     {
       if ((match1 >= 3 && field == 1) || (match1 < 3 && field != 1))
-        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvpf, nxtpf, mapp, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
       else
-        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Widtha, tp, env);
+        buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
 #ifdef USE_C_NO_ASM
     if (field == 0) {
