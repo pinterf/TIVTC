@@ -229,7 +229,7 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
   const unsigned char* dpnn = tbuffer + tpitch * 3;
   int count;
   bool upper, lower, upper2, lower2;
-#ifdef USE_C_NO_ASM
+
   for (int y = 2; y < Height - 2; y += 2) {
     for (int x = 1; x < Width - 1; x++) {
       int eax, esi, edi, edx;
@@ -238,10 +238,10 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
       if (dp[x - 1] <= 3 && dp[x + 1] <= 3 &&
         dpp[x - 1] <= 3 && dpp[x] <= 3 && dpp[x + 1] <= 3 &&
         dpn[x - 1] <= 3 && dpn[x] <= 3 && dpn[x + 1] <= 3) continue;
-      dstp[x]++; // inc BYTE PTR[esi + ebx]
-      if (dp[x] <= 19) continue; //  cmp BYTE PTR[ecx + ebx], 19, ja b2
+      dstp[x]++;
+      if (dp[x] <= 19) continue;
 
-      edi = 0; // xor edi, edi
+      edi = 0;
       lower = 0;
       upper = 0;
 
@@ -262,34 +262,34 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
 
       if (edi <= 2) continue;
 
-      count = edi; // mov count, edi
-      if (count != esi) {  // cmp edi, esi, je b11
-        lower = 1; // mov lower, 1
-        if (upper != 0) { // cmp upper, 0, je b11
-          dstp[x] += 2; // mov esi, dstp, add BYTE PTR[esi + ebx], 2
-          continue; //  jmp c2
+      count = edi;
+      if (count != esi) {
+        lower = 1;
+        if (upper != 0) {
+          dstp[x] += 2;
+          continue;
         }
       }
-      // b11 :
-      eax = x - 4; // mov eax, ebx, add eax, -4
-      if (eax < 0) eax = 0; // jge p3, xor eax, eax
-      //  p3 :
+
+      eax = x - 4;
+      if (eax < 0) eax = 0;
 
       edx = x + 5;
       lower2 = 0;
       upper2 = 0;
       if (edx > Width) edx = Width;
-      if (y != 2) { // cmp y, 2,  je p5
+      if (y != 2) {
         int esi = eax;
         do {
           if (dppp[esi] > 19) {
-            upper2 = 1;  // ??? check others copied from here! todo change upper to upper2 if not upper 2 like in YUY2 part
+            upper2 = 1;
+            // ??? check others copied from here! todo change upper to upper2 if not upper 2 like in YUY2 part
             break;
           }
           esi++;
         } while (esi < edx);
       }
-      // p5 :
+
       { // blocked for local vars
         int esi = eax;
         do {
@@ -303,7 +303,6 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
         } while (esi < edx);
       }
 
-      //    p12:
       if (y != Height - 4) {
 
         int esi = eax;
@@ -314,31 +313,15 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
           }
           esi++;
         } while (esi < edx);
-
-        //            cmp BYTE PTR[ecx + esi], 19
-        //            ja p15
-        //            inc esi
-        //            cmp esi, edx
-        //            jl p14
-        //            jmp p13
-        //            p15 :
-        //          mov lower2, 1
       }
-      //p13 :
-      if (upper == 0) { // cmp upper, 0, jne p16
-       //  cmp lower, 0
-          //je p17
-          //cmp lower2, 0
-          //je p17
-          //jmp p18
+
+      if (upper == 0) {
         if (lower == 0 || lower2 == 0) {
-          // p17:
           if (count > 4)
             dstp[x] += 4;
         }
         else {
           dstp[x] += 2;
-          // p18
         }
       }
       else {
@@ -358,233 +341,6 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
     dpnn += tpitch;
     dstp += dst_pitch;
   }
-
-#else
-  // TFMYV12 565
-  int y;
-  __asm
-  {
-    mov y, 2
-    yloop:
-    mov edi, Width
-      mov eax, dpp
-      mov ecx, dp
-      mov edx, dpn
-      mov ebx, 1
-      mov esi, dstp
-      dec edi
-      xloop :
-    cmp BYTE PTR[ecx + ebx], 3
-      ja b1
-      inc ebx
-      cmp ebx, edi
-      jl xloop
-      jmp end_yloop
-      b1 :
-    cmp BYTE PTR[ecx + ebx - 1], 3
-      ja p1
-      cmp BYTE PTR[ecx + ebx + 1], 3
-      ja p1
-      cmp BYTE PTR[eax + ebx - 1], 3
-      ja p1
-      cmp BYTE PTR[eax + ebx], 3
-      ja p1
-      cmp BYTE PTR[eax + ebx + 1], 3
-      ja p1
-      cmp BYTE PTR[edx + ebx - 1], 3
-      ja p1
-      cmp BYTE PTR[edx + ebx], 3
-      ja p1
-      cmp BYTE PTR[edx + ebx + 1], 3
-      ja p1
-      inc ebx
-      cmp ebx, edi
-      jl xloop
-      jmp end_yloop
-      p1 :
-    inc BYTE PTR[esi + ebx]
-      cmp BYTE PTR[ecx + ebx], 19
-      ja b2
-      inc ebx
-      cmp ebx, edi
-      jl xloop
-      jmp end_yloop
-      b2 :
-    xor edi, edi
-      cmp BYTE PTR[eax + ebx - 1], 19
-      mov lower, 0
-      mov upper, 0
-      jbe b3
-      inc edi
-      b3 :
-    cmp BYTE PTR[eax + ebx], 19
-      jbe b4
-      inc edi
-      b4 :
-    cmp BYTE PTR[eax + ebx + 1], 19
-      jbe b5
-      inc edi
-      b5 :
-    or edi, edi
-      jz p2
-      mov upper, 1
-      p2 :
-      cmp BYTE PTR[ecx + ebx - 1], 19
-      jbe b6
-      inc edi
-      b6 :
-    cmp BYTE PTR[ecx + ebx + 1], 19
-      jbe b7
-      inc edi
-      b7 :
-    mov esi, edi
-      cmp BYTE PTR[edx + ebx - 1], 19
-      jbe b8
-      inc edi
-      b8 :
-    cmp BYTE PTR[edx + ebx], 19
-      jbe b9
-      inc edi
-      b9 :
-    cmp BYTE PTR[edx + ebx + 1], 19
-      jbe b10
-      inc edi
-      b10 :
-    cmp edi, 2
-      jg c1
-      c2 :
-    mov edi, Width
-      inc ebx
-      dec edi
-      cmp ebx, edi
-      jge end_yloop
-      mov esi, dstp
-      jmp xloop
-      c1 :
-    cmp edi, esi
-      mov count, edi
-      je b11
-      mov lower, 1
-      cmp upper, 0
-      je b11
-      mov esi, dstp
-      add BYTE PTR[esi + ebx], 2
-      jmp c2
-      b11 :
-    mov eax, ebx
-      add eax, -4
-      jge p3
-      xor eax, eax
-      p3 :
-    mov edx, ebx
-      mov ecx, Width
-      mov lower2, 0
-      add edx, 5
-      mov upper2, 0
-      cmp edx, ecx
-      jle p4
-      mov edx, ecx
-      p4 :
-    cmp y, 2
-      je p5
-      mov esi, eax
-      mov ecx, dppp
-      p6 :
-    cmp BYTE PTR[ecx + esi], 19
-      ja p7
-      inc esi
-      cmp esi, edx
-      jl p6
-      jmp p5
-      p7 :
-    mov upper2, 1
-      p5 :
-      mov esi, eax
-      mov ecx, dpp
-      mov edi, dpn
-      p11 :
-    cmp BYTE PTR[ecx + esi], 19
-      jbe p8
-      mov upper, 1
-      p8 :
-      cmp BYTE PTR[edi + esi], 19
-      jbe p9
-      mov lower, 1
-      p9 :
-      cmp upper, 0
-      je p10
-      cmp lower, 0
-      jne p12
-      p10 :
-    inc esi
-      cmp esi, edx
-      jl p11
-      p12 :
-    mov esi, Height
-      add esi, -4
-      cmp y, esi
-      je p13
-      mov esi, eax
-      mov ecx, dpnn
-      p14 :
-    cmp BYTE PTR[ecx + esi], 19
-      ja p15
-      inc esi
-      cmp esi, edx
-      jl p14
-      jmp p13
-      p15 :
-    mov lower2, 1
-      p13 :
-      cmp upper, 0
-      jne p16
-      cmp lower, 0
-      je p17
-      cmp lower2, 0
-      je p17
-      jmp p18
-      p16 :
-    cmp lower, 0
-      jne p18
-      cmp upper2, 0
-      jne p18
-      jmp p17
-      p18 :
-    mov esi, dstp
-      add BYTE PTR[esi + ebx], 2
-      jmp end_xloop
-      p17 :
-    cmp count, 4
-      jle end_xloop
-      mov esi, dstp
-      add BYTE PTR[esi + ebx], 4
-      end_xloop :
-      mov edi, Width
-      inc ebx
-      dec edi
-      cmp ebx, edi
-      jge end_yloop
-      mov eax, dpp
-      mov ecx, dp
-      mov edx, dpn
-      mov esi, dstp
-      jmp xloop
-      end_yloop :
-    mov edi, tpitch
-      mov eax, dst_pitch
-      mov ecx, Height
-      add y, 2
-      sub ecx, 2
-      add dppp, edi
-      add dpp, edi
-      add dp, edi
-      add dpn, edi
-      add dpnn, edi
-      add dstp, eax
-      cmp y, ecx
-      jl yloop
-  }
-#endif // todo
 }
 
 // TDeint and TFM version
@@ -599,9 +355,8 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
   int count;
   bool upper, lower, upper2, lower2;
 
-  // fixit: make if common with TFM
-#ifdef USE_C_NO_ASM
-  // reconstructed from inline asm by pf
+  // fixme: make if common with TFM
+  // reconstructed from inline 700+ lines asm by pinterf
 
   if (mChroma) // TFM YUY2's mChroma bool parameter
   {
@@ -612,20 +367,19 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
 
         if (dp[x] < 3) {
           goto chroma_sec;
-        } // continue in TFMYUY2 1051;
+        }
+
         if (dp[x - 2] < 3 && dp[x + 2] < 3 &&
           dpp[x - 2] < 3 && dpp[x] < 3 && dpp[x + 2] < 3 &&
           dpn[x - 2] < 3 && dpn[x] < 3 && dpn[x + 2] < 3)
         {
           goto chroma_sec;
-        }// continue in TFMYUY2 1051;
+        }
+
         dstp[x]++;
         if (dp[x] <= 19) {
           goto chroma_sec;
-        }// continue in TFMYUY2 1051;
-        //mov eax, dpp
-        //  mov ecx, dp
-        //  mov edx, dpn
+        }
 
         edi = 0;
         lower = 0;
@@ -647,29 +401,28 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
         if (dpn[x + 2] > 19) edi++;
 
         if (edi <= 2) {
-          goto chroma_sec; // continue in TFMYUY2 1051;
-        }// continue in TFMYUY2 1051;
+          goto chroma_sec;
+        }
 
         count = edi;
         if (count != esi) {
           lower = 1;
           if (upper != 0) {
             dstp[x] += 2;
-            goto chroma_sec; // continue in TFMYUY2 1051;
+            goto chroma_sec;
           }
         }
-        // b111:
+
         eax = x - 2 * 4;
         if (eax < 0) eax = 0;
-        // p31:
+
         lower2 = 0;
         upper2 = 0;
         { // blocked for local vars
           int edx = x + 2 * 5;
           if (edx > Width) edx = Width;
-          // p41:
     //-----------
-          if (y != 2) { // cmp y, 2,  je p51
+          if (y != 2) {
             int esi = eax;
             do {
               if (dppp[esi] > 19) {
@@ -679,7 +432,7 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
               esi += 2; // YUY2 inc
             } while (esi < edx);
           }
-          // p51 :
+
           int esi = eax;
           do {
             if (dpp[esi] > 19)
@@ -691,8 +444,6 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
             esi += 2; // YUY2 inc
           } while (esi < edx);
           //---------
-          // p121
-          //    p12:
           if (y != Height - 4) {
             int esi = eax;
             do {
@@ -704,21 +455,14 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
             } while (esi < edx);
           }
         }
-        //p13 :
-        if (upper == 0) { // cmp upper, 0, jne p16
-                          //  cmp lower, 0
-                          //je p17
-                          //cmp lower2, 0
-                          //je p17
-                          //jmp p18
+
+        if (upper == 0) {
           if (lower == 0 || lower2 == 0) {
-            // p17:
             if (count > 4)
               dstp[x] += 4;
           }
           else {
             dstp[x] += 2;
-            // p18
           }
         }
         else {
@@ -730,7 +474,7 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
               dstp[x] += 4;
           }
         }
-        //-------------- itt vége van egy ebx+=2-vel a másiknak   
+        //-------------- the other one ends here, with a x+=2
 
       chroma_sec:
         // skip to chroma
@@ -738,20 +482,17 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
 
         if (dp[x] < 3) {
           continue;
-        } // continue in TFMYUY2 1051;
+        }
         if (dp[x - 4] < 3 && dp[x + 4] < 3 &&
           dpp[x - 4] < 3 && dpp[x] < 3 && dpp[x + 4] < 3 &&
           dpn[x - 4] < 3 && dpn[x] < 3 && dpn[x + 4] < 3)
         {
           continue;
-        }// continue in TFMYUY2 1051;
+        }
         dstp[x]++;
         if (dp[x] <= 19) {
           continue;
-        }// continue in TFMYUY2 1051;
-         //mov eax, dpp
-         //  mov ecx, dp
-         //  mov edx, dpn
+        }
         edi = 0;
         lower = 0;
         upper = 0;
@@ -766,8 +507,8 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
         if (dpn[x] > 19) edi++;
         if (dpn[x + 4] > 19) edi++;
         if (edi <= 2) {
-          continue; // continue in TFMYUY2 1051;
-        }// continue in TFMYUY2 1051;
+          continue;
+        }
         count = edi;
         if (esi != edi) {
           lower = 1;
@@ -776,18 +517,18 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
             continue;
           }
         }
-        // b111:
+
         eax = x - 8 - 8; // was: -8 in the first chroma part
         int edx_tmp = (x & 2) + 1; // diff from 1st part, comparison is with 0 there
         if (eax < edx_tmp) eax = edx_tmp; // diff from 1st part
-        // p31:/p3c
+
         lower2 = 0;
         upper2 = 0;
         int edx = x + 10 + 8; // was: +10 in the first chroma part
         if (edx > Width) edx = Width;
-        // p41:
+
         //-----------
-        if (y != 2) { // cmp y, 2,  je p51
+        if (y != 2) {
           int esi = eax;
           do {
             if (dppp[esi] > 19) {
@@ -797,7 +538,7 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
             esi += 4; // was: += 2 in the first chroma part
           } while (esi < edx);
         }
-        // p51 :
+
         { // blocked for local vars
           int esi = eax;
           do {
@@ -811,8 +552,6 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
           } while (esi < edx);
         }
         //---------
-        // p121
-        //    p12:
         if (y != Height - 4) {
 
           int esi = eax;
@@ -824,21 +563,14 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
             esi += 4;  // was: += 2 in the first chroma part
           } while (esi < edx);
         }
-        //p13 :
-        if (upper == 0) { // cmp upper, 0, jne p16
-                          //  cmp lower, 0
-                          //je p17
-                          //cmp lower2, 0
-                          //je p17
-                          //jmp p18
+
+        if (upper == 0) {
           if (lower == 0 || lower2 == 0) {
-            // p17:
             if (count > 4)
               dstp[x] += 4;
           }
           else {
             dstp[x] += 2;
-            // p18
           }
         }
         else {
@@ -858,32 +590,27 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
       dpn += tpitch;
       dpnn += tpitch;
       dstp += dst_pitch;
-
     }
   }
   else {
     // no YUY2 chroma, LumaOnly
-    // TFMYUV2 1051
-    //env->ThrowError("not implemented yet"); // to be checked. What options do we need
     for (int y = 2; y < Height - 2; y += 2) {
-      for (int x = 4; x < Width - 4; x += 2) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
+      for (int x = 4; x < Width - 4; x += 2)
       {
         if (dp[x] < 3) {
           continue; // goto chroma_sec;
-        } // continue in TFMYUY2 1051;
+        }
         if (dp[x - 2] < 3 && dp[x + 2] < 3 &&
           dpp[x - 2] < 3 && dpp[x] < 3 && dpp[x + 2] < 3 &&
           dpn[x - 2] < 3 && dpn[x] < 3 && dpn[x + 2] < 3)
         {
           continue; // goto chroma_sec;
-        }// continue in TFMYUY2 1051;
+        }
         dstp[x]++;
         if (dp[x] <= 19) {
           continue; //  goto chroma_sec;
-        }// continue in TFMYUY2 1051;
-         //mov eax, dpp
-         //  mov ecx, dp
-         //  mov edx, dpn
+        }
+
         int edi = 0;
         lower = 0;
         upper = 0;
@@ -898,27 +625,25 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
         if (dpn[x] > 19) edi++;
         if (dpn[x + 2] > 19) edi++;
         if (edi <= 2) {
-          continue; //  goto chroma_sec; // continue in TFMYUY2 1051;
-        }// continue in TFMYUY2 1051;
+          continue; //  goto chroma_sec;
+        }
         count = edi;
         if (esi != edi) {
           lower = 1;
           if (upper != 0) {
             dstp[x] += 2;
-            continue; // goto chroma_sec; // continue in TFMYUY2 1051;
+            continue; // goto chroma_sec;
           }
         }
-        // b111:
-        int eax = x - 8;
+        int eax = x - 2 * 4;
         if (eax < 0) eax = 0;
-        // p31:
+
         lower2 = 0;
         upper2 = 0;
-        int edx = x + 10;
+        int edx = x + 2 * 5;
         if (edx > Width) edx = Width;
-        // p41:
         //-----------
-        if (y != 2) { // cmp y, 2,  je p51
+        if (y != 2) {
           int esi = eax;
           do {
             if (dppp[esi] > 19) {
@@ -928,7 +653,6 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
             esi += 2;
           } while (esi < edx);
         }
-        // p51 :
         { // blocked for local vars
           int esi = eax;
           do {
@@ -942,8 +666,6 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
           } while (esi < edx);
         }
         //---------
-        // p121
-        //    p12:
         if (y != Height - 4) {
 
           int esi = eax;
@@ -955,21 +677,14 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
             esi += 2;
           } while (esi < edx);
         }
-        //p13 :
-        if (upper == 0) { // cmp upper, 0, jne p16
-                          //  cmp lower, 0
-                          //je p17
-                          //cmp lower2, 0
-                          //je p17
-                          //jmp p18
+        
+        if (upper == 0) {
           if (lower == 0 || lower2 == 0) {
-            // p17:
             if (count > 4)
               dstp[x] += 4;
           }
           else {
             dstp[x] += 2;
-            // p18
           }
         }
         else {
@@ -988,662 +703,8 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
       dpn += tpitch;
       dpnn += tpitch;
       dstp += dst_pitch;
-
-    }
-
-  }
-#else
-  int y;
-  if (mChroma)
-  {
-    // TFMYUV2 636
-    __asm
-    {
-      push ebx // pf170421
-
-      mov y, 2
-      yloopl:
-      mov edi, Width
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov ebx, 4
-        mov esi, dstp
-        sub edi, 4
-        xloopl:
-      cmp BYTE PTR[ecx + ebx], 3
-        ja b1l
-        inc ebx
-        jmp chroma_sec
-        b1l :
-      cmp BYTE PTR[ecx + ebx - 2], 3
-        ja p1l
-        cmp BYTE PTR[ecx + ebx + 2], 3
-        ja p1l
-        cmp BYTE PTR[eax + ebx - 2], 3
-        ja p1l
-        cmp BYTE PTR[eax + ebx], 3
-        ja p1l
-        cmp BYTE PTR[eax + ebx + 2], 3
-        ja p1l
-        cmp BYTE PTR[edx + ebx - 2], 3
-        ja p1l
-        cmp BYTE PTR[edx + ebx], 3
-        ja p1l
-        cmp BYTE PTR[edx + ebx + 2], 3
-        ja p1l
-        inc ebx
-        jmp chroma_sec
-        p1l :
-      inc BYTE PTR[esi + ebx]
-        cmp BYTE PTR[ecx + ebx], 19
-        ja b2l
-        inc ebx
-        jmp chroma_sec
-        b2l :
-      xor edi, edi
-        cmp BYTE PTR[eax + ebx - 2], 19
-        mov lower, 0
-        mov upper, 0
-        jbe b3l
-        inc edi
-        b3l :
-      cmp BYTE PTR[eax + ebx], 19
-        jbe b4l
-        inc edi
-        b4l :
-      cmp BYTE PTR[eax + ebx + 2], 19
-        jbe b5l
-        inc edi
-        b5l :
-      or edi, edi
-        jz p2l
-        mov upper, 1
-        p2l :
-        cmp BYTE PTR[ecx + ebx - 2], 19
-        jbe b6l
-        inc edi
-        b6l :
-      cmp BYTE PTR[ecx + ebx + 2], 19
-        jbe b7l
-        inc edi
-        b7l :
-      mov esi, edi
-        cmp BYTE PTR[edx + ebx - 2], 19
-        jbe b8l
-        inc edi
-        b8l :
-      cmp BYTE PTR[edx + ebx], 19
-        jbe b9l
-        inc edi
-        b9l :
-      cmp BYTE PTR[edx + ebx + 2], 19
-        jbe b10l
-        inc edi
-        b10l :
-      cmp edi, 2
-        jg c1l
-        c2l :
-      mov edi, Width
-        inc ebx
-        mov esi, dstp
-        sub edi, 4
-        jmp chroma_sec
-        c1l :
-      cmp edi, esi
-        mov count, edi
-        je b11l
-        mov lower, 1
-        cmp upper, 0
-        je b11l
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp c2l
-        b11l :
-      mov eax, ebx
-        add eax, -8
-        jge p3l
-        xor eax, eax
-        p3l :
-      mov edx, ebx
-        mov ecx, Width
-        mov lower2, 0
-        add edx, 10
-        mov upper2, 0
-        cmp edx, ecx
-        jle p4l
-        mov edx, ecx
-        p4l :
-      cmp y, 2
-        je p5l
-        mov esi, eax
-        mov ecx, dppp
-        p6l :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p7l
-        add esi, 2
-        cmp esi, edx
-        jl p6l
-        jmp p5l
-        p7l :
-      mov upper2, 1
-        p5l :
-        mov esi, eax
-        mov ecx, dpp
-        mov edi, dpn
-        p11l :
-      cmp BYTE PTR[ecx + esi], 19
-        jbe p8l
-        mov upper, 1
-        p8l :
-        cmp BYTE PTR[edi + esi], 19
-        jbe p9l
-        mov lower, 1
-        p9l :
-        cmp upper, 0
-        je p10l
-        cmp lower, 0
-        jne p12l
-        p10l :
-      add esi, 2
-        cmp esi, edx
-        jl p11l
-        p12l :
-      mov esi, Height
-        add esi, -4
-        cmp y, esi
-        je p13l
-        mov esi, eax
-        mov ecx, dpnn
-        p14l :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p15l
-        add esi, 2
-        cmp esi, edx
-        jl p14l
-        jmp p13l
-        p15l :
-      mov lower2, 1
-        p13l :
-        cmp upper, 0
-        jne p16l
-        cmp lower, 0
-        je p17l
-        cmp lower2, 0
-        je p17l
-        jmp p18l
-        p16l :
-      cmp lower, 0
-        jne p18l
-        cmp upper2, 0
-        jne p18l
-        jmp p17l
-        p18l :
-      mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp end_xloopl
-        p17l :
-      cmp count, 4
-        jle end_xloopl
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 4
-        end_xloopl :
-        mov edi, Width
-        inc ebx
-        sub edi, 4
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov esi, dstp
-        chroma_sec :
-      cmp BYTE PTR[ecx + ebx], 3
-        ja b1c
-        inc ebx
-        cmp ebx, edi
-        jl xloopl
-        jmp end_yloopl
-        b1c :
-      cmp BYTE PTR[ecx + ebx - 4], 3
-        ja p1c
-        cmp BYTE PTR[ecx + ebx + 4], 3
-        ja p1c
-        cmp BYTE PTR[eax + ebx - 4], 3
-        ja p1c
-        cmp BYTE PTR[eax + ebx], 3
-        ja p1c
-        cmp BYTE PTR[eax + ebx + 4], 3
-        ja p1c
-        cmp BYTE PTR[edx + ebx - 4], 3
-        ja p1c
-        cmp BYTE PTR[edx + ebx], 3
-        ja p1c
-        cmp BYTE PTR[edx + ebx + 4], 3
-        ja p1c
-        inc ebx
-        cmp ebx, edi
-        jl xloopl
-        jmp end_yloopl
-        p1c :
-      inc BYTE PTR[esi + ebx]
-        cmp BYTE PTR[ecx + ebx], 19
-        ja b2c
-        inc ebx
-        cmp ebx, edi
-        jl xloopl
-        jmp end_yloopl
-        b2c :
-      xor edi, edi
-        cmp BYTE PTR[eax + ebx - 4], 19
-        mov lower, 0
-        mov upper, 0
-        jbe b3c
-        inc edi
-        b3c :
-      cmp BYTE PTR[eax + ebx], 19
-        jbe b4c
-        inc edi
-        b4c :
-      cmp BYTE PTR[eax + ebx + 4], 19
-        jbe b5c
-        inc edi
-        b5c :
-      or edi, edi
-        jz p2c
-        mov upper, 1
-        p2c :
-        cmp BYTE PTR[ecx + ebx - 4], 19
-        jbe b6c
-        inc edi
-        b6c :
-      cmp BYTE PTR[ecx + ebx + 4], 19
-        jbe b7c
-        inc edi
-        b7c :
-      mov esi, edi
-        cmp BYTE PTR[edx + ebx - 4], 19
-        jbe b8c
-        inc edi
-        b8c :
-      cmp BYTE PTR[edx + ebx], 19
-        jbe b9c
-        inc edi
-        b9c :
-      cmp BYTE PTR[edx + ebx + 4], 19
-        jbe b10c
-        inc edi
-        b10c :
-      cmp edi, 2
-        jg c1c
-        c2c :
-      mov edi, Width
-        inc ebx
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloopl
-        mov esi, dstp
-        jmp xloopl
-        c1c :
-      cmp edi, esi
-        mov count, edi
-        je b11c
-        mov lower, 1
-        cmp upper, 0
-        je b11c
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp c2c
-        b11c :
-      mov eax, ebx
-        add eax, -16
-        mov edx, ebx
-        and edx, 2
-        inc edx
-        cmp eax, edx
-        jge p3c
-        mov eax, edx
-        p3c :
-      mov edx, ebx
-        mov ecx, Width
-        mov lower2, 0
-        add edx, 18
-        mov upper2, 0
-        cmp edx, ecx
-        jle p4c
-        mov edx, ecx
-        p4c :
-      cmp y, 2
-        je p5c
-        mov esi, eax
-        mov ecx, dppp
-        p6c :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p7c
-        add esi, 4
-        cmp esi, edx
-        jl p6c
-        jmp p5c
-        p7c :
-      mov upper2, 1
-        p5c :
-        mov esi, eax
-        mov ecx, dpp
-        mov edi, dpn
-        p11c :
-      cmp BYTE PTR[ecx + esi], 19
-        jbe p8c
-        mov upper, 1
-        p8c :
-        cmp BYTE PTR[edi + esi], 19
-        jbe p9c
-        mov lower, 1
-        p9c :
-        cmp upper, 0
-        je p10c
-        cmp lower, 0
-        jne p12c
-        p10c :
-      add esi, 4
-        cmp esi, edx
-        jl p11c
-        p12c :
-      mov esi, Height
-        add esi, -4
-        cmp y, esi
-        je p13c
-        mov esi, eax
-        mov ecx, dpnn
-        p14c :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p15c
-        add esi, 4
-        cmp esi, edx
-        jl p14c
-        jmp p13c
-        p15c :
-      mov lower2, 1
-        p13c :
-        cmp upper, 0
-        jne p16c
-        cmp lower, 0
-        je p17c
-        cmp lower2, 0
-        je p17c
-        jmp p18c
-        p16c :
-      cmp lower, 0
-        jne p18c
-        cmp upper2, 0
-        jne p18c
-        jmp p17c
-        p18c :
-      mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp end_xloopc
-        p17c :
-      cmp count, 4
-        jle end_xloopc
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 4
-        end_xloopc :
-        mov edi, Width
-        inc ebx
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloopl
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov esi, dstp
-        jmp xloopl
-        end_yloopl :
-      mov edi, tpitch
-        mov eax, dst_pitch
-        mov ecx, Height
-        add y, 2
-        sub ecx, 2
-        add dppp, edi
-        add dpp, edi
-        add dp, edi
-        add dpn, edi
-        add dpnn, edi
-        add dstp, eax
-        cmp y, ecx
-        jl yloopl
-
-        pop ebx // pf170421
     }
   }
-  else
-  {
-    // TFMYUV2 1051
-    __asm
-    {
-      push ebx // pf170421
-
-      mov y, 2
-      yloop:
-      mov edi, Width
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov ebx, 4
-        mov esi, dstp
-        sub edi, 4
-        xloop:
-      cmp BYTE PTR[ecx + ebx], 3
-        ja b1
-        add ebx, 2
-        cmp ebx, edi
-        jl xloop
-        jmp end_yloop
-        b1 :
-      cmp BYTE PTR[ecx + ebx - 2], 3
-        ja p1
-        cmp BYTE PTR[ecx + ebx + 2], 3
-        ja p1
-        cmp BYTE PTR[eax + ebx - 2], 3
-        ja p1
-        cmp BYTE PTR[eax + ebx], 3
-        ja p1
-        cmp BYTE PTR[eax + ebx + 2], 3
-        ja p1
-        cmp BYTE PTR[edx + ebx - 2], 3
-        ja p1
-        cmp BYTE PTR[edx + ebx], 3
-        ja p1
-        cmp BYTE PTR[edx + ebx + 2], 3
-        ja p1
-        add ebx, 2
-        cmp ebx, edi
-        jl xloop
-        jmp end_yloop
-        p1 :
-      inc BYTE PTR[esi + ebx]
-        cmp BYTE PTR[ecx + ebx], 19
-        ja b2
-        add ebx, 2
-        cmp ebx, edi
-        jl xloop
-        jmp end_yloop
-        b2 :
-      xor edi, edi
-        cmp BYTE PTR[eax + ebx - 2], 19
-        mov lower, 0
-        mov upper, 0
-        jbe b3
-        inc edi
-        b3 :
-      cmp BYTE PTR[eax + ebx], 19
-        jbe b4
-        inc edi
-        b4 :
-      cmp BYTE PTR[eax + ebx + 2], 19
-        jbe b5
-        inc edi
-        b5 :
-      or edi, edi
-        jz p2
-        mov upper, 1
-        p2 :
-        cmp BYTE PTR[ecx + ebx - 2], 19
-        jbe b6
-        inc edi
-        b6 :
-      cmp BYTE PTR[ecx + ebx + 2], 19
-        jbe b7
-        inc edi
-        b7 :
-      mov esi, edi
-        cmp BYTE PTR[edx + ebx - 2], 19
-        jbe b8
-        inc edi
-        b8 :
-      cmp BYTE PTR[edx + ebx], 19
-        jbe b9
-        inc edi
-        b9 :
-      cmp BYTE PTR[edx + ebx + 2], 19
-        jbe b10
-        inc edi
-        b10 :
-      cmp edi, 2
-        jg c1
-        c2 :
-      mov edi, Width
-        add ebx, 2
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloop
-        mov esi, dstp
-        jmp xloop
-        c1 :
-      cmp edi, esi
-        mov count, edi
-        je b11
-        mov lower, 1
-        cmp upper, 0
-        je b11
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp c2
-        b11 :
-      mov eax, ebx
-        add eax, -8
-        jge p3
-        xor eax, eax
-        p3 :
-      mov edx, ebx
-        mov ecx, Width
-        mov lower2, 0
-        add edx, 10
-        mov upper2, 0
-        cmp edx, ecx
-        jle p4
-        mov edx, ecx
-        p4 :
-      cmp y, 2
-        je p5
-        mov esi, eax
-        mov ecx, dppp
-        p6 :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p7
-        add esi, 2
-        cmp esi, edx
-        jl p6
-        jmp p5
-        p7 :
-      mov upper2, 1
-        p5 :
-        mov esi, eax
-        mov ecx, dpp
-        mov edi, dpn
-        p11 :
-      cmp BYTE PTR[ecx + esi], 19
-        jbe p8
-        mov upper, 1
-        p8 :
-        cmp BYTE PTR[edi + esi], 19
-        jbe p9
-        mov lower, 1
-        p9 :
-        cmp upper, 0
-        je p10
-        cmp lower, 0
-        jne p12
-        p10 :
-      add esi, 2
-        cmp esi, edx
-        jl p11
-        p12 :
-      mov esi, Height
-        add esi, -4
-        cmp y, esi
-        je p13
-        mov esi, eax
-        mov ecx, dpnn
-        p14 :
-      cmp BYTE PTR[ecx + esi], 19
-        ja p15
-        add esi, 2
-        cmp esi, edx
-        jl p14
-        jmp p13
-        p15 :
-      mov lower2, 1
-        p13 :
-        cmp upper, 0
-        jne p16
-        cmp lower, 0
-        je p17
-        cmp lower2, 0
-        je p17
-        jmp p18
-        p16 :
-      cmp lower, 0
-        jne p18
-        cmp upper2, 0
-        jne p18
-        jmp p17
-        p18 :
-      mov esi, dstp
-        add BYTE PTR[esi + ebx], 2
-        jmp end_xloop
-        p17 :
-      cmp count, 4
-        jle end_xloop
-        mov esi, dstp
-        add BYTE PTR[esi + ebx], 4
-        end_xloop :
-        mov edi, Width
-        add ebx, 2
-        sub edi, 4
-        cmp ebx, edi
-        jge end_yloop
-        mov eax, dpp
-        mov ecx, dp
-        mov edx, dpn
-        mov esi, dstp
-        jmp xloop
-        end_yloop :
-      mov edi, tpitch
-        mov eax, dst_pitch
-        mov ecx, Height
-        add y, 2
-        sub ecx, 2
-        add dppp, edi
-        add dpp, edi
-        add dp, edi
-        add dpn, edi
-        add dpnn, edi
-        add dstp, eax
-        cmp y, ecx
-        jl yloop
-
-        pop ebx // pf170421
-    }
-  }
-#endif
 }
 
 template<bool YUY2_LumaOnly>
