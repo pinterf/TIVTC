@@ -497,22 +497,22 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
   unsigned char* maskpY = mask->GetPtr(0);
   unsigned char* maskpV = mask->GetPtr(2);
   unsigned char* maskpU = mask->GetPtr(1);
-  const int mask_pitchY = mask->GetPitch(0) << 1; // *2
+  const int mask_pitchY = mask->GetPitch(0);
   const int mask_pitchUV = mask->GetPitch(2);
   const int HeightUV = mask->GetHeight(2);
   const int WidthUV = mask->GetWidth(2);
-  unsigned char* maskppY = maskpY - (mask_pitchY >> 1); // prev Y use at 420
-  unsigned char* maskpnY = maskpY + (mask_pitchY >> 1); // next Y
-  unsigned char* maskpnnY = maskpnY + (mask_pitchY >> 1); // nextnextY used at 420
 
   if constexpr (planarType == 420) 
   {
+    unsigned char* maskppY = maskpY - mask_pitchY; // prev Y use at 420
+    unsigned char* maskpnY = maskpY + mask_pitchY; // next Y
+    unsigned char* maskpnnY = maskpY + 2 * mask_pitchY; // nextnextY used at 420
     for (int y = 1; y < HeightUV - 1; ++y)
     {
       maskppY = maskpnY; // prev = next
       maskpY = maskpnnY; // current = nextnext
-      maskpnY += mask_pitchY;
-      maskpnnY += mask_pitchY;
+      maskpnY += mask_pitchY * 2; // YV12 vertical subsampling
+      maskpnnY += mask_pitchY * 2;
       maskpV += mask_pitchUV;
       maskpU += mask_pitchUV;
       for (int x = 0; x < WidthUV; ++x)
@@ -530,8 +530,7 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
   else { // 422 444
     for (int y = 1; y < HeightUV - 1; ++y)
     {
-      maskpY = maskpnY; // current = next
-      maskpnY += mask_pitchY;
+      maskpY += mask_pitchY;
       maskpV += mask_pitchUV;
       maskpU += mask_pitchUV;
       for (int x = 0; x < WidthUV; ++x)
