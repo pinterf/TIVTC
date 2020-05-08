@@ -334,7 +334,7 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
   if (hintField >= 0 && !fieldOVR) field = hintField;
   if (map > 2)
   {
-    PVideoFrame dst2 = env->NewVideoFrame(vi);
+    PVideoFrame dst2 = has_at_least_v8 ? env->NewVideoFrameP(vi, &dst) : env->NewVideoFrame(vi);
     stackVertical(dst2, dst, dmap, env);
     return dst2;
   }
