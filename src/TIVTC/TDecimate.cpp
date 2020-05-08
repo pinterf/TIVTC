@@ -1,9 +1,9 @@
 /*
-**                    TIVTC v1.0.14 for Avisynth 2.6 interface
+**                    TIVTC for AviSynth 2.6 interface
 **
 **   TIVTC includes a field matching filter (TFM) and a decimation
 **   filter (TDecimate) which can be used together to achieve an
-**   IVTC or for other uses. TIVTC currently supports YV12 and
+**   IVTC or for other uses. TIVTC currently supports 8 bit planar YUV and
 **   YUY2 colorspaces.
 **
 **   Copyright (C) 2004-2008 Kevin Stone, additional work (C) 2017-2018 pinterf
