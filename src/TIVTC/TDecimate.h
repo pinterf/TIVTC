@@ -95,6 +95,8 @@ uint64_t calcLumaDiffYUY2_SAD(const unsigned char* prvp, const unsigned char* nx
 class TDecimate : public GenericVideoFilter
 {
 private:
+  bool has_at_least_v8;
+
   int mode;
   int cycleR, cycle;
   double rate, dupThresh;

@@ -40,6 +40,11 @@ TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debu
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
 
+  if (vi.BitsPerComponent() > 8)
+    env->ThrowError("TDHelper:  only 8 bit formats supported!");
+  if (vi.IsY())
+    env->ThrowError("TDHelper:  Greyscale format not supported!");
+
   if (!vi.IsYUV())
     env->ThrowError("TDHelper:  YUV colorspaces only!");
   if (order != -1 && order != 0 && order != 1)

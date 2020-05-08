@@ -30,6 +30,16 @@ FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _d
   nt(_nt), opt(_opt),
   chroma(_chroma), debug(_debug), display(_display), sse(_sse)
 {
+
+  has_at_least_v8 = true;
+  try { env->CheckVersion(8); }
+  catch (const AvisynthError&) { has_at_least_v8 = false; }
+
+  if (vi.BitsPerComponent() > 8)
+    env->ThrowError("FieldDiff:  only 8 bit formats supported!");
+  if (vi.IsY())
+    env->ThrowError("FieldDiff:  Greyscale format not supported!");
+
   if (!vi.IsYUV())
     env->ThrowError("FieldDiff:  only YUV input supported!");
   if (vi.height & 1)

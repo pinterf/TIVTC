@@ -30,6 +30,11 @@ MergeHints::MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnviro
 {
   if (vi.width * vi.height < 64)
     env->ThrowError("MergeHints:  total frame size must be at least 64 pixels!");
+
+  if (vi.BitsPerComponent() > 8)
+    env->ThrowError("MergeHints:  only 8 bit formats supported!");
+  if (vi.IsY())
+    env->ThrowError("MergeHints:  Greyscale format not supported!");
   if (!vi.IsYUV())
     env->ThrowError("MergeHints:  only YUV input supported!");
   child->SetCacheHints(CACHE_NOTHING, 0);

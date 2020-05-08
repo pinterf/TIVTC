@@ -1966,7 +1966,7 @@ PVideoFrame TDeinterlace::createMap(PVideoFrame &src, int c, IScriptEnvironment 
 {
   if (map == 2)
     return src;
-  PVideoFrame dst = env->NewVideoFrame(vi);
+  PVideoFrame dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
   const int stop = vi.IsPlanar() ? 3 : 1;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   if (c == 0)

@@ -64,10 +64,6 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   const unsigned char *srcpn = srcp + src_pitch;
   const unsigned char *srcpnn = srcpn + src_pitch;
   unsigned char *cmkw = cmask->GetPtr();
-/* fixme PF 20200404> check it! TDecimate does this:
-  PVideoFrame cmask = env->NewVideoFrame(vi_saved);
-  unsigned char *cmkw = cmask->GetWritePtr();
-*/
   const int cmk_pitch = cmask->GetPitch();
   const int inc = chroma ? 1 : 2;
   const int xblocks = ((Width + xhalf) >> xshift) + 1;
@@ -75,7 +71,10 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   xblocksi = xblocks4;
   const int yblocks = ((Height + yhalf) >> yshift) + 1;
   const int arraysize = (xblocks*yblocks) << 2;
-  if (cthresh < 0) { memset(cmkw, 255, Height*cmk_pitch); goto cjump; }
+  if (cthresh < 0) { 
+    memset(cmkw, 255, Height*cmk_pitch); 
+    goto cjump;
+  }
   memset(cmkw, 0, Height*cmk_pitch);
   if (metric == 0)
   {

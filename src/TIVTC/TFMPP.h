@@ -36,6 +36,9 @@
 class TFMPP : public GenericVideoFilter
 {
 private:
+
+  bool has_at_least_v8;
+
   char buf[512];
   int PP, mthresh;
   const char* ovr;

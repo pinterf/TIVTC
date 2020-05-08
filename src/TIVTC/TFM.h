@@ -76,14 +76,7 @@ struct SCTRACK {
 class TFM : public GenericVideoFilter
 {
 private:
-  /*
-  order(_order), field(_field), mode(_mode), PP(_PP), ovr(_ovr), input(_input), output(_output),
-    outputC(_outputC), debug(_debug), display(_display), slow(_slow), mChroma(_mChroma), cNum(_cNum),
-    cthresh(_cthresh), MI(_MI), chroma(_chroma), blockx(_blockx), blocky(_blocky), y0(_y0),
-    y1(_y1), d2v(_d2v), ovrDefault(_ovrDefault), flags(_flags), scthresh(_scthresh), micout(_micout),
-    micmatching(_micmatching), trimIn(_trimIn), usehints(_usehints), metric(_metric),
-    batch(_batch), ubsco(_ubsco), mmsco(_mmsco), opt(_opt)
-*/
+  bool has_at_least_v8;
 
   int order, field, mode;
   int PP;

@@ -58,7 +58,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     if (!combed && field != -1 && n != nfrms) use += 2;
     if (use > 0)
     {
-      dst = env->NewVideoFrame(vi);
+      dst = has_at_least_v8 ? env->NewVideoFrame(vi, &src) : env->NewVideoFrame(vi);
       buildMotionMask(prv, src, nxt, mmask, use, np, env);
       if (uC2) {
         PVideoFrame frame = clip2->GetFrame(n, env);
@@ -91,7 +91,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
       }
       else
       {
-        dst = env->NewVideoFrame(vi);
+        dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
         if (PP == 5) BlendDeint(src, mmask, dst, true, np, env);
         else
         {
@@ -111,6 +111,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
   }
   else
   {
+    // PP <= 4
     if (uC2)
     {
       dst = clip2->GetFrame(n, env);
@@ -118,7 +119,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     }
     else
     {
-      dst = env->NewVideoFrame(vi);
+      dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
       if (PP == 2) BlendDeint(src, mmask, dst, true, np, env);
       else
       {
@@ -1690,6 +1691,15 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   int w, i, z, b, q, countOvrS;
   char linein[1024], *linep, *linet;
   FILE *f = NULL;
+
+  has_at_least_v8 = true;
+  try { env->CheckVersion(8); }
+  catch (const AvisynthError&) { has_at_least_v8 = false; }
+
+  if (vi.BitsPerComponent() > 8)
+    env->ThrowError("TFMPP:  only 8 bit formats supported!");
+  if (vi.IsY())
+    env->ThrowError("TFMPP:  Greyscale format not supported!");
   if (!vi.IsYUV())
     env->ThrowError("TFMPP:  YUV data only!");
   if (vi.height & 1 || vi.width & 1)
@@ -1702,6 +1712,10 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   {
     uC2 = true;
     const VideoInfo &vi2 = clip2->GetVideoInfo();
+    if (vi2.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TFMPP:  clip2 bit depth do not match input clip!!");
+    if (vi2.IsY())
+      env->ThrowError("TFMPP:  clip2 Greyscale format not supported!");
     if (!vi2.IsYUV())
       env->ThrowError("TFMPP:  clip2 must be in YUV colorspace!");
     if (vi.IsSameColorspace(vi2))

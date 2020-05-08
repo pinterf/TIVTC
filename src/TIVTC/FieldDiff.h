@@ -38,6 +38,9 @@
 class FieldDiff : public GenericVideoFilter
 {
 private:
+
+  bool has_at_least_v8;
+
   int nt, nfrms, opt;
   bool chroma, debug, display;
   bool sse; // sum of squared errors instead of sad

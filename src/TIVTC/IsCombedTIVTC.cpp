@@ -63,6 +63,8 @@ AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnv
 class ShowCombedTIVTC : public GenericVideoFilter
 {
 private:
+  bool has_at_least_v8;
+
   char buf[512];
   int cthresh, MI, blockx, blocky, display, opt, metric;
   bool debug, chroma, fill;
@@ -99,6 +101,15 @@ ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _
 {
   cArray = NULL;
   cmask = NULL;
+
+  has_at_least_v8 = true;
+  try { env->CheckVersion(8); }
+  catch (const AvisynthError&) { has_at_least_v8 = false; }
+
+  if (vi.BitsPerComponent() > 8)
+    env->ThrowError("ShowCombedTIVTC:  only 8 bit formats supported!");
+  if (vi.IsY())
+    env->ThrowError("ShowCombedTIVTC:  Greyscale format not supported!");
   if (!vi.IsYUV())
     env->ThrowError("ShowCombedTIVTC:  only YUV input supported!");
   if (vi.height & 1)

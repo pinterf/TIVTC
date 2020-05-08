@@ -35,7 +35,7 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
   PVideoFrame prv = child->GetFrame(n > 0 ? n - 1 : 0, env);
   PVideoFrame src = child->GetFrame(n, env);
   PVideoFrame nxt = child->GetFrame(n < nfrms ? n + 1 : nfrms, env);
-  PVideoFrame dst = env->NewVideoFrame(vi);
+  PVideoFrame dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
   PVideoFrame tmp = env->NewVideoFrame(vi);
   int dfrm = -20, tfrm = -20;
   int mmatch1, nmatch1, nmatch2, mmatch2, fmatch, tmatch;
@@ -221,8 +221,10 @@ d2vCJump:
   }
   else
   {
-    if (!slow) fmatch = compareFields(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
-    else fmatch = compareFieldsSlow(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
+    if (!slow) 
+      fmatch = compareFields(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
+    else 
+      fmatch = compareFieldsSlow(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
     if (micmatching > 0)
       checkmm(fmatch, 1, frstT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, np, n, blockN, xblocks, mics);
     createWeaveFrame(dst, prv, src, nxt, env, fmatch, dfrm, np);
@@ -231,8 +233,10 @@ d2vCJump:
       if (mode < 4) tcombed = 2;
       if (mode != 2)
       {
-        if (!slow) tmatch = compareFields(prv, src, nxt, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
-        else tmatch = compareFieldsSlow(prv, src, nxt, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
+        if (!slow) 
+          tmatch = compareFields(prv, src, nxt, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
+        else 
+          tmatch = compareFieldsSlow(prv, src, nxt, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
         if (micmatching > 0)
           checkmm(tmatch, fmatch, scndT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, np, n, blockN, xblocks, mics);
         createWeaveFrame(dst, prv, src, nxt, env, fmatch, dfrm, np);
@@ -262,8 +266,10 @@ d2vCJump:
         tcombed = 2;
         if (!ubsco || checkSceneChange(prv, src, nxt, env, n))
         {
-          if (!slow) tmatch = compareFields(prv, src, nxt, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
-          else tmatch = compareFieldsSlow(prv, src, nxt, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
+          if (!slow) 
+            tmatch = compareFields(prv, src, nxt, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
+          else 
+            tmatch = compareFieldsSlow(prv, src, nxt, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
           if (micmatching > 0)
             checkmm(tmatch, 3, 4, dst, dfrm, tmp, tfrm, prv, src, nxt, env, np, n, blockN, xblocks, mics);
           createWeaveFrame(tmp, prv, src, nxt, env, tmatch, tfrm, np);
@@ -2506,6 +2512,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   char linein[1024];
   char *linep, *linet;
   FILE *f = NULL;
+
+  has_at_least_v8 = true;
+  try { env->CheckVersion(8); }
+  catch (const AvisynthError&) { has_at_least_v8 = false; }
 
   if (!vi.IsYUV())
     env->ThrowError("TFM:  YUV data only!");
