@@ -36,6 +36,10 @@ void absDiff_c(const unsigned char* srcp1, const unsigned char* srcp2,
   unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh1, int mthresh2);
 
+void absDiff_uint16_c(const unsigned char* srcp1, const unsigned char* srcp2,
+  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+  int height, int mthresh);
+
 void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp,
   int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb,
   __m128i thresh6w);

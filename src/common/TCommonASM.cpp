@@ -27,12 +27,13 @@ void absDiff_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
   unsigned char *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh1, int mthresh2)
 {
+  // for non-YUY2, mthresh1 and 2 are the same
   mthresh1 = std::min(std::max(255 - mthresh1, 0), 255);
   mthresh2 = std::min(std::max(255 - mthresh2, 0), 255);
 
-  static const auto onesMask = _mm_set1_epi8(1);
-  static const auto sthresh = _mm_set1_epi16((mthresh2 << 8) + mthresh1);
-  static const auto all_ff = _mm_set1_epi8(-1);
+  auto onesMask = _mm_set1_epi8(1);
+  auto sthresh = _mm_set1_epi16((mthresh2 << 8) + mthresh1);
+  auto all_ff = _mm_set1_epi8(-1);
   for (int y = 0; y < height; ++y)
   {
     for (int x = 0; x < width; x += 16)
@@ -62,17 +63,20 @@ void absDiff_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
 
 }
 
+// fills target byte buffer with 1 where absdiff is less that threshold, 0 otherwise
 void absDiff_c(const unsigned char* srcp1, const unsigned char* srcp2,
   unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh1, int mthresh2)
 {
+  // for non-YUY2 mthresh1 and 2 are the same
+  // dstp is a simple 1-byte format buffer (no high bit depth content)
   for (int y = 0; y < height; ++y)
   {
     for (int x = 0; x < width; ++x)
     {
       if (abs(srcp1[x] - srcp2[x]) < mthresh1) dstp[x] = 1;
       else dstp[x] = 0;
-      ++x;
+      ++x; // next planar pixel or YUY2 chroma
       if (abs(srcp1[x] - srcp2[x]) < mthresh2) dstp[x] = 1;
       else dstp[x] = 0;
     }
@@ -82,6 +86,25 @@ void absDiff_c(const unsigned char* srcp1, const unsigned char* srcp2,
   }
 }
 
+void absDiff_uint16_c(const unsigned char* srcp1, const unsigned char* srcp2,
+  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+  int height, int mthresh)
+{
+  // dstp is a simple 1-byte format buffer (no high bit depth content)
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; ++x)
+    {
+      if (abs(reinterpret_cast<const uint16_t *>(srcp1)[x] - reinterpret_cast<const uint16_t*>(srcp2)[x]) < mthresh)
+        dstp[x] = 1;
+      else
+        dstp[x] = 0;
+    }
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+    dstp += dst_pitch;
+  }
+}
 
 // different path if not mod16, but only for remaining 8 bytes
 void buildABSDiffMask_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
