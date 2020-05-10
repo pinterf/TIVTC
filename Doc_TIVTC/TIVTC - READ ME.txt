@@ -1,5 +1,5 @@
 
-                           TIVTC v1.0.15   HELP FILE - (08 May, 2020)
+                           TIVTC v1.0.16   HELP FILE - (10 May, 2020)
 
 INFO:
    Base on TIVTC v1.0.5   HELP FILE - (08 January, 2008)
@@ -31,10 +31,8 @@ INFO:
   
   
   Beginning with 1.0.15 all filters were updated to support planar YUV colorspaces, their unique version is not maintained 
-  currencly (pinterf)
+  currently (pinterf)
   
   Project (along with TDeint) is hosted at https://github.com/pinterf/TIVTC
 
-
-
-contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu
+Original author contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu

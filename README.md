@@ -1,4 +1,4 @@
-# TIVTC v1.0.15 (20200508) 
+# TIVTC v1.0.16 (20200510) 
 # TDeInt v1.3 (20200508)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -23,7 +23,10 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.15 (20200508):
+# TIVTC v1.0.16 (20200510):
+
+**v1.0.16 (20200510)**
+- Fix: TFMPP clip2 colorspace similarity check failed
 
 **v1.0.15 (20200508)**
 - Fix random crashes (due to old plugin assumed that Avisynth framebuffer alignment is at most 16 bytes)
