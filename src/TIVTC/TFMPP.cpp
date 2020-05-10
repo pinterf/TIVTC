@@ -25,7 +25,7 @@
 
 #include "TFMPP.h"
 #include "emmintrin.h"
-#include "smmintrin.h" // SSE4
+#include "smmintrin.h"
 
 
 PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
@@ -1597,6 +1597,9 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
       else
         maskClip2_fn = maskClip2_C<uint16_t>;
     }
+    else {
+      maskClip2_fn = nullptr; // n/a no float support
+    }
 
     maskClip2_fn(srcp, dntp, maskp, dstp, src_pitch, dnt_pitch, msk_pitch, dst_pitch, width, height);
   }
@@ -1627,7 +1630,7 @@ void maskClip2_C(const unsigned char* srcp, const unsigned char* dntp,
 template<typename pixel_t>
 #if defined(GCC) || defined(CLANG)
 __attribute__((__target__("sse4.1")))
-#endif
+#endif 
 void maskClip2_SSE4(const unsigned char* srcp, const unsigned char* dntp,
   const unsigned char* maskp, unsigned char* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height)

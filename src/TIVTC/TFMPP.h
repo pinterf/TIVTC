@@ -43,6 +43,9 @@ void maskClip2_SSE2(const unsigned char* srcp, const unsigned char* dntp,
   int msk_pitch, int dst_pitch, int width, int height);
 
 template<typename pixel_t>
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("sse4.1")))
+#endif 
 void maskClip2_SSE4(const unsigned char* srcp, const unsigned char* dntp,
   const unsigned char* maskp, unsigned char* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height);
