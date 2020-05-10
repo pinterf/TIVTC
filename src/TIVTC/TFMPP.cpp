@@ -1718,7 +1718,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
       env->ThrowError("TFMPP:  clip2 Greyscale format not supported!");
     if (!vi2.IsYUV())
       env->ThrowError("TFMPP:  clip2 must be in YUV colorspace!");
-    if (vi.IsSameColorspace(vi2))
+    if (!vi.IsSameColorspace(vi2))
       env->ThrowError("TFMPP:  clip2 colorspace must be the same as input clip!");
     if (vi2.height != vi.height || vi2.width != vi.width)
       env->ThrowError("TFMPP:  clip2 frame dimensions do not match input clip!");
