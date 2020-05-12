@@ -2766,7 +2766,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  clip2 must be YUV colorspace!");
   if (clip2 && clip2->GetVideoInfo().BitsPerComponent() > 8)
     env->ThrowError("TDecimate:  clip2: only 8 bit formats supported!");
-  if (clip2 && !clip2->GetVideoInfo().IsY())
+  if (clip2 && clip2->GetVideoInfo().IsY())
     env->ThrowError("TDecimate:  clip2: Greyscale format not supported!");
   if (clip2)
   {
