@@ -1,9 +1,16 @@
 # TIVTC v1.0.16 (20200510) 
-# TDeInt v1.3 (20200508)
+# TDeInt v1.4 (20200512)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
 # TDeint (see change log of TIVTC later) 
+
+** TDeInt v1.4 (20200512) - pinterf
+- 10-16 bit support
+- Greyscale support
+- Minor fixes on non-YV12 support
+- fix crash when mode=2 and map>=3 and slow>0
+- much more code clean and refactor
 
 ** TDeInt v1.3 (20200508) **
 - Add YV411 support, now all 8 bit planar YUV formats supported (except on debug display modes)

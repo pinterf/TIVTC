@@ -59,14 +59,14 @@ kbd       { color: #808000; font-family: Verdana, Arial, Helvetica, sans-serif; 
   <hr size=2 width="100%" align=center>
   <h2>Abstract</h2>
   <b>author: </b>    tritical<br>
-  <b>maintenance, updates:</b>   pinterf<br>
-  <br><b>version:</b> v1.3<br>
+  <b>new color spaces, high bit depth:</b>   pinterf<br>
+  <br><b>version:</b> v1.4<br>
   <b>download (current):</b>   <a href="https://github.com/pinterf/TIVTC/">https://github.com/pinterf/TIVTC/</a>
   <br><b>download (mod base v1.1):</b>   <a href="http://bengal.missouri.edu/~kes25c/">http://bengal.missouri.edu/~kes25c/</a>
   <br><b>category:</b>   Deinterlacing &amp; Pulldown Removal
   <br><b>requirements:</b>&nbsp;
   <ul>
-    <li>All 8 bit planar YUV and YUY2 Colorspace</li>
+    <li>All 8-16 bit Y, planar YUV and YUY2 Colorspace</li>
   </ul>
 
   <p><b>license:</b> GPL</p>
@@ -645,7 +645,8 @@ tdeint(order=1, full=false, clip2=orig)
     </ul>
     <p>
       Behavoir is undefined for other values, but they should end up being treated internally
-      as though they were 60.
+      as though they were 60.<br>
+      Mask clip is always a 8 bit clip.
     </p>
     <p>default -&nbsp;&nbsp;NULL (PClip)</p>
   </ul>
@@ -756,12 +757,13 @@ tdeint(order=1, full=false, clip2=orig)
     <p>Controls which cpu optimizations are used.  Possible settings:</p>
     <ul>
       <li>0 - use c routines
-      <li>1 - use mmx routines
-      <li>2 - use isse routines
+      <li>(1 - use mmx routines) - no effect in v1.3-
+      <li>(2 - use isse routines) - no effect in v1.3-
       <li>3 - use sse2 routines
       <li>4 - auto detect
     </ul>
     <p>default -&nbsp;&nbsp;4  (int)</p>
+    <p>This is a debug parameter, do not use in production. its meaning would change when AVX2 will be introduced.
   </ul>
 
 
@@ -876,8 +878,16 @@ tswitch(c1=last,c2=last.sharpen())</pre>
   <h2>Changelog</h2>
 
   <p>
+    v1.4 (20200512) - pinterf<br>
+    + 10-16 bit support<br>
+    + Greyscale support<br>
+    + Minor fixes on non-YV12 support<br>
+    + fix crash when mode=2 and map>=3 and slow>0<br>
+    + much more code clean and refactor<br>
+
+  <p>
     v1.3 (20200508) - pinterf<br>
-    + Add YV411 support, now all 8 bit planar YUV formats supported (except on debug display modes)<br>
+    + Add YV411 support, now all 8 bit planar YUV formats supported<br>
     + more code clean and refactor<br>
     + Give error on greyscale or 10+ bit videos<br>
 
