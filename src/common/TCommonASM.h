@@ -28,60 +28,77 @@
 //#include <windows.h>
 #include "internal.h"
 
-void absDiff_SSE2(const unsigned char* srcp1, const unsigned char* srcp2,
-  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+void absDiff_SSE2(const uint8_t* srcp1, const uint8_t* srcp2,
+  uint8_t* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh1, int mthresh2);
 
-void absDiff_c(const unsigned char* srcp1, const unsigned char* srcp2,
-  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+void absDiff_c(const uint8_t* srcp1, const uint8_t* srcp2,
+  uint8_t* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh1, int mthresh2);
 
-void absDiff_uint16_c(const unsigned char* srcp1, const unsigned char* srcp2,
-  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+void absDiff_uint16_c(const uint8_t* srcp1, const uint8_t* srcp2,
+  uint8_t* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh);
 
-void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb,
-  __m128i thresh6w);
-  
-void check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb,
-  __m128i thresh6w);
-  
-void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
-  
-void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh);
+template<typename pixel_t, bool YUY2_LumaOnly>
+void check_combing_c(const pixel_t* srcp, uint8_t* dstp, int width, int height, int src_pitch, int dst_pitch, int cthresh);
 
-void buildABSDiffMask_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-  unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
 
-template<bool YUY2_LumaOnly>
-void buildABSDiffMask_c(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
+template<typename pixel_t, bool YUY2_LumaOnly, typename safeint_t>
+void check_combing_c_Metric1(const pixel_t* srcp, uint8_t* dstp, int width, int height, int src_pitch, int dst_pitch, safeint_t cthreshsq);
 
-void do_buildABSDiffMask(const unsigned char* prvp, const unsigned char* nxtp, unsigned char* tbuffer,
+void check_combing_SSE2(const uint8_t *srcp, uint8_t *dstp,
+  int width, int height, int src_pitch, int dst_pitch, int cthresh);
+
+void check_combing_SSE2_Luma(const uint8_t *srcp, uint8_t *dstp,
+  int width, int height, int src_pitch, int dst_pitch, int cthresh);
+
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("sse4.1")))
+#endif 
+void check_combing_uint16_SSE4(const uint16_t* srcp, uint8_t* dstp, int width, int height, int src_pitch, int dst_pitch, int cthresh);
+
+void check_combing_SSE2_Metric1(const uint8_t *srcp, uint8_t *dstp,
+  int width, int height, int src_pitch, int dst_pitch, int cthreshsq);
+  
+void check_combing_SSE2_Luma_Metric1(const uint8_t *srcp, uint8_t *dstp,
+  int width, int height, int src_pitch, int dst_pitch, int cthreshsq);
+
+template<typename pixel_t>
+void buildABSDiffMask_SSE2(const uint8_t *prvp, const uint8_t *nxtp,
+  uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
+
+template<typename pixel_t, bool YUY2_LumaOnly>
+void buildABSDiffMask_c(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
+
+template<typename pixel_t>
+void do_buildABSDiffMask(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* tbuffer,
   int prv_pitch, int nxt_pitch, int tpitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags);
 
-void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* tbuffer, int tpitch, int Width, int Height);
-void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbuffer, int tpitch, int Width, int Height, bool mChroma);
+template<typename pixel_t>
+void AnalyzeDiffMask_Planar(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer, int tpitch, int Width, int Height, int bits_per_pixel);
+void AnalyzeDiffMask_YUY2(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer, int tpitch, int Width, int Height, bool mChroma);
 
 
-void buildABSDiffMask2_SSE2(const unsigned char *prvp, const unsigned char *nxtp,
-  unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
+void buildABSDiffMask2_uint8_SSE2(const uint8_t *prvp, const uint8_t *nxtp,
+  uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
 
-template<bool YUY2_LumaOnly>
-void buildABSDiffMask2_c(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height);
+void buildABSDiffMask2_uint16_SSE2(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, int bits_per_pixel);
 
-void do_buildABSDiffMask2(const unsigned char* prvp, const unsigned char* nxtp, unsigned char* dstp,
-  int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags);
+template<typename pixel_t, bool YUY2_LumaOnly>
+void buildABSDiffMask2_c(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, int bits_per_pixel);
+
+template<typename pixel_t>
+void do_buildABSDiffMask2(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* dstp,
+  int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags, int bits_per_pixel);
 
 
 template<int blockSizeY>
-void compute_sum_8xN_sse2(const unsigned char *srcp, int pitch, int &sum);
+void compute_sum_8xN_sse2(const uint8_t *srcp, int pitch, int &sum);
 
-void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum);
+void compute_sum_16x8_sse2_luma(const uint8_t *srcp, int pitch, int &sum);
 
 #endif // __TCOMMONASM_H__

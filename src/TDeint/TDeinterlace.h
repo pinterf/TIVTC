@@ -4,7 +4,7 @@
 **   TDeinterlace is a bi-directionally motion adaptive deinterlacer.
 **   It also uses a couple modified forms of ela interpolation which
 **   help to reduce "jaggy" edges in places where interpolation must
-**   be used. TDeinterlace currently supports 8 bit planar YUV and YUY2 colorspaces.
+**   be used. TDeinterlace supports 8-16 bit planar YUV and YUY2 colorspaces.
 **
 **   Copyright (C) 2004-2007 Kevin Stone, additional work (C) 2020 pinterf
 **
@@ -39,27 +39,38 @@
 /*
 #define TDEINT_VERSION "v1.1"
 #define TDEINT_DATE "01/22/2007"
-*/
 #define TDEINT_VERSION "v1.2"
 #define TDEINT_DATE "04/04/2020"
+#define TDEINT_VERSION "v1.3"
+#define TDEINT_DATE "05/08/2020"
+*/
+#define TDEINT_VERSION "v1.4"
+#define TDEINT_DATE "05/12/2020"
+
+// fixme: put in separate file, common TDeint TIVTC?
+// fixme: check for all, if they are the same as in TIVTC
+void dispatch_smartELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, const VideoInfo& vi);
+template<typename pixel_t, int bits_per_pixel>
+void smartELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
+void smartELADeintYUY2(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
+
+template<int bits_per_pixel>
+AVS_FORCEINLINE int cubicInt(int p1, int p2, int p3, int p4)
+{
+  const int max_pixel_value = (1 << bits_per_pixel) - 1;
+  const int temp = (19 * (p2 + p3) - 3 * (p1 + p4) + 16) >> 5;
+  return min(max(temp, 0), max_pixel_value);
+}
 
 class TDeinterlace : public GenericVideoFilter
 {
   bool has_at_least_v8;
+  int cpuFlags;
 
   friend class TDHelper;
   TDBuf *db;
   VideoInfo vi_saved;
-
-/*
-  mode(_mode), order(_order), field(_field), mthreshL(_mthreshL),
-  mthreshC(_mthreshC), map(_map), ovr(_ovr), ovrDefault(_ovrDefault), type(_type),
-  debug(_debug), mtnmode(_mtnmode), sharp(_sharp), hints(_hints), clip2(_clip2), full(_full),
-  cthresh(_cthresh), chroma(_chroma), MI(_MI), tryWeave(_tryWeave), link(_link),
-  denoise(_denoise), AP(_AP), blockx(_blockx), blocky(_blocky), APType(_APType),
-  edeint(_edeint), emask(_emask), metric(_metric), expand(_expand), slow(_slow),
-  emtn(_emtn), tshints(_tshints), opt(_opt)
-*/
+  VideoInfo vi_mask; // always 8 bit
 
   int mode;
   int order;
@@ -103,7 +114,7 @@ class TDeinterlace : public GenericVideoFilter
   int accumNn, accumPn, accumNm, accumPm;
   bool autoFO, useClip2;
   int tpitchy, tpitchuv;
-  unsigned char *tbuffer;
+  uint8_t *tbuffer;
   char buf[120];
 
   void createMotionMap4_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
@@ -119,90 +130,125 @@ class TDeinterlace : public GenericVideoFilter
   void linkYtoUV_Planar(PVideoFrame &mask);
   template<int planarType>
   void linkUVtoY_Planar(PVideoFrame &mask);
+
   void linkFULL_YUY2(PVideoFrame &mask);
   void linkYtoUV_YUY2(PVideoFrame &mask);
   void linkUVtoY_YUY2(PVideoFrame &mask);
   
   void denoisePlanar(PVideoFrame &mask);
   void denoiseYUY2(PVideoFrame &mask);
-  
-  void subtractFields(PVideoFrame &prv, PVideoFrame &src,
-    PVideoFrame &nxt, VideoInfo &vit, int &aPn, int &aNn, int &aPm, int &aNm,
-    int fieldt, int ordert, int optt, bool d2, int _slow, IScriptEnvironment *env);
+
+  template<typename pixel_t>
+  void subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
+    VideoInfo &vit, 
+    int &aPn, int &aNn, int &aPm, int &aNm,
+    int fieldt, int ordert, bool d2, int _slow, IScriptEnvironment *env);
+
+  template<typename pixel_t>
   void subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-    VideoInfo &vit, int &aPn, int &aNn, int &aPm, int &aNm, int fieldt, int ordert,
-    int optt, bool d2, IScriptEnvironment *env);
+    VideoInfo &vit, 
+    int &aPn, int &aNn, int &aPm, int &aNm, 
+    int fieldt, int ordert,
+    bool d2, int bits_per_pixel, IScriptEnvironment *env);
+
+  template<typename pixel_t>
   void subtractFields2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-    VideoInfo &vit, int &aPn, int &aNn, int &aPm, int &aNm, int fieldt, int ordert,
-    int optt, bool d2, IScriptEnvironment *env);
+    VideoInfo &vit, 
+    int &aPn, int &aNn, int &aPm, int &aNm, 
+    int fieldt, int ordert,
+    bool d2, int bits_per_pixel, IScriptEnvironment *env);
   
+  template<typename pixel_t, int bits_per_pixel>
   void mapColorsPlanar(PVideoFrame &dst, PVideoFrame &mask);
+  void dispatch_mapColorsPlanar(PVideoFrame& dst, PVideoFrame& mask, const VideoInfo& vi);
   void mapColorsYUY2(PVideoFrame &dst, PVideoFrame &mask);
-  void mapMergePlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
+
+  template<typename pixel_t>
+  void mapMergePlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int bits_per_pixel);
+  void dispatch_mapMergePlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, const VideoInfo &vi);
   void mapMergeYUY2(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
 
-  void smartELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void cubicDeintPlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
+  template<typename pixel_t, int bits_per_pixel>
+  void cubicDeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
+  void dispatch_cubicDeintPlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, const VideoInfo &vi);
   void cubicDeintYUY2(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
+
+  template<typename pixel_t>
   void eDeintPlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &efrm);
+  void dispatch_eDeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, PVideoFrame& efrm, const VideoInfo& vi);
   void eDeintYUY2(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &efrm);
-  void kernelDeintPlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void kernelDeintYUY2(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
+
+  template<typename pixel_t>
   void blendDeint(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
+  void dispatch_blendDeint(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, const VideoInfo& vi, IScriptEnvironment* env);
+
+  template<typename pixel_t>
   void blendDeint2(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
+  void dispatch_blendDeint2(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, const VideoInfo& vi, IScriptEnvironment* env);
 
+  template<typename pixel_t, int bits_per_pixel>
+  void kernelDeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
+  void dispatch_kernelDeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, const VideoInfo& vi);
+  void kernelDeintYUY2(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
+
+  // not the same as in tfmpp
+  template<typename pixel_t, int bits_per_pixel>
+  void ELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
+  void dispatch_ELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, const VideoInfo& vi);
+  void ELADeintYUY2(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
+
+  template<typename pixel_t>
+  bool checkCombedPlanar(PVideoFrame& src, int& MIC, int bits_per_pixel, IScriptEnvironment* env);
+  bool dispatch_checkCombedPlanar(PVideoFrame& src, int& MIC, const VideoInfo& vi, IScriptEnvironment* env);
   bool checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironment *env);
-  bool checkCombedPlanar(PVideoFrame &src, int &MIC, IScriptEnvironment *env);
-
-  void createWeaveFrameYUY2(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
-  void createWeaveFramePlanar(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
+  
+  void createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
 
   PVideoFrame GetFramePlanar(int n, IScriptEnvironment* env, bool &wdtd);
   PVideoFrame GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdtd);
   
-  void ELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-  void ELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt);
-
-  void apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &efrm,
-    IScriptEnvironment *env);
-  void copyForUpsize(PVideoFrame &dst, PVideoFrame &src, int np, IScriptEnvironment *env);
-  void setMaskForUpsize(PVideoFrame &msk, int np);
+  template<typename pixel_t>
+  void apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &efrm, IScriptEnvironment *env);
+  
+  void copyForUpsize(PVideoFrame &dst, PVideoFrame &src, const VideoInfo& vi, IScriptEnvironment *env);
+  void setMaskForUpsize(PVideoFrame &msk, const VideoInfo& vi_mask);
   void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env);
 
+  // hbd dispatch inside
   void absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos, IScriptEnvironment *env);
-  void buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-    int Width, int optt, IScriptEnvironment *env);
-  void buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
+
+  template<typename pixel_t>
+  void buildABSDiffMask(const uint8_t *prvp, const uint8_t *nxtp,
     int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
-  void buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+
+  template<typename pixel_t>
+  void buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
+    uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+    int Width, int tpitch, int bits_per_pixel, IScriptEnvironment *env);
+
+  void buildDiffMapPlaneYUY2(const uint8_t *prvp, const uint8_t *nxtp,
+    uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
-  void buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-    int Width, int tpitch, IScriptEnvironment *env);
+
+  template<typename pixel_t>
+  void buildDiffMapPlane2(const uint8_t* prvp, const uint8_t* nxtp,
+    uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+    int Width, int bits_per_pixel, IScriptEnvironment* env);
 
   void InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env);
   void insertCompStats(int n, int norm1, int norm2, int mtn1, int mtn2);
   int getMatch(int norm1, int norm2, int mtn1, int mtn2);
-  void expandMap_YUY2(PVideoFrame &mask);
+
   template<int planarType>
   void expandMap_Planar(PVideoFrame &mask);
+  void expandMap_YUY2(PVideoFrame& mask);
   void stackVertical(PVideoFrame &dst2, PVideoFrame &p1, PVideoFrame &p2, IScriptEnvironment *env);
+
+  template<typename pixel_t>
   void updateMapAP(PVideoFrame &dst, PVideoFrame &mask, IScriptEnvironment *env);
+
   void putHint2(PVideoFrame &dst, bool wdtd);
   PVideoFrame createMap(PVideoFrame &src, int c, IScriptEnvironment *env, int tf);
-
-  inline unsigned char cubicInt(unsigned char p1, unsigned char p2, unsigned char p3,
-    unsigned char p4)
-  {
-    const int temp = (19 * (p2 + p3) - 3 * (p1 + p4) + 16) >> 5;
-    if (temp > 255) return 255;
-    if (temp < 0) return 0;
-    return (unsigned char)temp;
-  }
-
 
 
 public:

@@ -118,7 +118,7 @@ int TDeinterlace::getMatch(int norm1, int norm2, int mtn1, int mtn2)
 int TDeinterlace::getHint(PVideoFrame &src, unsigned int &storeHint, int &hintField)
 {
   hintField = -1;
-  const unsigned char *p = src->GetReadPtr(PLANAR_Y);
+  const uint8_t *p = src->GetReadPtr(PLANAR_Y);
   unsigned int i, magic_number = 0, hint = 0;
   storeHint = 0xFFFFFFFF;
   for (i = 0; i < 32; ++i)
@@ -156,7 +156,7 @@ void TDeinterlace::putHint(PVideoFrame &dst, unsigned int hint, int fieldt)
     if (fieldt == 1) hint |= 0x0E; // top + 'h'
     else hint |= 0x05; // bot + 'l'
   }
-  unsigned char *p = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
   unsigned int i;
   for (i = 0; i < 32; ++i)
   {
@@ -173,7 +173,7 @@ void TDeinterlace::putHint(PVideoFrame &dst, unsigned int hint, int fieldt)
 
 void TDeinterlace::putHint2(PVideoFrame &dst, bool wdtd)
 {
-  unsigned char *p = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
   unsigned int i, magic_number = 0, hint = 0;
   for (i = 0; i < 32; ++i)
   {
@@ -216,20 +216,21 @@ void TDeinterlace::putHint2(PVideoFrame &dst, bool wdtd)
   }
 }
 
+// HBD ready becasue absDiff is OK
 void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env)
 {
   if (db->fnum[pos] == n) return;
-  PVideoFrame dummyframe = NULL;
-  absDiff(p1, p2, dummyframe, pos, env);
+  PVideoFrame dummyframe = NULL; // put into td buf @plane 'pos' instead
+  absDiff(p1, p2, dummyframe, pos, env); // HBD ready inside
   db->fnum[pos] = n;
 }
 
-void TDeinterlace::stackVertical(PVideoFrame &dst2, PVideoFrame &p1, PVideoFrame &p2,
-  IScriptEnvironment *env)
+void TDeinterlace::stackVertical(PVideoFrame &dst2, PVideoFrame &p1, PVideoFrame &p2, IScriptEnvironment *env)
 {
+  // bit depth independent
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = vi.IsYUY2() ? 1 : 3;
-  for (int b = 0; b < stop; ++b)
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+  for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
     env->BitBlt(dst2->GetWritePtr(plane), dst2->GetPitch(plane),
@@ -260,6 +261,9 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   has_at_least_v8 = true;
   try { env->CheckVersion(8); } catch (const AvisynthError&) { has_at_least_v8 = false; }
 
+  cpuFlags = env->GetCPUFlags();
+  if (opt == 0) cpuFlags = 0;
+
   int z, w, q, b, i, track, count;
   char linein[1024];
   char *linep;
@@ -267,6 +271,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   cArray = NULL;
   tbuffer = NULL;
   db = NULL;
+  const int orig_mode = mode;
   if (mode == 2)
   {
     mode = 1;
@@ -278,8 +283,8 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   }
   if (vi.IsRGB())
     env->ThrowError("TDeint:  RGB data not supported!");
-  if (vi.BitsPerComponent() != 8)
-    env->ThrowError("TDeint:  Only 8 bit clip data supported!");
+  if (vi.BitsPerComponent() > 16)
+    env->ThrowError("TDeint:  Only 8-16 bit clip data supported!");
   if (mode != 0 && mode != 1 && mode != -1 && mode != -2)
     env->ThrowError("TDeint:  mode must be set to -2, -1, 0, or 1!");
   if (order != 0 && order != 1 && order != -1)
@@ -346,11 +351,17 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   if (emask)
   {
     const VideoInfo& vi1 = emask->GetVideoInfo();
-    if (vi1.height != vi.height || vi1.width != vi.width || vi1.BitsPerComponent() != vi.BitsPerComponent())
-      env->ThrowError("TDeint:  width and height and bit depth of emask clip must equal that of the input clip!");
+    // mask clip is always 8 bits.
+    if (vi1.height != vi.height || vi1.width != vi.width)
+      env->ThrowError("TDeint:  width and height of emask clip must be equal that of the input clip!");
+    if (vi1.BitsPerComponent() != 8)
+      env->ThrowError("TDeint:  mask clip must be of 8 bits!");
     if (vi.IsRGB())
       env->ThrowError("TDeint: no RGB format allowed (edeint)!");
-    if (!vi.IsSameColorspace(vi1))
+    // check format, independent of bit depth
+    VideoInfo vi8 = vi;
+    vi8.pixel_type = (vi8.pixel_type & ~VideoInfo::CS_Sample_Bits_Mask) | VideoInfo::CS_Sample_Bits_8;
+    if (!vi8.IsSameColorspace(vi1))
       env->ThrowError("TDeint:  colorspace of emask clip doesn't match that of the input clip!");
     if ((mode == 0 && vi.num_frames != vi1.num_frames) ||
       (mode == 1 && vi.num_frames * 2 != vi1.num_frames))
@@ -389,28 +400,43 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     if (cArray == NULL) env->ThrowError("TDeint:  malloc failure!");
   }
 
-  // though 411 not supported, YUY2: n/a
-  const int planarType = vi.Is444() ? 444 : vi.Is422() ? 422 : vi.IsYV411() ? 411 : 420;
-  db = new TDBuf((mtnmode & 1) ? 7 : mode == 1 ? 4 : 3, vi.width, vi.height, vi.IsPlanar() ? 3 : 1, planarType);
+  // YUY2: n/a
+  const int planarType = vi.Is444() ? 444 : vi.Is422() ? 422 : vi.IsYV411() ? 411 : vi.Is420() ? 420 : vi.IsY() ? 400 : 0;
+
+  // info: TDBuf is always a byte buffer
+  db = new TDBuf((mtnmode & 1) ? 7 : mode == 1 ? 4 : 3, vi.width, vi.height, vi.IsPlanar() && !vi.IsY() ? 3 : 1, planarType);
   if (vi.IsYUY2())
   {
     blockx_half *= 2;
     ++blockx_shift;
   }
+
   if (slow > 0)
   {
     constexpr int ALIGN = 64;
     if (vi.IsPlanar())
     {
-      tpitchy = AlignNumber(vi.width, ALIGN);
-      const int widthUV = vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U);
-      tpitchuv = AlignNumber(widthUV, ALIGN);
+      // tbuffer is 8 or 16 bits wide
+      const int pixelsize = vi.ComponentSize();
+      tpitchy = AlignNumber(vi.width * pixelsize, ALIGN);
+      if (!vi.IsY()) {
+        const int widthUV = vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U);
+        tpitchuv = AlignNumber(widthUV * pixelsize, ALIGN);
+      }
+      else
+        tpitchuv = 0; // n/a
     }
     else {
       // YUY2
       tpitchy = AlignNumber(vi.width << 1, ALIGN);
     }
-    tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1) * tpitchy, ALIGN);
+
+    // Fix in 1.4: map>=3: stacked vertically, double height, TDHelper calls back into
+    // subtractFields1 and subtractFields2 with double height output, allocate double heigt for tbuffer
+    if (orig_mode == 2 && map >= 3) // v1.4
+      tbuffer = (uint8_t*)_aligned_malloc((vi.height >> 1) * tpitchy * 2, ALIGN);
+    else
+      tbuffer = (uint8_t*)_aligned_malloc((vi.height >> 1) * tpitchy, ALIGN);
     if (tbuffer == NULL)
       env->ThrowError("TDeinterlace:  malloc failure (tbuffer)!");
   }
@@ -443,8 +469,12 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
     if (hints) field = 0;
     else field = order;
   }
-  vi_saved = vi;
-  if (map > 2) vi.height *= 2;
+  vi_saved = vi; // because map>2 doubles the height
+  
+  vi_mask = vi; // prepare mask format: always 8 bits
+  vi_mask.pixel_type = (vi_mask.pixel_type & ~VideoInfo::CS_Sample_Bits_Mask) | VideoInfo::CS_Sample_Bits_8;
+
+  if (map > 2) vi.height *= 2; // vertically stacked output
   orderS = order;
   fieldS = field;
   mthreshLS = mthreshL;
@@ -774,9 +804,11 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
       ret.AsClip()->SetCacheHints(CACHE_GENERIC, 3);
     }
     catch (IScriptEnvironment::NotFound) {}
+
     ret = new TDHelper(ret.AsClip(), args[2].AsInt(order), args[3].AsInt(field),
       args[28].AsFloat(-2.0), args[10].AsBool(debug), args[34].AsInt(4), tdptr->sa,
       args[31].AsInt(1), tdptr, env);
+
   }
   return ret;
 }

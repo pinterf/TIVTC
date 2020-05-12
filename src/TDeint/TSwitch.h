@@ -31,8 +31,8 @@ class TSwitch : public GenericVideoFilter
 {
 private:
   char buf[512];
-  bool debug;
   PClip c1, c2;
+  bool debug;
   int getHint(PVideoFrame &src, unsigned int &hint, int &htype);
   void putHint(PVideoFrame &dst, unsigned int hint, int htype);
 

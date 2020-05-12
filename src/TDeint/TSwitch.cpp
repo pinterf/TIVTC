@@ -82,7 +82,7 @@ PVideoFrame __stdcall TSwitch::GetFrame(int n, IScriptEnvironment *env)
 
 int TSwitch::getHint(PVideoFrame &src, unsigned int &hint, int &htype)
 {
-  const unsigned char *srcp = src->GetReadPtr(PLANAR_Y);
+  const uint8_t *srcp = src->GetReadPtr(PLANAR_Y);
   unsigned int i, magic_number = 0;
   hint = 0;
   for (i = 0; i < 32; ++i)
@@ -110,7 +110,7 @@ int TSwitch::getHint(PVideoFrame &src, unsigned int &hint, int &htype)
 
 void TSwitch::putHint(PVideoFrame &dst, unsigned int hint, int htype)
 {
-  unsigned char *p = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
   unsigned int i;
   if (htype == 1)
   {

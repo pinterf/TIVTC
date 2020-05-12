@@ -21,10 +21,11 @@
 
 #include "TCommonASM.h"
 #include "emmintrin.h"
+#include "smmintrin.h" // SSE4
 #include <algorithm>
 
-void absDiff_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
-  unsigned char *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+void absDiff_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
+  uint8_t *dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh1, int mthresh2)
 {
   // for non-YUY2, mthresh1 and 2 are the same
@@ -64,8 +65,8 @@ void absDiff_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
 }
 
 // fills target byte buffer with 1 where absdiff is less that threshold, 0 otherwise
-void absDiff_c(const unsigned char* srcp1, const unsigned char* srcp2,
-  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+void absDiff_c(const uint8_t* srcp1, const uint8_t* srcp2,
+  uint8_t* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh1, int mthresh2)
 {
   // for non-YUY2 mthresh1 and 2 are the same
@@ -86,8 +87,8 @@ void absDiff_c(const unsigned char* srcp1, const unsigned char* srcp2,
   }
 }
 
-void absDiff_uint16_c(const unsigned char* srcp1, const unsigned char* srcp2,
-  unsigned char* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
+void absDiff_uint16_c(const uint8_t* srcp1, const uint8_t* srcp2,
+  uint8_t* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
   int height, int mthresh)
 {
   // dstp is a simple 1-byte format buffer (no high bit depth content)
@@ -107,19 +108,28 @@ void absDiff_uint16_c(const unsigned char* srcp1, const unsigned char* srcp2,
 }
 
 // different path if not mod16, but only for remaining 8 bytes
-void buildABSDiffMask_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
+template<typename pixel_t>
+void buildABSDiffMask_SSE2(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int rowsize,
   int height)
 {
-  if (!(width & 15)) // exact mod16
+  __m128i diffpn, diffnp;
+
+  if (!(rowsize & 15)) // exact mod16
   {
     while (height--) {
-      for (int x = 0; x < width; x += 16)
+      for (int x = 0; x < rowsize; x += 16)
       {
-        __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x));
-        __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x));
-        __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
-        __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+        auto src_prev = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x));
+        auto src_next = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x));
+        if constexpr (sizeof(pixel_t) == 1) {
+          diffpn = _mm_subs_epu8(src_prev, src_next);
+          diffnp = _mm_subs_epu8(src_next, src_prev);
+        }
+        else {
+          diffpn = _mm_subs_epu16(src_prev, src_next);
+          diffnp = _mm_subs_epu16(src_next, src_prev);
+        }
         __m128i diff = _mm_or_si128(diffpn, diffnp);
         _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), diff);
       }
@@ -129,22 +139,35 @@ void buildABSDiffMask_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
     }
   }
   else {
-    width -= 8; // last chunk is 8 bytes instead of 16
+    rowsize -= 8; // last chunk is 8 bytes instead of 16
     while (height--) {
       int x;
-      for (x = 0; x < width; x += 16)
+      for (x = 0; x < rowsize; x += 16)
       {
         __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x));
         __m128i src_next = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x));
-        __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
-        __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+        if constexpr (sizeof(pixel_t) == 1) {
+          diffpn = _mm_subs_epu8(src_prev, src_next);
+          diffnp = _mm_subs_epu8(src_next, src_prev);
+        }
+        else {
+          diffpn = _mm_subs_epu16(src_prev, src_next);
+          diffnp = _mm_subs_epu16(src_next, src_prev);
+        }
         __m128i diff = _mm_or_si128(diffpn, diffnp);
         _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), diff);
       }
+      // remaining half block
       __m128i src_prev = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(prvp + x));
       __m128i src_next = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(nxtp + x));
-      __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
-      __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
+      if constexpr (sizeof(pixel_t) == 1) {
+        diffpn = _mm_subs_epu8(src_prev, src_next);
+        diffnp = _mm_subs_epu8(src_next, src_prev);
+      }
+      else {
+        diffpn = _mm_subs_epu16(src_prev, src_next);
+        diffnp = _mm_subs_epu16(src_next, src_prev);
+      }
       __m128i diff = _mm_or_si128(diffpn, diffnp);
       _mm_storel_epi64(reinterpret_cast<__m128i*>(dstp + x), diff);
       prvp += prv_pitch;
@@ -155,14 +178,15 @@ void buildABSDiffMask_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
 }
 
 
-template<bool YUY2_LumaOnly>
-void buildABSDiffMask_c(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height)
+template<typename pixel_t, bool YUY2_LumaOnly>
+void buildABSDiffMask_c(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height)
 {
   if (width <= 0)
     return;
 
   if constexpr (YUY2_LumaOnly) {
+    // 8 bit only
     // TFM would use with ignoreYUY2chroma == true
     // where (vi.IsYUY2() && !mChroma)
     // Why: C version is quicker if dealing with every second (luma) pixel
@@ -184,12 +208,9 @@ void buildABSDiffMask_c(const unsigned char* prvp, const unsigned char* nxtp,
   else {
     for (int y = 0; y < height; ++y)
     {
-      for (int x = 0; x < width; x += 4)
+      for (int x = 0; x < width; x++)
       {
-        dstp[x + 0] = abs(prvp[x + 0] - nxtp[x + 0]);
-        dstp[x + 1] = abs(prvp[x + 1] - nxtp[x + 1]);
-        dstp[x + 2] = abs(prvp[x + 2] - nxtp[x + 2]);
-        dstp[x + 3] = abs(prvp[x + 3] - nxtp[x + 3]);
+        reinterpret_cast<pixel_t *>(dstp)[x] = abs(reinterpret_cast<const pixel_t*>(prvp)[x] - reinterpret_cast<const pixel_t*>(nxtp)[x]);
       }
       prvp += prv_pitch;
       nxtp += nxt_pitch;
@@ -198,90 +219,133 @@ void buildABSDiffMask_c(const unsigned char* prvp, const unsigned char* nxtp,
   }
 }
 
-void do_buildABSDiffMask(const unsigned char* prvp, const unsigned char* nxtp, unsigned char* tbuffer,
+template<typename pixel_t>
+void do_buildABSDiffMask(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* tbuffer,
   int prv_pitch, int nxt_pitch, int tpitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags)
 {
   if (cpuFlags & CPUF_SSE2 && width >= 8)
   {
-    const int mod8Width = width / 8 * 8;
-    // SSE2 is not chroma-ignore template, it's quicker if not skipping each YUY2 chroma
-    buildABSDiffMask_SSE2(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, mod8Width, height);
+    const int rowsize = width * sizeof(pixel_t);
+    const int rowsizemod8 = rowsize / 8 * 8;
+    // SSE2 is not YUY2 chroma-ignore template, it's quicker if not skipping each YUY2 chroma
+    buildABSDiffMask_SSE2<pixel_t>(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, rowsizemod8, height);
     if(YUY2_LumaOnly)
-      buildABSDiffMask_c<true>(prvp + mod8Width, nxtp + mod8Width, tbuffer + mod8Width, prv_pitch, nxt_pitch, tpitch, width - mod8Width, height);
+      buildABSDiffMask_c<pixel_t, true>(
+        prvp + rowsizemod8, 
+        nxtp + rowsizemod8, 
+        tbuffer + rowsizemod8, 
+        prv_pitch, nxt_pitch, tpitch, 
+        width - rowsizemod8 / sizeof(pixel_t), 
+        height);
     else
-      buildABSDiffMask_c<false>(prvp + mod8Width, nxtp + mod8Width, tbuffer + mod8Width, prv_pitch, nxt_pitch, tpitch, width - mod8Width, height);
+      buildABSDiffMask_c<pixel_t, false>(
+        prvp + rowsizemod8,
+        nxtp + rowsizemod8,
+        tbuffer + rowsizemod8,
+        prv_pitch, nxt_pitch, tpitch,
+        width - rowsizemod8 / sizeof(pixel_t),
+        height);
   }
   else {
     if (YUY2_LumaOnly)
-      buildABSDiffMask_c<true>(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height);
+      buildABSDiffMask_c<pixel_t, true>(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height);
     else
-      buildABSDiffMask_c<false>(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height);
+      buildABSDiffMask_c<pixel_t, false>(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height);
   }
 }
+// instantiate
+template void do_buildABSDiffMask<uint8_t>(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* tbuffer,
+  int prv_pitch, int nxt_pitch, int tpitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags);
+template void do_buildABSDiffMask<uint16_t>(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* tbuffer,
+  int prv_pitch, int nxt_pitch, int tpitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags);
 
 
-void do_buildABSDiffMask2(const unsigned char* prvp, const unsigned char* nxtp, unsigned char* dstp,
-  int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags)
+template<typename pixel_t>
+void do_buildABSDiffMask2(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* dstp,
+  int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags, int bits_per_pixel)
 {
-  if ((cpuFlags & CPUF_SSE2) && width >= 8)
+  if ((cpuFlags & CPUF_SSE2) && width >= 8) // yes, width and not row_size
   {
     int mod8Width = width / 8 * 8;
-    buildABSDiffMask2_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, mod8Width, height);
-    if (YUY2_LumaOnly)
-      buildABSDiffMask2_c<true>(prvp + mod8Width, nxtp + mod8Width, dstp + mod8Width, prv_pitch, nxt_pitch, dst_pitch, width - mod8Width, height);
+    if constexpr(sizeof(pixel_t) == 8)
+      buildABSDiffMask2_uint8_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, mod8Width, height);
     else
-      buildABSDiffMask2_c<false>(prvp + mod8Width, nxtp + mod8Width, dstp + mod8Width, prv_pitch, nxt_pitch, dst_pitch, width - mod8Width, height);
+      buildABSDiffMask2_uint16_SSE2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, mod8Width, height, bits_per_pixel);
+    if (YUY2_LumaOnly)
+      buildABSDiffMask2_c<pixel_t, true>(
+        prvp + mod8Width * sizeof(pixel_t),
+        nxtp + mod8Width * sizeof(pixel_t),
+        dstp + mod8Width * sizeof(pixel_t),
+        prv_pitch, nxt_pitch, dst_pitch, width - mod8Width, height, bits_per_pixel);
+    else
+      buildABSDiffMask2_c<pixel_t, false>(
+        prvp + mod8Width * sizeof(pixel_t), 
+        nxtp + mod8Width * sizeof(pixel_t),
+        dstp + mod8Width,
+        prv_pitch, nxt_pitch, dst_pitch, width - mod8Width, height, bits_per_pixel);
   }
   else {
     if (YUY2_LumaOnly)
-      buildABSDiffMask2_c<true>(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, width, height);
+      buildABSDiffMask2_c<pixel_t, true>(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, width, height, bits_per_pixel);
     else
-      buildABSDiffMask2_c<false>(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, width, height);
+      buildABSDiffMask2_c<pixel_t, false>(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, width, height, bits_per_pixel);
   }
 }
+// instantiate
+template void do_buildABSDiffMask2<uint8_t>(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* dstp,
+  int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags, int bits_per_pixel);
+template void do_buildABSDiffMask2<uint16_t>(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* dstp,
+  int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags, int bits_per_pixel);
+
 
 
 // TDeint and TFM version
 // fixme: AnalyzeDiffMask_Planar compare with AnalyzeDiffMask_YUY2
-void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* tbuffer, int tpitch, int Width, int Height)
+template<typename pixel_t>
+void AnalyzeDiffMask_Planar(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height, int bits_per_pixel)
 {
-  const unsigned char* dppp = tbuffer - tpitch;
-  const unsigned char* dpp = tbuffer;
-  const unsigned char* dp = tbuffer + tpitch;
-  const unsigned char* dpn = tbuffer + tpitch * 2;
-  const unsigned char* dpnn = tbuffer + tpitch * 3;
+  tpitch /= sizeof(pixel_t);
+  const pixel_t* tbuffer = reinterpret_cast<const pixel_t*>(tbuffer8);
+  const pixel_t* dppp = tbuffer - tpitch;
+  const pixel_t* dpp = tbuffer;
+  const pixel_t* dp = tbuffer + tpitch;
+  const pixel_t* dpn = tbuffer + tpitch * 2;
+  const pixel_t* dpnn = tbuffer + tpitch * 3;
   int count;
   bool upper, lower, upper2, lower2;
 
+  const int Const3 = 3 << (bits_per_pixel - 8);
+  const int Const19 = 19 << (bits_per_pixel - 8);
+
   for (int y = 2; y < Height - 2; y += 2) {
     for (int x = 1; x < Width - 1; x++) {
-      int eax, esi, edi, edx;
+      int esi, edi;
 
-      if (dp[x] <= 3) continue;
-      if (dp[x - 1] <= 3 && dp[x + 1] <= 3 &&
-        dpp[x - 1] <= 3 && dpp[x] <= 3 && dpp[x + 1] <= 3 &&
-        dpn[x - 1] <= 3 && dpn[x] <= 3 && dpn[x + 1] <= 3) continue;
+      if (dp[x] <= Const3) continue;
+      if (dp[x - 1] <= Const3 && dp[x + 1] <= Const3 &&
+        dpp[x - 1] <= Const3 && dpp[x] <= Const3 && dpp[x + 1] <= Const3 &&
+        dpn[x - 1] <= Const3 && dpn[x] <= Const3 && dpn[x + 1] <= Const3) continue;
       dstp[x]++;
-      if (dp[x] <= 19) continue;
+      if (dp[x] <= Const19) continue; 
 
       edi = 0;
       lower = 0;
       upper = 0;
 
-      if (dpp[x - 1] > 19) edi++;
-      if (dpp[x] > 19) edi++;
-      if (dpp[x + 1] > 19) edi++;
+      if (dpp[x - 1] > Const19) edi++;
+      if (dpp[x] > Const19) edi++;
+      if (dpp[x + 1] > Const19) edi++;
 
       if (edi != 0) upper = 1;
 
-      if (dp[x - 1] > 19) edi++;
-      if (dp[x + 1] > 19) edi++;
+      if (dp[x - 1] > Const19) edi++;
+      if (dp[x + 1] > Const19) edi++;
 
       esi = edi;
 
-      if (dpn[x - 1] > 19) edi++;
-      if (dpn[x] > 19) edi++;
-      if (dpn[x + 1] > 19) edi++;
+      if (dpn[x - 1] > Const19) edi++;
+      if (dpn[x] > Const19) edi++;
+      if (dpn[x + 1] > Const19) edi++;
 
       if (edi <= 2) continue;
 
@@ -294,48 +358,40 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
         }
       }
 
-      eax = x - 4;
-      if (eax < 0) eax = 0;
-
-      edx = x + 5;
       lower2 = 0;
       upper2 = 0;
-      if (edx > Width) edx = Width;
+
+      int startx = x < 4 ? 0 : x - 4;
+      int stopx = x + 5 > Width ? Width : x + 5;
+      
       if (y != 2) {
-        int esi = eax;
-        do {
-          if (dppp[esi] > 19) {
+        for (int esi = startx; esi < stopx; esi++) {
+          if (dppp[esi] > Const19) {
             upper2 = 1;
             // ??? check others copied from here! todo change upper to upper2 if not upper 2 like in YUY2 part
             break;
           }
-          esi++;
-        } while (esi < edx);
+        }
       }
 
-      { // blocked for local vars
-        int esi = eax;
-        do {
-          if (dpp[esi] > 19)
-            upper = 1;
-          if (dpn[esi] > 19)
-            lower = 1;
-          if (upper != 0 && lower != 0)
-            break;
-          esi++;
-        } while (esi < edx);
+      for (int esi = startx; esi < stopx; esi++)
+      {
+        if (dpp[esi] > Const19)
+          upper = 1;
+        if (dpn[esi] > Const19)
+          lower = 1;
+        if (upper != 0 && lower != 0)
+          break;
       }
 
       if (y != Height - 4) {
-
-        int esi = eax;
-        do {
-          if (dpnn[esi] > 19) {
+        for (int esi = startx; esi < stopx; esi++)
+        {
+          if (dpnn[esi] > Const19) {
             lower2 = 1;
             break;
           }
-          esi++;
-        } while (esi < edx);
+        }
       }
 
       if (upper == 0) {
@@ -365,16 +421,20 @@ void AnalyzeDiffMask_Planar(unsigned char* dstp, int dst_pitch, unsigned char* t
     dstp += dst_pitch;
   }
 }
+// instantiate
+template void AnalyzeDiffMask_Planar<uint8_t>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height, int bits_per_pixel);
+template void AnalyzeDiffMask_Planar<uint16_t>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height, int bits_per_pixel);
 
 // TDeint and TFM version
 // fixme: compare with AnalyzeDiffMask_Planar + Compare chroma and non-chroma parts
-void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbuffer, int tpitch, int Width, int Height, bool mChroma)
+void AnalyzeDiffMask_YUY2(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer, int tpitch, int Width, int Height, bool mChroma)
 {
-  const unsigned char* dppp = tbuffer - tpitch;
-  const unsigned char* dpp = tbuffer;
-  const unsigned char* dp = tbuffer + tpitch;
-  const unsigned char* dpn = tbuffer + tpitch * 2;
-  const unsigned char* dpnn = tbuffer + tpitch * 3;
+  // YUY2 we won't touch it if it works. No hbd here
+  const uint8_t* dppp = tbuffer - tpitch;
+  const uint8_t* dpp = tbuffer;
+  const uint8_t* dp = tbuffer + tpitch;
+  const uint8_t* dpn = tbuffer + tpitch * 2;
+  const uint8_t* dpnn = tbuffer + tpitch * 3;
   int count;
   bool upper, lower, upper2, lower2;
 
@@ -730,21 +790,24 @@ void AnalyzeDiffMask_YUY2(unsigned char* dstp, int dst_pitch, unsigned char* tbu
   }
 }
 
-template<bool YUY2_LumaOnly>
-void buildABSDiffMask2_c(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height)
+// HBD ready
+template<typename pixel_t, bool YUY2_LumaOnly>
+void buildABSDiffMask2_c(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, int bits_per_pixel)
 {
   if (width <= 0)
     return;
 
   constexpr int inc = YUY2_LumaOnly ? 2 : 1;
+  const int Const19 = 19 << (bits_per_pixel - 8);
+  const int Const3 = 3 << (bits_per_pixel - 8);
   for (int y = 0; y < height; ++y)
   {
     for (int x = 0; x < width; x += inc)
     {
-      const int diff = abs(prvp[x] - nxtp[x]);
-      if (diff > 19) dstp[x] = 3;
-      else if (diff > 3) dstp[x] = 1;
+      const int diff = abs(reinterpret_cast<const pixel_t *>(prvp)[x] - reinterpret_cast<const pixel_t*>(nxtp)[x]);
+      if (diff > Const19) dstp[x] = 3;
+      else if (diff > Const3) dstp[x] = 1;
       else dstp[x] = 0;
     }
     prvp += prv_pitch;
@@ -754,16 +817,31 @@ void buildABSDiffMask2_c(const unsigned char* prvp, const unsigned char* nxtp,
 }
 
 
+static AVS_FORCEINLINE __m128i _MM_CMPLE_EPU16(__m128i x, __m128i y)
+{
+  // Returns 0xFFFF where x <= y:
+  return _mm_cmpeq_epi16(_mm_subs_epu16(x, y), _mm_setzero_si128());
+}
 
-void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp,
-  unsigned char* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
+void buildABSDiffMask2_uint8_SSE2(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
   int height)
 {
-  __m128i onesMask = _mm_set1_epi8(0x01);
-  __m128i twosMask = _mm_set1_epi8(0x02);
-  __m128i all_ff = _mm_set1_epi8(-1);
-  __m128i mask251 = _mm_set1_epi8((char)0xFB); // 1111 1011
-  __m128i mask235 = _mm_set1_epi8((char)0xEB); // 1110 1011
+  auto onesMask = _mm_set1_epi8(0x01); // byte target!
+  auto twosMask = _mm_set1_epi8(0x02);
+  auto all_ff = _mm_set1_epi8(-1);
+  // C version: 19 and 3
+  // 255 - 1 - 19 = 235
+  // 255 - 1 - 3 = 251
+
+  // diff > 19 => diff - 19 > 0 => 
+  // diff - 19 >= 1 => diff - 19 - 1 +255 >= 255 =>
+  // add_satutare(diff, 255 - 19 - 1) == 255
+  const int Const251 = 255 - 1 - 3;
+  const int Const235 = 255 - 1 - 19;
+
+  auto Compare251 = _mm_set1_epi8((char)Const251);
+  auto Compare235 = _mm_set1_epi8((char)Const235);
 
   if (!(width & 15)) // exact mod16
   {
@@ -777,14 +855,16 @@ void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp
         __m128i diff = _mm_or_si128(diffpn, diffnp);
         /*
         const int diff = abs(prvp[x] - nxtp[x]);
-        if (diff > 19) dstp[x] = 3;
-        else if (diff > 3) dstp[x] = 1;
+        if (diff > 19) dstp[x] |= 2; // 2 + 1
+        if (diff > 3) dstp[x] |= 1;
         else dstp[x] = 0;
+
         */
-        __m128i added251 = _mm_adds_epu8(diff, mask251);
-        __m128i added235 = _mm_adds_epu8(diff, mask235);
-        __m128i cmp251 = _mm_cmpeq_epi8(added251, all_ff);
-        __m128i cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+        __m128i added251 = _mm_adds_epu8(diff, Compare251);
+        __m128i added235 = _mm_adds_epu8(diff, Compare235);
+        auto cmp251 = _mm_cmpeq_epi8(added251, all_ff);
+        auto cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+        // target is byte buffer
         __m128i tmp1 = _mm_and_si128(cmp251, onesMask);
         __m128i tmp2 = _mm_and_si128(cmp235, twosMask);
         __m128i tmp = _mm_or_si128(tmp1, tmp2);
@@ -798,7 +878,7 @@ void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp
   else {
     width -= 8; // last chunk is 8 bytes instead of 16
     while (height--) {
-      int x;
+      int x; // intentionally not in 'for'
       for (x = 0; x < width; x += 16)
       {
         __m128i src_prev = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x));
@@ -806,28 +886,37 @@ void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp
         __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
         __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
         __m128i diff = _mm_or_si128(diffpn, diffnp);
-        __m128i added251 = _mm_adds_epu8(diff, mask251);
-        __m128i added235 = _mm_adds_epu8(diff, mask235);
-        __m128i cmp251 = _mm_cmpeq_epi8(added251, all_ff);
-        __m128i cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+        /*
+        const int diff = abs(prvp[x] - nxtp[x]);
+        if (diff > 19) dstp[x] |= 2; // 2 + 1
+        if (diff > 3) dstp[x] |= 1;
+        else dstp[x] = 0;
+        */
+        __m128i added251 = _mm_adds_epu8(diff, Compare251);
+        __m128i added235 = _mm_adds_epu8(diff, Compare235);
+        auto cmp251 = _mm_cmpeq_epi8(added251, all_ff);
+        auto cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+        // target is byte buffer
         __m128i tmp1 = _mm_and_si128(cmp251, onesMask);
         __m128i tmp2 = _mm_and_si128(cmp235, twosMask);
         __m128i tmp = _mm_or_si128(tmp1, tmp2);
         _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), tmp);
       }
+      // rest 8 bytes
       __m128i src_prev = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(prvp + x));
       __m128i src_next = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(nxtp + x));
       __m128i diffpn = _mm_subs_epu8(src_prev, src_next);
       __m128i diffnp = _mm_subs_epu8(src_next, src_prev);
       __m128i diff = _mm_or_si128(diffpn, diffnp);
-      __m128i added251 = _mm_adds_epu8(diff, mask251);
-      __m128i added235 = _mm_adds_epu8(diff, mask235);
-      __m128i cmp251 = _mm_cmpeq_epi8(added251, all_ff);
-      __m128i cmp235 = _mm_cmpeq_epi8(added235, all_ff);
+      __m128i added251 = _mm_adds_epu8(diff, Compare251);
+      __m128i added235 = _mm_adds_epu8(diff, Compare235);
+      auto cmp251 = _mm_cmpeq_epi8(added251, all_ff);
+      auto cmp235 = _mm_cmpeq_epi8(added235, all_ff);
       __m128i tmp1 = _mm_and_si128(cmp251, onesMask);
       __m128i tmp2 = _mm_and_si128(cmp235, twosMask);
       __m128i tmp = _mm_or_si128(tmp1, tmp2);
       _mm_storel_epi64(reinterpret_cast<__m128i*>(dstp + x), tmp);
+
       prvp += prv_pitch;
       nxtp += nxt_pitch;
       dstp += dst_pitch;
@@ -835,11 +924,217 @@ void buildABSDiffMask2_SSE2(const unsigned char* prvp, const unsigned char* nxtp
   }
 }
 
+void buildABSDiffMask2_uint16_SSE2(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int width,
+  int height, int bits_per_pixel)
+{
+  auto onesMask = _mm_set1_epi8(0x01); // byte target!
+  auto twosMask = _mm_set1_epi8(0x02);
+  // C version: 19 and 3
+
+  const int Const19plus1 = (19 << (bits_per_pixel - 8)) + 1;
+  const int Const3plus1 = (3 << (bits_per_pixel - 8)) + 1;
+
+  auto Compare19plus1 = _mm_set1_epi16((short)Const19plus1);
+  auto Compare3plus1 = _mm_set1_epi16((short)Const3plus1);
+
+  if (!(width & 15)) // exact mod16
+  {
+    while (height--) {
+      for (int x = 0; x < width; x += 16)
+      {
+        // 16 byte result needs 32 byte source (16 x uint16_t pixels)
+
+        /*
+        const int diff = abs(prvp[x] - nxtp[x]);
+        if (diff > Const19) dstp[x] |= 2; // 2 + 1
+        if (diff > Const3) dstp[x] |= 1;
+        else dstp[x] = 0;
+
+        if (diff > 19) ==> diff >= 19+1
+        if (diff > 3) ==> diff >= 3+1
+        */
+
+        auto src_prev_lo = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x * 2));
+        auto src_next_lo = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x * 2));
+        auto diffpn_lo = _mm_subs_epu16(src_prev_lo, src_next_lo);
+        auto diffnp_lo = _mm_subs_epu16(src_next_lo, src_prev_lo);
+        auto diff_lo = _mm_or_si128(diffpn_lo, diffnp_lo);
+
+        auto cmp19_lo = _MM_CMPLE_EPU16(Compare19plus1, diff_lo); // FFFF where 20 <= diff (19 < diff)
+        auto cmp3_lo = _MM_CMPLE_EPU16(Compare3plus1, diff_lo); // FFFF where 4 <= diff (3 < diff)
+
+        auto src_prev_hi = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x * 2 + 16));
+        auto src_next_hi = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x * 2 + 16));
+        auto diffpn_hi = _mm_subs_epu16(src_prev_hi, src_next_hi);
+        auto diffnp_hi = _mm_subs_epu16(src_next_hi, src_prev_hi);
+        auto diff_hi = _mm_or_si128(diffpn_hi, diffnp_hi);
+
+        auto cmp19_hi = _MM_CMPLE_EPU16(Compare19plus1, diff_hi); // FFFF where 20 <= diff (19 < diff)
+        auto cmp3_hi = _MM_CMPLE_EPU16(Compare3plus1, diff_hi); // FFFF where 4 <= diff (3 < diff)
+
+        // make bytes from wordBools
+        auto cmp251 = _mm_packus_epi16(cmp3_lo, cmp3_hi);
+        auto cmp235 = _mm_packus_epi16(cmp19_lo, cmp19_hi);
+
+        // target is byte buffer!
+        auto tmp1 = _mm_and_si128(cmp251, onesMask);
+        auto  tmp2 = _mm_and_si128(cmp235, twosMask);
+        auto  tmp = _mm_or_si128(tmp1, tmp2);
+        _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), tmp);
+      }
+      prvp += prv_pitch;
+      nxtp += nxt_pitch;
+      dstp += dst_pitch;
+    }
+  }
+  else {
+    width -= 8; // last chunk is 8 bytes instead of 16
+    while (height--) {
+      int x; // intentionally not in 'for'
+      for (x = 0; x < width; x += 16)
+      {
+        auto src_prev_lo = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x * 2));
+        auto src_next_lo = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x * 2));
+        auto diffpn_lo = _mm_subs_epu16(src_prev_lo, src_next_lo);
+        auto diffnp_lo = _mm_subs_epu16(src_next_lo, src_prev_lo);
+        auto diff_lo = _mm_or_si128(diffpn_lo, diffnp_lo);
+
+        auto cmp19_lo = _MM_CMPLE_EPU16(Compare19plus1, diff_lo); // FFFF where 20 <= diff (19 < diff)
+        auto cmp3_lo = _MM_CMPLE_EPU16(Compare3plus1, diff_lo); // FFFF where 4 <= diff (3 < diff)
+
+        auto src_prev_hi = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x * 2 + 16));
+        auto src_next_hi = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x * 2 + 16));
+        auto diffpn_hi = _mm_subs_epu16(src_prev_hi, src_next_hi);
+        auto diffnp_hi = _mm_subs_epu16(src_next_hi, src_prev_hi);
+        auto diff_hi = _mm_or_si128(diffpn_hi, diffnp_hi);
+
+        auto cmp19_hi = _MM_CMPLE_EPU16(Compare19plus1, diff_hi); // FFFF where 20 <= diff (19 < diff)
+        auto cmp3_hi = _MM_CMPLE_EPU16(Compare3plus1, diff_hi); // FFFF where 4 <= diff (3 < diff)
+
+        // make bytes from wordBools
+        auto cmp251 = _mm_packus_epi16(cmp3_lo, cmp3_hi);
+        auto cmp235 = _mm_packus_epi16(cmp19_lo, cmp19_hi);
+
+        // target is byte buffer!
+        auto tmp1 = _mm_and_si128(cmp251, onesMask);
+        auto  tmp2 = _mm_and_si128(cmp235, twosMask);
+        auto  tmp = _mm_or_si128(tmp1, tmp2);
+        _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), tmp);
+      }
+      // rest 8 pixels
+      auto src_prev_lo = _mm_load_si128(reinterpret_cast<const __m128i*>(prvp + x * 2));
+      auto src_next_lo = _mm_load_si128(reinterpret_cast<const __m128i*>(nxtp + x * 2));
+      auto diffpn_lo = _mm_subs_epu16(src_prev_lo, src_next_lo);
+      auto diffnp_lo = _mm_subs_epu16(src_next_lo, src_prev_lo);
+      auto diff_lo = _mm_or_si128(diffpn_lo, diffnp_lo);
+
+      auto cmp19_lo = _MM_CMPLE_EPU16(Compare19plus1, diff_lo); // FFFF where 20 <= diff (19 < diff)
+      auto cmp3_lo = _MM_CMPLE_EPU16(Compare3plus1, diff_lo); // FFFF where 4 <= diff (3 < diff)
+
+      // make bytes from wordBools
+      auto cmp251 = _mm_packus_epi16(cmp3_lo, cmp3_lo); // 8 bytes valid only
+      auto cmp235 = _mm_packus_epi16(cmp19_lo, cmp19_lo);
+
+      // target is byte buffer!
+      auto tmp1 = _mm_and_si128(cmp251, onesMask);
+      auto  tmp2 = _mm_and_si128(cmp235, twosMask);
+      auto  tmp = _mm_or_si128(tmp1, tmp2);
+      // store 8 bytes
+      _mm_storel_epi64(reinterpret_cast<__m128i*>(dstp + x), tmp);
+
+      prvp += prv_pitch;
+      nxtp += nxt_pitch;
+      dstp += dst_pitch;
+    }
+  }
+}
+
+template<typename pixel_t, bool YUY2_LumaOnly>
+void check_combing_c(const pixel_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, int cthresh)
+{
+  // cthresh is scaled to actual bit depth
+  const pixel_t* srcppp = srcp - src_pitch * 2;
+  const pixel_t* srcpp = srcp - src_pitch;
+  const pixel_t* srcpn = srcp + src_pitch;
+  const pixel_t* srcpnn = srcp + src_pitch * 2;
+
+  int increment;
+  if constexpr (YUY2_LumaOnly)
+    increment = 2;
+  else
+    increment = 1; // planar, YUY2 luma + chroma
+
+  const int cthresh6 = cthresh * 6;
+  // no luma masking
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; x += increment)
+    {
+      const int sFirst = srcp[x] - srcpp[x];
+      const int sSecond = srcp[x] - srcpn[x];
+      if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
+      {
+        if (abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
+          cmkp[x] = 0xFF;
+      }
+    }
+    srcppp += src_pitch;
+    srcpp += src_pitch;
+    srcp += src_pitch;
+    srcpn += src_pitch;
+    srcpnn += src_pitch;
+    cmkp += cmk_pitch;
+  }
+}
+// instantiate
+template void check_combing_c<uint8_t, false>(const uint8_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, int cthresh);
+template void check_combing_c<uint8_t, true>(const uint8_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, int cthresh);
+template void check_combing_c<uint16_t, false>(const uint16_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, int cthresh);
+
+template<typename pixel_t, bool YUY2_LumaOnly, typename safeint_t>
+void check_combing_c_Metric1(const pixel_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, safeint_t cthreshsq)
+{
+  // cthresh is scaled to actual bit depth
+  const pixel_t* srcpp = srcp - src_pitch;
+  const pixel_t* srcpn = srcp + src_pitch;
+
+  int increment;
+  if constexpr (YUY2_LumaOnly)
+    increment = 2;
+  else
+    increment = 1; // planar, YUY2 luma + chroma
+
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; ++x)
+    {
+      if ((safeint_t)(srcp[x] - srcpp[x]) * (srcp[x] - srcpn[x]) > cthreshsq)
+        cmkp[x] = 0xFF;
+    }
+    srcpp += src_pitch;
+    srcp += src_pitch;
+    srcpn += src_pitch;
+    cmkp += cmk_pitch;
+  }
+}
+// instantiate
+template void check_combing_c_Metric1<uint8_t, false, int>(const uint8_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, int cthreshsq);
+template void check_combing_c_Metric1<uint8_t, true, int>(const uint8_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, int cthreshsq);
+template void check_combing_c_Metric1<uint16_t, false, int64_t>(const uint16_t* srcp, uint8_t* cmkp, int width, int height, int src_pitch, int cmk_pitch, int64_t cthreshsq);
+
+
+
 // fixme: also in tfmasm
 template<bool with_luma_mask>
-static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
+static void check_combing_SSE2_generic(const uint8_t *srcp, uint8_t *dstp, int width,
+  int height, int src_pitch, int dst_pitch, int cthresh)
 {
+  unsigned int cthresht = std::min(std::max(255 - cthresh - 1, 0), 255);
+  auto threshb = _mm_set1_epi8(cthresht);
+  unsigned int cthresh6t = std::min(std::max(65535 - cthresh * 6 - 1, 0), 65535);
+  auto thresh6w = _mm_set1_epi16(cthresh6t);
+
   __m128i all_ff = _mm_set1_epi8(-1);
   while (height--) {
     for (int x = 0; x < width; x += 16) {
@@ -876,9 +1171,9 @@ static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned 
           auto prev_lo = _mm_unpacklo_epi8(prev, zero);
           auto next_hi = _mm_unpackhi_epi8(next, zero);
           auto prev_hi = _mm_unpackhi_epi8(prev, zero);
-          __m128i threeMask = _mm_set1_epi16(3);
-          auto mul_lo = _mm_mullo_epi16(_mm_adds_epu16(next_lo, prev_lo), threeMask);
-          auto mul_hi = _mm_mullo_epi16(_mm_adds_epu16(next_hi, prev_hi), threeMask);
+          __m128i three = _mm_set1_epi16(3);
+          auto mul_lo = _mm_mullo_epi16(_mm_adds_epu16(next_lo, prev_lo), three);
+          auto mul_hi = _mm_mullo_epi16(_mm_adds_epu16(next_hi, prev_hi), three);
 
           // compute (pp+c*4+nn)
           auto prevprev = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp - src_pitch * 2 + x));
@@ -924,24 +1219,122 @@ static void check_combing_SSE2_generic_simd(const unsigned char *srcp, unsigned 
 }
 
 
-// src_pitch2: src_pitch*2 for inline asm speed reasons
-void check_combing_SSE2(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
+void check_combing_SSE2(const uint8_t *srcp, uint8_t *dstp, int width, int height, int src_pitch, int dst_pitch, int cthresh)
 {
   // no luma masking
-  check_combing_SSE2_generic_simd<false>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
+  check_combing_SSE2_generic<false>(srcp, dstp, width, height, src_pitch, dst_pitch, cthresh);
 }
 
-void check_combing_SSE2_Luma(const unsigned char *srcp, unsigned char *dstp, int width,
-  int height, int src_pitch, int src_pitch2, int dst_pitch, __m128i threshb, __m128i thresh6w)
+void check_combing_SSE2_Luma(const uint8_t *srcp, uint8_t *dstp, int width, int height, int src_pitch, int dst_pitch, int cthresh)
 {
   // with luma masking
-  check_combing_SSE2_generic_simd<true>(srcp, dstp, width, height, src_pitch, src_pitch2, dst_pitch, threshb, thresh6w);
+  check_combing_SSE2_generic<true>(srcp, dstp, width, height, src_pitch, dst_pitch, cthresh);
 }
 
-void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
+
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("sse4.1")))
+#endif 
+void check_combing_uint16_SSE4(const uint16_t* srcp, uint8_t* dstp, int width, int height, int src_pitch, int dst_pitch, int cthresh)
 {
+  // src_pitch ok for the 16 bit pointer
+/*
+  const int sFirst = srcp[x] - srcpp[x];
+  const int sSecond = srcp[x] - srcpn[x];
+  if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
+  {
+    if (abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
+      cmkp[x] = 0xFF;
+  }
+*/
+  unsigned int cthresht = std::min(std::max(65535 - cthresh - 1, 0), 65535);
+  auto thresh = _mm_set1_epi16(cthresht); // cmp by adds and check saturation
+
+  auto thresh6 = _mm_set1_epi32(cthresh * 6);
+
+  __m128i all_ff = _mm_set1_epi8(-1);
+  while (height--) {
+    // sets 8 mask byte by 8x uint16_t pixels
+    for (int x = 0; x < width; x += 16 / sizeof(uint16_t)) {
+      auto next = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + src_pitch + x));
+      auto curr = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + x));
+      auto prev = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp - src_pitch + x));
+      auto diff_curr_next = _mm_subs_epu16(curr, next);
+      auto diff_next_curr = _mm_subs_epu16(next, curr);
+      auto diff_curr_prev = _mm_subs_epu16(curr, prev);
+      auto diff_prev_curr = _mm_subs_epu16(prev, curr);
+      // max(min(p-s,n-s), min(s-n,s-p))
+      // instead of abs
+      auto xmm2_max = _mm_max_epu16(_mm_min_epu16(diff_prev_curr, diff_next_curr), _mm_min_epu16(diff_curr_next, diff_curr_prev));
+      auto xmm2_cmp = _mm_cmpeq_epi16(_mm_adds_epu16(xmm2_max, thresh), all_ff);
+
+      auto res_part1 = xmm2_cmp;
+      bool cmpres_is_allzero;
+#ifdef _M_X64
+      cmpres_is_allzero = (_mm_cvtsi128_si64(xmm2_cmp) | _mm_cvtsi128_si64(_mm_srli_si128(xmm2_cmp, 8))) == 0; // _si64: only at x64 platform
+#else
+      cmpres_is_allzero = (_mm_cvtsi128_si32(xmm2_cmp) |
+        _mm_cvtsi128_si32(_mm_srli_si128(xmm2_cmp, 4)) |
+        _mm_cvtsi128_si32(_mm_srli_si128(xmm2_cmp, 8)) |
+        _mm_cvtsi128_si32(_mm_srli_si128(xmm2_cmp, 12))
+        ) == 0;
+#endif
+      if (!cmpres_is_allzero) {
+        // output2
+        auto zero = _mm_setzero_si128();
+        // compute 3*(p+n)
+        auto next_lo = _mm_unpacklo_epi16(next, zero);
+        auto prev_lo = _mm_unpacklo_epi16(prev, zero);
+        auto next_hi = _mm_unpackhi_epi16(next, zero);
+        auto prev_hi = _mm_unpackhi_epi16(prev, zero);
+        __m128i three = _mm_set1_epi32(3);
+        auto mul_lo = _mm_mullo_epi32(_mm_add_epi32(next_lo, prev_lo), three);
+        auto mul_hi = _mm_mullo_epi32(_mm_add_epi32(next_hi, prev_hi), three);
+
+        // compute (pp+c*4+nn)
+        auto prevprev = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp - src_pitch * 2 + x));
+        auto prevprev_lo = _mm_unpacklo_epi16(prevprev, zero);
+        auto prevprev_hi = _mm_unpackhi_epi16(prevprev, zero);
+        auto curr_lo = _mm_unpacklo_epi16(curr, zero);
+        auto curr_hi = _mm_unpackhi_epi16(curr, zero);
+        auto sum2_lo = _mm_add_epi32(_mm_slli_epi32(curr_lo, 2), prevprev_lo); // pp + c*4
+        auto sum2_hi = _mm_add_epi32(_mm_slli_epi32(curr_hi, 2), prevprev_hi); // pp + c*4
+
+/*        if (abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
+          cmkp[x] = 0xFF;
+          */
+        auto nextnext = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp + src_pitch * 2 + x));
+        auto nextnext_lo = _mm_unpacklo_epi16(nextnext, zero);
+        auto nextnext_hi = _mm_unpackhi_epi16(nextnext, zero);
+        auto sum3_lo = _mm_add_epi32(sum2_lo, nextnext_lo);
+        auto sum3_hi = _mm_add_epi32(sum2_hi, nextnext_hi);
+
+        // working with sum3=(pp+c*4+nn)   and  mul=3*(p+n)
+        auto diff_sum3lo_mullo = _mm_sub_epi32(sum3_lo, mul_lo);
+        auto diff_sum3hi_mulhi = _mm_sub_epi32(sum3_hi, mul_hi);
+        // abs( (pp+c*4+nn) - mul=3*(p+n) )
+        auto abs_lo = _mm_abs_epi32(diff_sum3lo_mullo);
+        auto abs_hi = _mm_abs_epi32(diff_sum3hi_mulhi);
+        // abs( (pp+c*4+nn) - mul=3*(p+n) ) > thresh6 ??
+        auto cmp_lo = _mm_cmpgt_epi32(abs_lo, thresh6);
+        auto cmp_hi = _mm_cmpgt_epi32(abs_hi, thresh6);
+
+        auto res_part2 = _mm_packs_epi32(cmp_lo, cmp_hi);
+
+        auto res = _mm_and_si128(res_part1, res_part2);
+        _mm_storel_epi64(reinterpret_cast<__m128i*>(dstp + x), res);
+      }
+    }
+    srcp += src_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+
+void check_combing_SSE2_Metric1(const uint8_t *srcp, uint8_t *dstp,
+  int width, int height, int src_pitch, int dst_pitch, int cthreshsq)
+{
+  __m128i thresh = _mm_set1_epi32(cthreshsq);
   __m128i zero = _mm_setzero_si128();
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
 
@@ -1001,9 +1394,10 @@ void check_combing_SSE2_M1(const unsigned char *srcp, unsigned char *dstp,
 }
 
 
-void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
-  int width, int height, int src_pitch, int dst_pitch, __m128i thresh)
+void check_combing_SSE2_Luma_Metric1(const uint8_t *srcp, uint8_t *dstp,
+  int width, int height, int src_pitch, int dst_pitch, int cthreshsq)
 {
+  __m128i thresh = _mm_set1_epi32(cthreshsq);
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
   __m128i zero = _mm_setzero_si128();
   while (height--) {
@@ -1041,7 +1435,7 @@ void check_combing_SSE2_Luma_M1(const unsigned char *srcp, unsigned char *dstp,
 }
 
 template<int blockSizeY>
-void compute_sum_8xN_sse2(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_8xN_sse2(const uint8_t *srcp, int pitch, int &sum)
 {
   // sums masks
   // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;
@@ -1089,10 +1483,10 @@ void compute_sum_8xN_sse2(const unsigned char *srcp, int pitch, int &sum)
 }
 
 // instantiate for 8x8
-template void compute_sum_8xN_sse2<8>(const unsigned char* srcp, int pitch, int& sum);
+template void compute_sum_8xN_sse2<8>(const uint8_t* srcp, int pitch, int& sum);
 
 // YUY2 luma only case
-void compute_sum_16x8_sse2_luma(const unsigned char *srcp, int pitch, int &sum)
+void compute_sum_16x8_sse2_luma(const uint8_t *srcp, int pitch, int &sum)
 {
   // sums masks
   // if (cmkppT[x + v] == 0xFF && cmkpT[x + v] == 0xFF && cmkpnT[x + v] == 0xFF) sum++;

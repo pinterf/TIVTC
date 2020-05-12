@@ -25,21 +25,28 @@
 
 #include "TDBuf.h"
 
+// always a 8 bit buffer
 TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size(_size)
 {
   constexpr int FRAME_ALIGN = 64;
   y = u = v = NULL;
   fnum.resize(size);
-  if (_cp == 3) // count of planes YV12, YV16, YV24 planar
+  // 400: greyscale
+  if (planarType == 444 || planarType == 422 || planarType == 420 || planarType == 411 || planarType == 400)
   {
     widthy = _width;
-    widthuv = planarType == 444 ? _width : planarType == 411 ? _width / 4 : _width / 2;
     heighty = _height;
-    heightuv = planarType == 420 ? _height / 2 : _height;
     lpitchy = ((widthy + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
-    lpitchuv = ((widthuv + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
-    pitchy = lpitchy*size;
-    pitchuv = lpitchuv*size;
+    pitchy = lpitchy * size;
+    if (_cp == 3) { // count of planes
+      widthuv = planarType == 444 ? _width : planarType == 411 ? _width / 4 : _width / 2;
+      heightuv = planarType == 420 ? _height / 2 : _height;
+      lpitchuv = ((widthuv + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
+      pitchuv = lpitchuv * size;
+    }
+    else {
+      heightuv = widthuv = pitchuv = lpitchuv = 0;
+    }
   }
   else
   {
@@ -53,11 +60,11 @@ TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size
   if (size)
   {
     for (int i = 0; i < size; ++i) fnum[i] = -999999999;
-    y = (unsigned char*)_aligned_malloc(pitchy*heighty, FRAME_ALIGN);
+    y = (uint8_t*)_aligned_malloc(pitchy*heighty, FRAME_ALIGN);
     if (_cp == 3)
     {
-      u = (unsigned char*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
-      v = (unsigned char*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
+      u = (uint8_t*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
+      v = (uint8_t*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
     }
   }
   spos = 0;
@@ -70,14 +77,14 @@ TDBuf::~TDBuf()
   if (v) _aligned_free(v);
 }
 
-const unsigned char* TDBuf::GetReadPtr(int pos, int plane)
+const uint8_t* TDBuf::GetReadPtr(int pos, int plane)
 {
   if (plane == 0) return y + pos*lpitchy;
   if (plane == 1) return u + pos*lpitchuv;
   return v + pos*lpitchuv;
 }
 
-unsigned char* TDBuf::GetWritePtr(int pos, int plane)
+uint8_t* TDBuf::GetWritePtr(int pos, int plane)
 {
   if (plane == 0) return y + pos*lpitchy;
   if (plane == 1) return u + pos*lpitchuv;

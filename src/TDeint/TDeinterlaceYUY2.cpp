@@ -34,8 +34,8 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
     PVideoFrame src2up = child->GetFrame(n, env);
     PVideoFrame dst2up = env->NewVideoFrame(vi_saved);
     PVideoFrame msk2up = env->NewVideoFrame(vi_saved);
-    copyForUpsize(dst2up, src2up, 1, env);
-    setMaskForUpsize(msk2up, 1);
+    copyForUpsize(dst2up, src2up, vi_saved, env);
+    setMaskForUpsize(msk2up, vi_mask);
     if (mode == -2) smartELADeintYUY2(dst2up, msk2up, dst2up, dst2up, dst2up);
     else if (mode == -1) ELADeintYUY2(dst2up, msk2up, dst2up, dst2up, dst2up);
     return dst2up;
@@ -163,9 +163,11 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
 
   if (type == 2 || mtnmode > 1 || tryWeave)
   {
-    subtractFields(prv, src, nxt, vi_saved, accumPn, accumNn, accumPm, accumNm,
-      field, order, opt, false, slow, env);
-    if (sa.size() > 0) 
+    // YUY2 only!
+    subtractFields<uint8_t>(prv, src, nxt, vi_saved, accumPn, accumNn, accumPm, accumNm,
+        field, order, false, slow, env);
+
+    if (sa.size() > 0)
       insertCompStats(n_saved, accumPn, accumNn, accumPm, accumNm);
     rmatch = getMatch(accumPn, accumNn, accumPm, accumNm);
     if (debug)
@@ -176,10 +178,11 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
       OutputDebugString(buf);
     }
   }
+
   if (tryWeave && (mode != 0 || full || found || (field^order && rmatch == 1) ||
     (!(field^order) && rmatch == 0)))
   {
-    createWeaveFrameYUY2(dst, prv, src, nxt, env);
+    createWeaveFrame(dst, prv, src, nxt, env);
     int MIC;
     if (!checkCombedYUY2(dst, MIC, env))
     {
@@ -207,7 +210,7 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
   if (emask) mask = emask->GetFrame(n_saved, env);
   else
   {
-    if (mthreshL <= 0 && mthreshC <= 0) setMaskForUpsize(mask, 1);
+    if (mthreshL <= 0 && mthreshC <= 0) setMaskForUpsize(mask, vi_mask);
     else if (mtnmode >= 0 && mtnmode <= 3)
     {
       if (emtn)
@@ -251,8 +254,8 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
     else if (type == 1) smartELADeintYUY2(dst, mask, prv, src, nxt);
     else if (type == 2) kernelDeintYUY2(dst, mask, prv, src, nxt);
     else if (type == 3) ELADeintYUY2(dst, mask, prv, src, nxt);
-    else if (type == 4) blendDeint(dst, mask, prv, src, nxt, env);
-    else if (type == 5) blendDeint2(dst, mask, prv, src, nxt, env);
+    else if (type == 4) blendDeint<uint8_t>(dst, mask, prv, src, nxt, env);
+    else if (type == 5) blendDeint2<uint8_t>(dst, mask, prv, src, nxt, env);
     else env->ThrowError("TDeint:  an unknown error occured!");
   }
   else
@@ -262,8 +265,9 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
   }
   if (uap)
   {
-    apPostCheck(dst, mask, efrm, env);
-    if (map) updateMapAP(dmap, mask, env);
+    apPostCheck<uint8_t>(dst, mask, efrm, env);
+    if (map) 
+      updateMapAP<uint8_t>(dmap, mask, env);
     if (map > 0 && map < 3)
     {
       if (hintField >= 0 && !fieldOVR) field = hintField;
@@ -294,7 +298,7 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
 
 void TDeinterlace::expandMap_YUY2(PVideoFrame &mask)
 {
-  unsigned char *maskp = mask->GetWritePtr();
+  uint8_t *maskp = mask->GetWritePtr();
   const int mask_pitch = mask->GetPitch();
   const int mask_pitch2 = mask_pitch << 1;
   const int Height = mask->GetHeight();
@@ -360,7 +364,7 @@ void TDeinterlace::expandMap_YUY2(PVideoFrame &mask)
 
 void TDeinterlace::linkFULL_YUY2(PVideoFrame &mask)
 {
-  unsigned char *maskp = mask->GetWritePtr();
+  uint8_t *maskp = mask->GetWritePtr();
   const int mask_pitch = mask->GetPitch();
   const int mask_pitch2 = mask_pitch << 1;
   const int Height = mask->GetHeight();
@@ -382,7 +386,7 @@ void TDeinterlace::linkFULL_YUY2(PVideoFrame &mask)
 
 void TDeinterlace::linkYtoUV_YUY2(PVideoFrame &mask)
 {
-  unsigned char *maskp = mask->GetWritePtr();
+  uint8_t *maskp = mask->GetWritePtr();
   const int mask_pitch = mask->GetPitch();
   const int mask_pitch2 = mask_pitch << 1;
   const int Height = mask->GetHeight();
@@ -403,7 +407,7 @@ void TDeinterlace::linkYtoUV_YUY2(PVideoFrame &mask)
 
 void TDeinterlace::linkUVtoY_YUY2(PVideoFrame &mask)
 {
-  unsigned char *maskp = mask->GetWritePtr();
+  uint8_t *maskp = mask->GetWritePtr();
   const int mask_pitch = mask->GetPitch();
   const int mask_pitch2 = mask_pitch << 1;
   const int Height = mask->GetHeight();
@@ -425,14 +429,14 @@ void TDeinterlace::linkUVtoY_YUY2(PVideoFrame &mask)
 // not the same as in TFMPP. Here 0x3C instead of 0xFF
 void TDeinterlace::denoiseYUY2(PVideoFrame &mask)
 {
-  unsigned char *maskp = mask->GetWritePtr();
+  uint8_t *maskp = mask->GetWritePtr();
   const int mask_pitch = mask->GetPitch();
   const int mask_pitch2 = mask_pitch << 1;
   const int Height = mask->GetHeight();
   const int Width = mask->GetRowSize();
   maskp += mask_pitch*(2 + field);
-  unsigned char *maskpp = maskp - mask_pitch2;
-  unsigned char *maskpn = maskp + mask_pitch2;
+  uint8_t *maskpp = maskp - mask_pitch2;
+  uint8_t *maskpn = maskp + mask_pitch2;
   for (int y = 2; y < Height - 2; y += 2)
   {
     for (int x = 4; x < Width - 4; ++x)
@@ -478,16 +482,16 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
   if (opt == 0) cpu = 0;
   bool use_sse2 = (cpu&CPUF_SSE2) ? true : false;
 
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();
   const int Height = src->GetHeight();
-  const unsigned char *srcpp = srcp - src_pitch;
-  const unsigned char *srcppp = srcpp - src_pitch;
-  const unsigned char *srcpn = srcp + src_pitch;
-  const unsigned char *srcpnn = srcpn + src_pitch;
+  const uint8_t *srcpp = srcp - src_pitch;
+  const uint8_t *srcppp = srcpp - src_pitch;
+  const uint8_t *srcpn = srcp + src_pitch;
+  const uint8_t *srcpnn = srcpn + src_pitch;
   PVideoFrame cmask = env->NewVideoFrame(vi_saved);
-  unsigned char *cmkw = cmask->GetWritePtr();
+  uint8_t *cmkw = cmask->GetWritePtr();
   const int cmk_pitch = cmask->GetPitch();
   const int inc = chroma ? 1 : 2;
   const int xblocks = ((Width + blockx_half) >> blockx_shift) + 1;
@@ -500,15 +504,6 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;
-    __m128i cthreshb_m128i;
-    __m128i cthresh6w_m128i;
-    if (use_sse2)
-    {
-      unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
-      cthreshb_m128i = _mm_set1_epi8(cthresht);
-      unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
-      cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
-    }
     // top 1
     for (int x = 0; x < Width; x += inc)
     {
@@ -543,45 +538,31 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
     srcpnn += src_pitch;
     cmkw += cmk_pitch;
     // middle Height - 4
+    const int lines_to_process = Height - 4;
     if (use_sse2)
     {
       if (chroma)
       {
-        check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        check_combing_SSE2(srcp, cmkw, Width, lines_to_process, src_pitch, cmk_pitch, cthresh);
       }
       else
       {
-        check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        check_combing_SSE2_Luma(srcp, cmkw, Width, lines_to_process, src_pitch, cmk_pitch, cthresh);
       }
-      srcppp += src_pitch * (Height - 4);
-      srcpp += src_pitch * (Height - 4);
-      srcp += src_pitch * (Height - 4);
-      srcpn += src_pitch * (Height - 4);
-      srcpnn += src_pitch * (Height - 4);
-      cmkw += cmk_pitch * (Height - 4);
     }
     else
     {
-      for (int y = 2; y < Height - 2; ++y)
-      {
-        for (int x = 0; x < Width; x += inc)
-        {
-          const int sFirst = srcp[x] - srcpp[x];
-          const int sSecond = srcp[x] - srcpn[x];
-          if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
-          {
-            if (abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
-              cmkw[x] = 0xFF;
-          }
-        }
-        srcppp += src_pitch;
-        srcpp += src_pitch;
-        srcp += src_pitch;
-        srcpn += src_pitch;
-        srcpnn += src_pitch;
-        cmkw += cmk_pitch;
-      }
+      if (chroma)
+        check_combing_c<uint8_t, false>(srcp, cmkw, Width, lines_to_process, src_pitch, cmk_pitch, cthresh);
+      else // luma only, skip chroma
+        check_combing_c<uint8_t, true>(srcp, cmkw, Width, lines_to_process, src_pitch, cmk_pitch, cthresh);
     }
+    srcppp += src_pitch * lines_to_process;
+    srcpp += src_pitch * lines_to_process;
+    srcp += src_pitch * lines_to_process;
+    srcpn += src_pitch * lines_to_process;
+    srcpnn += src_pitch * lines_to_process;
+    cmkw += cmk_pitch * lines_to_process;
     // Bottom -2
     for (int x = 0; x < Width; x += inc)
     {
@@ -615,7 +596,6 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
   {
     // metric != 0
     const int cthreshsq = cthresh*cthresh;
-    __m128i cthreshb_m128i = _mm_set1_epi32(cthreshsq);
     // top 1
     for (int x = 0; x < Width; x += inc)
     {
@@ -627,35 +607,24 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
     srcpn += src_pitch;
     cmkw += cmk_pitch;
     // Middle Height - 2
+    const int lines_to_process = Height - 2;
     if (use_sse2)
     {
       if (chroma)
-      {
-        check_combing_SSE2_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
-      }
+        check_combing_SSE2_Metric1(srcp, cmkw, Width, lines_to_process , src_pitch, cmk_pitch, cthreshsq);
       else
-      {
-        check_combing_SSE2_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
-      }
-      srcpp += src_pitch * (Height - 2);
-      srcp += src_pitch * (Height - 2);
-      srcpn += src_pitch * (Height - 2);
-      cmkw += cmk_pitch * (Height - 2);
+        check_combing_SSE2_Luma_Metric1(srcp, cmkw, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
+      srcpp += src_pitch * lines_to_process;
+      srcp += src_pitch * lines_to_process;
+      srcpn += src_pitch * lines_to_process;
+      cmkw += cmk_pitch * lines_to_process;
     }
     else
     {
-      for (int y = 1; y < Height - 1; ++y)
-      {
-        for (int x = 0; x < Width; x += inc)
-        {
-          if ((srcp[x] - srcpp[x])*(srcp[x] - srcpn[x]) > cthreshsq)
-            cmkw[x] = 0xFF;
-        }
-        srcpp += src_pitch;
-        srcp += src_pitch;
-        srcpn += src_pitch;
-        cmkw += cmk_pitch;
-      }
+      if (chroma)
+        check_combing_c_Metric1<uint8_t, false, int>(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
+      else
+        check_combing_c_Metric1<uint8_t, true, int>(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
     }
     // bottom 1
     for (int x = 0; x < Width; x += inc)
@@ -667,9 +636,9 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
 cjump:
   if (chroma)
   {
-    unsigned char *cmkp = cmask->GetWritePtr() + cmk_pitch;
-    unsigned char *cmkpp = cmkp - cmk_pitch;
-    unsigned char *cmkpn = cmkp + cmk_pitch;
+    uint8_t *cmkp = cmask->GetWritePtr() + cmk_pitch;
+    uint8_t *cmkpp = cmkp - cmk_pitch;
+    uint8_t *cmkpn = cmkp + cmk_pitch;
     for (int y = 1; y < Height - 1; ++y)
     {
       for (int x = 4; x < Width - 4; x += 4)
@@ -685,9 +654,9 @@ cjump:
       cmkpn += cmk_pitch;
     }
   }
-  const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
-  const unsigned char *cmkpp = cmkp - cmk_pitch;
-  const unsigned char *cmkpn = cmkp + cmk_pitch;
+  const uint8_t *cmkp = cmask->GetReadPtr() + cmk_pitch;
+  const uint8_t *cmkpp = cmkp - cmk_pitch;
+  const uint8_t *cmkpn = cmkp + cmk_pitch;
   memset(cArray, 0, arraysize * sizeof(int));
   int Heighta = (Height >> (blocky_shift - 1)) << (blocky_shift - 1);
   if (Heighta == Height) Heighta = Height - blocky_half;
@@ -741,9 +710,9 @@ cjump:
     {
       for (int x = 0; x < Widtha; x += blockx_half)
       {
-        const unsigned char *cmkppT = cmkpp;
-        const unsigned char *cmkpT = cmkp;
-        const unsigned char *cmkpnT = cmkpn;
+        const uint8_t *cmkppT = cmkpp;
+        const uint8_t *cmkpT = cmkp;
+        const uint8_t *cmkpnT = cmkpn;
         int sum = 0;
         for (int u = 0; u < blocky_half; ++u)
         {
@@ -770,9 +739,9 @@ cjump:
     // rest unaligned on the right
     for (int x = Widtha; x < Width; x += 2)
     {
-      const unsigned char *cmkppT = cmkpp;
-      const unsigned char *cmkpT = cmkp;
-      const unsigned char *cmkpnT = cmkpn;
+      const uint8_t *cmkppT = cmkpp;
+      const uint8_t *cmkpT = cmkp;
+      const uint8_t *cmkpnT = cmkpn;
       int sum = 0;
       for (int u = 0; u < blocky_half; ++u)
       {
@@ -829,11 +798,11 @@ cjump:
 
 void TDeinterlace::mapColorsYUY2(PVideoFrame &dst, PVideoFrame &mask)
 {
-  const unsigned char *maskp = mask->GetReadPtr();
+  const uint8_t *maskp = mask->GetReadPtr();
   const int mask_pitch = mask->GetPitch();
   const int Height = mask->GetHeight();
   const int Width = mask->GetRowSize();
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   const int dst_pitch = dst->GetPitch();
   for (int y = 0; y < Height; ++y)
   {
@@ -855,17 +824,17 @@ void TDeinterlace::mapColorsYUY2(PVideoFrame &dst, PVideoFrame &mask)
 void TDeinterlace::mapMergeYUY2(PVideoFrame &dst, PVideoFrame &mask,
   PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt)
 {
-  const unsigned char *maskp = mask->GetReadPtr();
+  const uint8_t *maskp = mask->GetReadPtr();
   const int mask_pitch = mask->GetPitch();
   const int Height = mask->GetHeight();
   const int Width = mask->GetRowSize();
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   const int dst_pitch = dst->GetPitch();
-  const unsigned char *prvp = prv->GetReadPtr();
+  const uint8_t *prvp = prv->GetReadPtr();
   const int prv_pitch = prv->GetPitch();
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
-  const unsigned char *nxtp = nxt->GetReadPtr();
+  const uint8_t *nxtp = nxt->GetReadPtr();
   const int nxt_pitch = nxt->GetPitch();
   for (int y = 0; y < Height; ++y)
   {
@@ -887,48 +856,55 @@ void TDeinterlace::mapMergeYUY2(PVideoFrame &dst, PVideoFrame &mask,
   }
 }
 
+// common planar/YUY2
+template<typename pixel_t>
 void TDeinterlace::updateMapAP(PVideoFrame &dst, PVideoFrame &mask, IScriptEnvironment *env)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = vi.IsPlanar() ? 3 : 1;
+  const int stop = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+  const int max_pixel_value = (1 << vi.BitsPerComponent()) - 1;
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
-    const unsigned char *maskp = mask->GetReadPtr(plane);
+    const uint8_t *maskp = mask->GetReadPtr(plane);
     const int mask_pitch = mask->GetPitch(plane);
     const int width = mask->GetRowSize(plane);
     const int height = mask->GetHeight(plane);
-    unsigned char *dstp = dst->GetWritePtr(plane);
-    const int dst_pitch = dst->GetPitch(plane);
+    pixel_t *dstp = reinterpret_cast<pixel_t *>(dst->GetWritePtr(plane));
+    const int dst_pitch = dst->GetPitch(plane) / sizeof(pixel_t);
     for (int y = 0; y < height; ++y)
     {
       for (int x = 0; x < width; ++x)
       {
         if (maskp[x] == 60)
-          dstp[x] = 255;
+          dstp[x] = max_pixel_value;
       }
       maskp += mask_pitch;
       dstp += dst_pitch;
     }
   }
 }
+// instantiate
+template void TDeinterlace::updateMapAP<uint8_t>(PVideoFrame& dst, PVideoFrame& mask, IScriptEnvironment* env);
+template void TDeinterlace::updateMapAP<uint16_t>(PVideoFrame& dst, PVideoFrame& mask, IScriptEnvironment* env);
+
 
 void TDeinterlace::eDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &efrm)
 {
-  const unsigned char *prvp = prv->GetReadPtr();
+  const uint8_t *prvp = prv->GetReadPtr();
   const int prv_pitch = prv->GetPitch();
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();
   const int Height = src->GetHeight();
-  const unsigned char *nxtp = nxt->GetReadPtr();
+  const uint8_t *nxtp = nxt->GetReadPtr();
   const int nxt_pitch = nxt->GetPitch();
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   const int dst_pitch = dst->GetPitch();
-  const unsigned char *maskp = mask->GetReadPtr();
+  const uint8_t *maskp = mask->GetReadPtr();
   const int mask_pitch = mask->GetPitch();
-  const unsigned char *efrmp = efrm->GetReadPtr();
+  const uint8_t *efrmp = efrm->GetReadPtr();
   const int efrm_pitch = efrm->GetPitch();
   for (int y = 0; y < Height; ++y)
   {
@@ -951,200 +927,28 @@ void TDeinterlace::eDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   }
 }
 
-void TDeinterlace::blendDeint(PVideoFrame &dst, PVideoFrame &mask,
-  PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-  IScriptEnvironment *env)
-{
-  PVideoFrame tf = env->NewVideoFrame(vi_saved);
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = vi.IsPlanar() ? 3 : 1;
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    const unsigned char *prvp = prv->GetReadPtr(plane);
-    const int prv_pitch = prv->GetPitch(plane);
-    const unsigned char *srcp = src->GetReadPtr(plane);
-    const int src_pitch = src->GetPitch(plane);
-    const int Width = src->GetRowSize(plane);
-    const int Height = src->GetHeight(plane);
-    const unsigned char *nxtp = nxt->GetReadPtr(plane);
-    const int nxt_pitch = nxt->GetPitch(plane);
-    unsigned char *dstp = tf->GetWritePtr(plane);
-    const int dst_pitch = tf->GetPitch(plane);
-    const unsigned char *maskp = mask->GetReadPtr(plane);
-    const int mask_pitch = mask->GetPitch(plane);
-    for (int y = 0; y < Height; ++y)
-    {
-      for (int x = 0; x < Width; ++x)
-      {
-        if (maskp[x] == 10) dstp[x] = srcp[x];
-        else if (maskp[x] == 20) dstp[x] = prvp[x];
-        else if (maskp[x] == 30) dstp[x] = nxtp[x];
-        else if (maskp[x] == 40) dstp[x] = (srcp[x] + nxtp[x] + 1) >> 1;
-        else if (maskp[x] == 50) dstp[x] = (srcp[x] + prvp[x] + 1) >> 1;
-        else if (maskp[x] == 70) dstp[x] = (prvp[x] + (srcp[x] << 1) + nxtp[x] + 2) >> 2;
-        else if (maskp[x] == 60) dstp[x] = srcp[x];
-      }
-      prvp += prv_pitch;
-      srcp += src_pitch;
-      nxtp += nxt_pitch;
-      maskp += mask_pitch;
-      dstp += dst_pitch;
-    }
-  }
-  copyFrame(dst, tf, env);
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    const unsigned char *srcp = tf->GetReadPtr(plane);
-    const int src_pitch = tf->GetPitch(plane);
-    const int Width = tf->GetRowSize(plane);
-    const int Height = tf->GetHeight(plane);
-    const unsigned char *srcpp = srcp - src_pitch;
-    const unsigned char *srcpn = srcp + src_pitch;
-    unsigned char *dstp = dst->GetWritePtr(plane);
-    const int dst_pitch = dst->GetPitch(plane);
-    const unsigned char *maskp = mask->GetReadPtr(plane);
-    const int mask_pitch = mask->GetPitch(plane);
-    const unsigned char *maskpp = maskp - mask_pitch;
-    const unsigned char *maskpn = maskp + mask_pitch;
-    for (int y = 0; y < Height; ++y)
-    {
-      for (int x = 0; x < Width; ++x)
-      {
-        if (maskp[x] == 60 || (y != 0 && maskpp[x] == 60) ||
-          (y != Height - 1 && maskpn[x] == 60))
-        {
-          if (y == 0) dstp[x] = (srcpn[x] + srcp[x] + 1) >> 1;
-          else if (y == Height - 1) dstp[x] = (srcpp[x] + srcp[x] + 1) >> 1;
-          else dstp[x] = (srcpp[x] + (srcp[x] << 1) + srcpn[x] + 2) >> 2;
-        }
-      }
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      maskpp += mask_pitch;
-      maskp += mask_pitch;
-      maskpn += mask_pitch;
-      dstp += dst_pitch;
-    }
-  }
-}
-
-// both YUY2 and planar
-void TDeinterlace::blendDeint2(PVideoFrame &dst, PVideoFrame &mask,
-  PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-  IScriptEnvironment *env)
-{
-  PVideoFrame tf = env->NewVideoFrame(vi_saved);
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = vi.IsYUY2() ? 1 : 3;
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    const unsigned char *prvp = prv->GetReadPtr(plane);
-    const int prv_pitch = prv->GetPitch(plane);
-    const unsigned char *srcp = src->GetReadPtr(plane);
-    const int src_pitch = src->GetPitch(plane);
-    const int Width = src->GetRowSize(plane);
-    const int Height = src->GetHeight(plane);
-    const unsigned char *nxtp = nxt->GetReadPtr(plane);
-    const int nxt_pitch = nxt->GetPitch(plane);
-    unsigned char *dstp = tf->GetWritePtr(plane);
-    const int dst_pitch = tf->GetPitch(plane);
-    const unsigned char *maskp = mask->GetReadPtr(plane);
-    const int mask_pitch = mask->GetPitch(plane);
-    const unsigned char *kerp;
-    int ker_pitch;
-    if (field^order)
-    {
-      ker_pitch = nxt_pitch;
-      kerp = nxtp;
-    }
-    else
-    {
-      ker_pitch = prv_pitch;
-      kerp = prvp;
-    }
-    for (int y = 0; y < Height; ++y)
-    {
-      for (int x = 0; x < Width; ++x)
-      {
-        if (maskp[x] == 10) dstp[x] = srcp[x];
-        else if (maskp[x] == 20) dstp[x] = prvp[x];
-        else if (maskp[x] == 30) dstp[x] = nxtp[x];
-        else if (maskp[x] == 40) dstp[x] = (srcp[x] + nxtp[x] + 1) >> 1;
-        else if (maskp[x] == 50) dstp[x] = (srcp[x] + prvp[x] + 1) >> 1;
-        else if (maskp[x] == 70) dstp[x] = (prvp[x] + (srcp[x] << 1) + nxtp[x] + 2) >> 2;
-        else if (maskp[x] == 60) dstp[x] = (srcp[x] + kerp[x] + 1) >> 1;
-      }
-      prvp += prv_pitch;
-      srcp += src_pitch;
-      kerp += ker_pitch;
-      nxtp += nxt_pitch;
-      maskp += mask_pitch;
-      dstp += dst_pitch;
-    }
-  }
-  copyFrame(dst, tf, env);
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    const unsigned char *srcp = tf->GetReadPtr(plane);
-    const int src_pitch = tf->GetPitch(plane);
-    const int Width = tf->GetRowSize(plane);
-    const int Height = tf->GetHeight(plane);
-    const unsigned char *srcpp = srcp - src_pitch;
-    const unsigned char *srcpn = srcp + src_pitch;
-    unsigned char *dstp = dst->GetWritePtr(plane);
-    const int dst_pitch = dst->GetPitch(plane);
-    const unsigned char *maskp = mask->GetReadPtr(plane);
-    const int mask_pitch = mask->GetPitch(plane);
-    const unsigned char *maskpp = maskp - mask_pitch;
-    const unsigned char *maskpn = maskp + mask_pitch;
-    for (int y = 0; y < Height; ++y)
-    {
-      for (int x = 0; x < Width; ++x)
-      {
-        if (maskp[x] == 60 || (y != 0 && maskpp[x] == 60) ||
-          (y != Height - 1 && maskpn[x] == 60))
-        {
-          if (y == 0) dstp[x] = (srcpn[x] + srcp[x] + 1) >> 1;
-          else if (y == Height - 1) dstp[x] = (srcpp[x] + srcp[x] + 1) >> 1;
-          else dstp[x] = (srcpp[x] + (srcp[x] << 1) + srcpn[x] + 2) >> 2;
-        }
-      }
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      maskpp += mask_pitch;
-      maskp += mask_pitch;
-      maskpn += mask_pitch;
-      dstp += dst_pitch;
-    }
-  }
-}
 
 void TDeinterlace::cubicDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt)
 {
-  const unsigned char *prvp = prv->GetReadPtr();
+  constexpr int bits_per_pixel = 8;
+  const uint8_t *prvp = prv->GetReadPtr();
   const int prv_pitch = prv->GetPitch();
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int src_pitch2 = src_pitch << 1;
   const int Width = src->GetRowSize();
   const int Height = src->GetHeight();
-  const unsigned char *nxtp = nxt->GetReadPtr();
+  const uint8_t *nxtp = nxt->GetReadPtr();
   const int nxt_pitch = nxt->GetPitch();
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   const int dst_pitch = dst->GetPitch();
-  const unsigned char *maskp = mask->GetReadPtr();
+  const uint8_t *maskp = mask->GetReadPtr();
   const int mask_pitch = mask->GetPitch();
-  const unsigned char *srcpp = srcp - src_pitch;
-  const unsigned char *srcppp = srcpp - src_pitch2;
-  const unsigned char *srcpn = srcp + src_pitch;
-  const unsigned char *srcpnn = srcpn + src_pitch2;
+  const uint8_t *srcpp = srcp - src_pitch;
+  const uint8_t *srcppp = srcpp - src_pitch2;
+  const uint8_t *srcpn = srcp + src_pitch;
+  const uint8_t *srcpnn = srcpn + src_pitch2;
   for (int y = 0; y < Height; ++y)
   {
     for (int x = 0; x < Width; ++x)
@@ -1160,7 +964,7 @@ void TDeinterlace::cubicDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
         if (y == 0) dstp[x] = srcpn[x];
         else if (y == Height - 1) dstp[x] = srcpp[x];
         else if (y<3 || y>Height - 4) dstp[x] = (srcpn[x] + srcpp[x] + 1) >> 1;
-        else dstp[x] = cubicInt(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
+        else dstp[x] = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
       }
     }
     prvp += prv_pitch;
@@ -1178,20 +982,20 @@ void TDeinterlace::cubicDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
 void TDeinterlace::ELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt)
 {
-  const unsigned char *prvp = prv->GetReadPtr();
+  const uint8_t *prvp = prv->GetReadPtr();
   const int prv_pitch = prv->GetPitch();
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();
   const int Height = src->GetHeight();
-  const unsigned char *nxtp = nxt->GetReadPtr();
+  const uint8_t *nxtp = nxt->GetReadPtr();
   const int nxt_pitch = nxt->GetPitch();
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   const int dst_pitch = dst->GetPitch();
-  const unsigned char *maskp = mask->GetReadPtr();
+  const uint8_t *maskp = mask->GetReadPtr();
   const int mask_pitch = mask->GetPitch();
-  const unsigned char *srcpp = srcp - src_pitch;
-  const unsigned char *srcpn = srcp + src_pitch;
+  const uint8_t *srcpp = srcp - src_pitch;
+  const uint8_t *srcpn = srcp + src_pitch;
   for (int y = 0; y < Height; ++y)
   {
     for (int x = 0; x < Width; ++x)
@@ -1289,26 +1093,26 @@ void TDeinterlace::ELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
 void TDeinterlace::kernelDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt)
 {
-  const unsigned char *prvp = prv->GetReadPtr();
+  const uint8_t *prvp = prv->GetReadPtr();
   const int prv_pitch = prv->GetPitch();
   const int prv_pitch2 = prv_pitch << 1;
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int src_pitch2 = src_pitch << 1;
   const int Width = src->GetRowSize();
   const int Height = src->GetHeight();
-  const unsigned char *nxtp = nxt->GetReadPtr();
+  const uint8_t *nxtp = nxt->GetReadPtr();
   const int nxt_pitch = nxt->GetPitch();
   const int nxt_pitch2 = nxt_pitch << 1;
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   const int dst_pitch = dst->GetPitch();
-  const unsigned char *maskp = mask->GetReadPtr();
+  const uint8_t *maskp = mask->GetReadPtr();
   const int mask_pitch = mask->GetPitch();
-  const unsigned char *srcpp = srcp - src_pitch;
-  const unsigned char *srcppp = srcpp - src_pitch2;
-  const unsigned char *srcpn = srcp + src_pitch;
-  const unsigned char *srcpnn = srcpn + src_pitch2;
-  const unsigned char *kerc, *kerp, *kerpp, *kern, *kernn;
+  const uint8_t *srcpp = srcp - src_pitch;
+  const uint8_t *srcppp = srcpp - src_pitch2;
+  const uint8_t *srcpn = srcp + src_pitch;
+  const uint8_t *srcpnn = srcpn + src_pitch2;
+  const uint8_t *kerc, *kerp, *kerpp, *kern, *kernn;
   int ker_pitch;
   if (rmatch == 0)
   {
@@ -1408,26 +1212,27 @@ void TDeinterlace::kernelDeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   }
 }
 
-void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
+void smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt)
 {
-  const unsigned char *prvp = prv->GetReadPtr();
+  constexpr int bits_per_pixel = 8;
+  const uint8_t *prvp = prv->GetReadPtr();
   const int prv_pitch = prv->GetPitch();
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int src_pitch2 = src_pitch << 1;
   const int Width = src->GetRowSize();
   const int Height = src->GetHeight();
-  const unsigned char *nxtp = nxt->GetReadPtr();
+  const uint8_t *nxtp = nxt->GetReadPtr();
   const int nxt_pitch = nxt->GetPitch();
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   const int dst_pitch = dst->GetPitch();
-  const unsigned char *maskp = mask->GetReadPtr();
+  const uint8_t *maskp = mask->GetReadPtr();
   const int mask_pitch = mask->GetPitch();
-  const unsigned char *srcpp = srcp - src_pitch;
-  const unsigned char *srcppp = srcpp - src_pitch2;
-  const unsigned char *srcpn = srcp + src_pitch;
-  const unsigned char *srcpnn = srcpn + src_pitch2;
+  const uint8_t *srcpp = srcp - src_pitch;
+  const uint8_t *srcppp = srcpp - src_pitch2;
+  const uint8_t *srcpn = srcp + src_pitch;
+  const uint8_t *srcpnn = srcpn + src_pitch2;
   for (int y = 0; y < Height; ++y)
   {
     for (int x = 0; x < Width; ++x)
@@ -1526,7 +1331,7 @@ void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
                     else
                     {
                       temp1 = temp2 = srcpn[x];
-                      temp = cubicInt(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
+                      temp = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
                     }
                   }
                   else
@@ -1576,7 +1381,7 @@ void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
                     else
                     {
                       temp1 = temp2 = srcpn[x];
-                      temp = cubicInt(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
+                      temp = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
                     }
                   }
                   else
@@ -1611,7 +1416,7 @@ void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
           const int minN = min(srcpp[x], srcpn[x]) - 25;
           if (abs(temp1 - temp2) > 20 || abs(srcpp[x] + srcpn[x] - temp - temp) > 60 || temp < minN || temp > maxN)
           {
-            temp = cubicInt(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
+            temp = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
           }
           if (temp > 255) temp = 255;
           else if (temp < 0) temp = 0;
@@ -1622,7 +1427,7 @@ void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
           if (y == 0) dstp[x] = srcpn[x];
           else if (y == Height - 1) dstp[x] = srcpp[x];
           else if (y<3 || y>Height - 4) dstp[x] = (srcpn[x] + srcpp[x] + 1) >> 1;
-          else dstp[x] = cubicInt(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
+          else dstp[x] = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
         }
       }
     chromajump:
@@ -1638,7 +1443,7 @@ void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
         if (y == 0) dstp[x] = srcpn[x];
         else if (y == Height - 1) dstp[x] = srcpp[x];
         else if (y<3 || y>Height - 4) dstp[x] = (srcpn[x] + srcpp[x] + 1) >> 1;
-        else dstp[x] = cubicInt(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
+        else dstp[x] = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);
       }
     }
     prvp += prv_pitch;
@@ -1653,8 +1458,9 @@ void TDeinterlace::smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
   }
 }
 
-void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &efrm,
-  IScriptEnvironment *env)
+// common planar / YUY2
+template<typename pixel_t>
+void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame &efrm, IScriptEnvironment *env)
 {
   PVideoFrame maskt;
   if (APType > 0)
@@ -1663,39 +1469,46 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
     copyFrame(maskt, mask, env);
   }
   int count = 0;
-  const int stop = vi.IsPlanar() ? 3 : 1;
-  const int AP6 = AP * 6;
+
+  const int bits_per_pixel = vi.BitsPerComponent();
+  const int scaled_AP = AP << (bits_per_pixel - 8);
+  const int scaled_AP6 = scaled_AP * 6;
+
+  const int stop = vi.IsYUY2() || vi.IsY() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < stop; ++b)
   {
     int plane = planes[b];
-    const unsigned char *dstp = dst->GetReadPtr(plane);
-    const int dst_pitch = dst->GetPitch(plane);
+    const pixel_t *dstp = reinterpret_cast<const pixel_t *>(dst->GetReadPtr(plane));
+    const int dst_pitch = dst->GetPitch(plane) / sizeof(pixel_t);
     const int dst_pitch2 = dst_pitch << 1;
-    const int Width = dst->GetRowSize(plane);
+    const int Width = dst->GetRowSize(plane) / sizeof(pixel_t);
     const int Height = dst->GetHeight(plane);
     dstp += (2 - field)*dst_pitch;
-    const unsigned char *dstppp = dstp - dst_pitch2;
-    const unsigned char *dstpp = dstp - dst_pitch;
-    const unsigned char *dstpn = dstp + dst_pitch;
-    const unsigned char *dstpnn = dstp + dst_pitch2;
-    unsigned char *maskw = mask->GetWritePtr(plane);
+    const pixel_t *dstppp = dstp - dst_pitch2;
+    const pixel_t*dstpp = dstp - dst_pitch;
+    const pixel_t *dstpn = dstp + dst_pitch;
+    const pixel_t*dstpnn = dstp + dst_pitch2;
+    
+    uint8_t *maskw = mask->GetWritePtr(plane);
     const int mask_pitch = mask->GetPitch(plane);
     const int mask_pitch2 = mask_pitch << 1;
-    const unsigned char *maskp = APType > 0 ? maskt->GetReadPtr(plane) : NULL;
+    const uint8_t *maskp = APType > 0 ? maskt->GetReadPtr(plane) : NULL;
     int maskp_pitch = APType > 0 ? maskt->GetPitch(plane) : 0;
     const int maskp_pitch2 = maskp_pitch << 1;
     maskw += (2 - field)*mask_pitch;
+
     int y = 2 - field;
+    
     for (int x = 0; x < Width; ++x)
     {
       if (maskw[x] == 60) { maskw[x] = 10; continue; }
       maskw[x] = 10;
       const int sFirst = dstp[x] - dstpp[x];
       const int sSecond = dstp[x] - dstpn[x];
-      if ((sFirst > AP && sSecond > AP) || (sFirst < -AP && sSecond < -AP))
+      if ((sFirst > scaled_AP && sSecond > scaled_AP) || (sFirst < -scaled_AP && sSecond < -scaled_AP))
       {
-        if (abs(dstpnn[x] + (dstp[x] << 2) + dstpnn[x] - (3 * (dstpp[x] + dstpn[x]))) > AP6)
+        if (abs(dstpnn[x] + (dstp[x] << 2) + dstpnn[x] - (3 * (dstpp[x] + dstpn[x]))) > scaled_AP6)
         {
           if (APType > 0)
           {
@@ -1705,7 +1518,7 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
             const int starty = y - 4 < 0 ? y - 2 < 0 ? y : y - 2 : y - 4;
             const int stopy = y + 4 > Height - 1 ? y + 2 > Height - 1 ? y : y + 2 : y + 4;
             int neighbors = 0, moving = 0;
-            const unsigned char *maskpT = maskp + starty*maskp_pitch;
+            const uint8_t *maskpT = maskp + starty*maskp_pitch;
             for (int u = starty; u <= stopy; u += 2)
             {
               for (int v = startx; v <= stopx; v += inc)
@@ -1747,9 +1560,9 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
         maskw[x] = 10;
         const int sFirst = dstp[x] - dstpp[x];
         const int sSecond = dstp[x] - dstpn[x];
-        if ((sFirst > AP && sSecond > AP) || (sFirst < -AP && sSecond < -AP))
+        if ((sFirst > scaled_AP && sSecond > scaled_AP) || (sFirst < -scaled_AP && sSecond < -scaled_AP))
         {
-          if (abs(dstppp[x] + (dstp[x] << 2) + dstpnn[x] - (3 * (dstpp[x] + dstpn[x]))) > AP6)
+          if (abs(dstppp[x] + (dstp[x] << 2) + dstpnn[x] - (3 * (dstpp[x] + dstpn[x]))) > scaled_AP6)
           {
             if (APType > 0)
             {
@@ -1757,7 +1570,7 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
               const int startx = x - (inc << 1) < 0 ? x - inc < 0 ? x : x - inc : x - (inc << 1);
               const int stopx = x + (inc << 1) > Width - 1 ? x + inc > Width - 1 ? x : x + inc : x + (inc << 1);
               int neighbors = 0, moving = 0;
-              const unsigned char *maskpT = maskp + starty*maskp_pitch;
+              const uint8_t *maskpT = maskp + starty*maskp_pitch;
               for (int u = starty; u <= stopy; u += 2)
               {
                 for (int v = startx; v <= stopx; v += inc)
@@ -1795,9 +1608,9 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
       maskw[x] = 10;
       const int sFirst = dstp[x] - dstpp[x];
       const int sSecond = dstp[x] - dstpn[x];
-      if ((sFirst > AP && sSecond > AP) || (sFirst < -AP && sSecond < -AP))
+      if ((sFirst > scaled_AP && sSecond > scaled_AP) || (sFirst < -scaled_AP && sSecond < -scaled_AP))
       {
-        if (abs(dstppp[x] + (dstp[x] << 2) + dstppp[x] - (3 * (dstpp[x] + dstpn[x]))) > AP6)
+        if (abs(dstppp[x] + (dstp[x] << 2) + dstppp[x] - (3 * (dstpp[x] + dstpn[x]))) > scaled_AP6)
         {
           if (APType > 0)
           {
@@ -1807,7 +1620,7 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
             const int starty = y - 4 < 0 ? y - 2 < 0 ? y : y - 2 : y - 4;
             const int stopy = y + 4 > Height - 1 ? y + 2 > Height - 1 ? y : y + 2 : y + 4;
             int neighbors = 0, moving = 0;
-            const unsigned char *maskpT = maskp + starty*maskp_pitch;
+            const uint8_t *maskpT = maskp + starty*maskp_pitch;
             for (int u = starty; u <= stopy; u += 2)
             {
               for (int v = startx; v <= stopx; v += inc)
@@ -1837,13 +1650,13 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
   {
     if (vi.IsPlanar())
     {
-      if (edeint) eDeintPlanar(dst, mask, dst, dst, dst, efrm);
-      else if (type == 0) cubicDeintPlanar(dst, mask, dst, dst, dst);
-      else if (type == 1) smartELADeintPlanar(dst, mask, dst, dst, dst);
-      else if (type == 2) kernelDeintPlanar(dst, mask, dst, dst, dst);
-      else if (type == 3) ELADeintPlanar(dst, mask, dst, dst, dst);
-      else if (type == 4) blendDeint(dst, mask, dst, dst, dst, env);
-      else if (type == 5) blendDeint2(dst, mask, dst, dst, dst, env);
+      if (edeint) dispatch_eDeintPlanar(dst, mask, dst, dst, dst, efrm, vi);
+      else if (type == 0) dispatch_cubicDeintPlanar(dst, mask, dst, dst, dst, vi);
+      else if (type == 1) dispatch_smartELADeintPlanar(dst, mask, dst, dst, dst, vi);
+      else if (type == 2) dispatch_kernelDeintPlanar(dst, mask, dst, dst, dst, vi);
+      else if (type == 3) dispatch_ELADeintPlanar(dst, mask, dst, dst, dst, vi);
+      else if (type == 4) dispatch_blendDeint(dst, mask, dst, dst, dst, vi, env);
+      else if (type == 5) dispatch_blendDeint2(dst, mask, dst, dst, dst, vi, env);
     }
     else
     { // YUY2
@@ -1852,50 +1665,67 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
       else if (type == 1) smartELADeintYUY2(dst, mask, dst, dst, dst);
       else if (type == 2) kernelDeintYUY2(dst, mask, dst, dst, dst);
       else if (type == 3) ELADeintYUY2(dst, mask, dst, dst, dst);
-      else if (type == 4) blendDeint(dst, mask, dst, dst, dst, env);
-      else if (type == 5) blendDeint2(dst, mask, dst, dst, dst, env);
+      else if (type == 4) blendDeint<uint8_t>(dst, mask, dst, dst, dst, env);
+      else if (type == 5) blendDeint2<uint8_t>(dst, mask, dst, dst, dst, env);
     }
   }
 }
+// instantiate
+template void TDeinterlace::apPostCheck<uint8_t>(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& efrm, IScriptEnvironment* env);
+template void TDeinterlace::apPostCheck<uint16_t>(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& efrm, IScriptEnvironment* env);
 
-void TDeinterlace::copyForUpsize(PVideoFrame &dst, PVideoFrame &src, int np, IScriptEnvironment *env)
+
+// no hbd involved
+void TDeinterlace::copyForUpsize(PVideoFrame &dst, PVideoFrame &src, const VideoInfo& vi, IScriptEnvironment *env)
 {
+  const int stop = vi.IsYUY2() || vi.IsY() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (int b = 0; b < np; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
-    env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane) * 2, src->GetReadPtr(plane),
-      src->GetPitch(plane), src->GetRowSize(plane), src->GetHeight(plane));
-    env->BitBlt(dst->GetWritePtr(plane) + (dst->GetPitch(plane)*(dst->GetHeight(plane) - 1)),
-      dst->GetPitch(plane), src->GetReadPtr(plane) + (src->GetPitch(plane)*(src->GetHeight(plane) - 1)),
-      src->GetPitch(plane), src->GetRowSize(plane), 1);
+    // spread source lines into every 2nd line of dst
+    env->BitBlt(
+      dst->GetWritePtr(plane), dst->GetPitch(plane) * 2,
+      src->GetReadPtr(plane), src->GetPitch(plane),
+      src->GetRowSize(plane), src->GetHeight(plane));
+    // copy last src line to last dst line
+    env->BitBlt(
+      dst->GetWritePtr(plane) + (dst->GetPitch(plane) * (dst->GetHeight(plane) - 1)),
+      dst->GetPitch(plane),
+      src->GetReadPtr(plane) + (src->GetPitch(plane) * (src->GetHeight(plane) - 1)),
+      src->GetPitch(plane),
+      src->GetRowSize(plane), 1);
   }
 }
 
+// no hbd involved
 void TDeinterlace::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env)
 {
-  const int stop = vi.IsPlanar() ? 3 : 1;
+  const int stop = vi.IsYUY2() || vi.IsY() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane), src->GetReadPtr(plane),
-      src->GetPitch(plane), src->GetRowSize(plane + 8 /*fixme: aligned why?*/), src->GetHeight(plane));
+      src->GetPitch(plane), src->GetRowSize(plane), src->GetHeight(plane));
   }
 }
 
-// for Planar (np=3) and YUY2 (np=1)
-void TDeinterlace::setMaskForUpsize(PVideoFrame &msk, int np)
+// for Planar and YUY2 (np=1)
+// mask frame is always 8 bits
+// no hbd involved
+void TDeinterlace::setMaskForUpsize(PVideoFrame &msk, const VideoInfo& vi_mask)
 {
+  const int stop = vi_mask.IsYUY2() || vi_mask.IsY() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (int b = 0; b < np; ++b)
+  for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
-    unsigned char *maskwc = msk->GetWritePtr(plane);
+    uint8_t *maskwc = msk->GetWritePtr(plane);
     const int msk_pitch = msk->GetPitch(plane) << 1;
     const int height = msk->GetHeight(plane) >> 1;
     const int width = msk->GetRowSize(plane);
-    unsigned char *maskwn = maskwc + (msk_pitch >> 1);
+    uint8_t *maskwn = maskwc + (msk_pitch >> 1);
     if (field == 1)
     {
       for (int y = 0; y < height - 1; ++y)
@@ -1923,51 +1753,13 @@ void TDeinterlace::setMaskForUpsize(PVideoFrame &msk, int np)
   }
 }
 
-void TDeinterlace::createWeaveFrameYUY2(PVideoFrame &dst, PVideoFrame &prv,
-  PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env)
-{
-  if (field^order)
-  {
-    if (rmatch == 0)
-    {
-      env->BitBlt(dst->GetWritePtr(), dst->GetPitch(), src->GetReadPtr(),
-        src->GetPitch(), src->GetRowSize(), src->GetHeight());
-    }
-    else
-    {
-      env->BitBlt(dst->GetWritePtr() + (1 - field)*dst->GetPitch(), dst->GetPitch() << 1,
-        src->GetReadPtr() + (1 - field)*src->GetPitch(), src->GetPitch() << 1,
-        src->GetRowSize(), src->GetHeight() >> 1);
-      env->BitBlt(dst->GetWritePtr() + field*dst->GetPitch(), dst->GetPitch() << 1,
-        nxt->GetReadPtr() + field*nxt->GetPitch(), nxt->GetPitch() << 1, nxt->GetRowSize(),
-        nxt->GetHeight() >> 1);
-    }
-  }
-  else
-  {
-    if (rmatch == 1)
-    {
-      env->BitBlt(dst->GetWritePtr(), dst->GetPitch(), src->GetReadPtr(),
-        src->GetPitch(), src->GetRowSize(), src->GetHeight());
-    }
-    else
-    {
-      env->BitBlt(dst->GetWritePtr() + (1 - field)*dst->GetPitch(), dst->GetPitch() << 1,
-        src->GetReadPtr() + (1 - field)*src->GetPitch(), src->GetPitch() << 1,
-        src->GetRowSize(), src->GetHeight() >> 1);
-      env->BitBlt(dst->GetWritePtr() + field*dst->GetPitch(), dst->GetPitch() << 1,
-        prv->GetReadPtr() + field*prv->GetPitch(), prv->GetPitch() << 1, prv->GetRowSize(),
-        prv->GetHeight() >> 1);
-    }
-  }
-}
-
+// hbd OK inside
 PVideoFrame TDeinterlace::createMap(PVideoFrame &src, int c, IScriptEnvironment *env, int tf)
 {
   if (map == 2)
     return src;
   PVideoFrame dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
-  const int stop = vi.IsPlanar() ? 3 : 1;
+  const int stop = vi.IsYUY2() || vi.IsY() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   if (c == 0)
   {
@@ -1982,7 +1774,7 @@ PVideoFrame TDeinterlace::createMap(PVideoFrame &src, int c, IScriptEnvironment 
           src->GetReadPtr(plane), src->GetPitch(plane),
           src->GetRowSize(plane), height);
       }
-      unsigned char *dstp = dst->GetWritePtr(plane);
+      uint8_t *dstp = dst->GetWritePtr(plane);
       if (map > 2) dstp += dst_pitch*height;
       if (map & 1)
         memset(dstp, 0, dst_pitch*height);
@@ -1994,38 +1786,62 @@ PVideoFrame TDeinterlace::createMap(PVideoFrame &src, int c, IScriptEnvironment 
   }
   else
   {
-    const int rmlut[3] = { 51, 0, 102 };
+    const int bits_per_pixel = vi.BitsPerComponent();
+
+    // lut for pixel colors, hbd scaling here
+    const int rmlut[3] = 
+    { 
+      51 << (bits_per_pixel - 8),
+      0 << (bits_per_pixel - 8),
+      102 << (bits_per_pixel - 8)
+    };
+
     int mt = (tf^order) ? (rmatch == 0 ? 1 : 2) : (rmatch == 1 ? 1 : 0);
+
     const int val1 = tf == 0 ? rmlut[mt] : 0;
     const int val2 = tf == 0 ? 0 : rmlut[mt];
+
     for (int b = 0; b < stop; ++b)
     {
       const int plane = planes[b];
       const int height = src->GetHeight(plane);
       const int dst_pitch = dst->GetPitch(plane);
-      const int width = src->GetRowSize(plane);
+      const int rowsize = src->GetRowSize(plane);
       if (map > 2)
       {
         env->BitBlt(dst->GetWritePtr(plane), dst_pitch,
           src->GetReadPtr(plane), src->GetPitch(plane),
-          width, height);
+          rowsize, height);
       }
-      unsigned char *dstp = dst->GetWritePtr(plane);
+      uint8_t *dstp = dst->GetWritePtr(plane);
       if (map > 2) dstp += dst_pitch*height;
       if (map & 1)
       {
-        for (int i = 0; i < height; i += 2)
-        {
-          memset(dstp, val1, width);
-          dstp += dst_pitch;
-          memset(dstp, val2, width);
-          dstp += dst_pitch;
+        if (bits_per_pixel == 8) {
+          // uint8_t
+          for (int i = 0; i < height; i += 2)
+          {
+            memset(dstp, val1, rowsize);
+            dstp += dst_pitch;
+            memset(dstp, val2, rowsize);
+            dstp += dst_pitch;
+          }
+        }
+        else {
+          // 10-16 bits
+          for (int i = 0; i < height; i += 2)
+          {
+            std::fill_n((uint16_t *)dstp, rowsize >> 1, val1);
+            dstp += dst_pitch;
+            std::fill_n((uint16_t*)dstp, rowsize >> 1, val2);
+            dstp += dst_pitch;
+          }
         }
       }
       else
         env->BitBlt(dstp, dst_pitch,
           src->GetReadPtr(plane), src->GetPitch(plane),
-          width, height); // no hbd, mask is 8 bits
+          rowsize, height);
     }
   }
   return dst;

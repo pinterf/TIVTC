@@ -30,7 +30,7 @@
 class TDBuf
 {
 private:
-  unsigned char *y, *u, *v;
+  uint8_t *y, *u, *v;
   int pitchy, pitchuv;
   int lpitchy, lpitchuv;
   int widthy, widthuv;
@@ -41,8 +41,8 @@ public:
   std::vector<int> fnum;
   TDBuf(int _size, int _width, int _height, int _cp, int planarType);
   ~TDBuf();
-  const unsigned char* GetReadPtr(int pos, int plane);
-  unsigned char* GetWritePtr(int pos, int plane);
+  const uint8_t* GetReadPtr(int pos, int plane);
+  uint8_t* GetWritePtr(int pos, int plane);
   int GetPitch(int plane);
   int GetLPitch(int plane);
   int GetHeight(int plane);
