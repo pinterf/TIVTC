@@ -477,13 +477,13 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
     if (d.metricF_needed) { // called from TDecimate. from FrameDiff:false
       if (b == 0) // luma
       {
-        d.metricF = 0;
+        *d.metricF = 0;
         if (d.scene)
         {
           if (d.np == 3 || !d.chroma) // planar or YUY2 luma+chroma
           {
             for (int x = 0; x < arraysize; x += 4)
-              d.metricF += d.diff[x];
+              *d.metricF += d.diff[x];
           }
           else
           {
