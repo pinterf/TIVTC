@@ -1,4 +1,4 @@
-# TIVTC v1.0.16 (20200510) 
+# TIVTC v1.0.17 (20200512) 
 # TDeInt v1.4 (20200512)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -30,7 +30,11 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.16 (20200510):
+# TIVTC v1.0.17 (20200512):
+
+**v1.0.17 (20200512)**
+- Fix: TDecimate clip2 colorspace check
+- Fix: Metric calculation (regression after v14)
 
 **v1.0.16 (20200510)**
 - Fix: TFMPP clip2 colorspace similarity check failed

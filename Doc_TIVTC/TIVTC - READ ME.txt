@@ -1,5 +1,5 @@
 
-                           TIVTC v1.0.16   HELP FILE - (10 May, 2020)
+                           TIVTC v1.0.17   HELP FILE - (12 May, 2020)
 
 INFO:
    Base on TIVTC v1.0.5   HELP FILE - (08 January, 2008)
@@ -30,7 +30,7 @@ INFO:
                             RequestLinear   v1.2       (21 November 2007)
   
   
-  Beginning with 1.0.15 all filters were updated to support planar YUV colorspaces, their unique version is not maintained 
+  Beginning with 1.0.17 all filters were updated to support planar YUV colorspaces (411, YV12, YV16, YV24), their unique version is not maintained 
   currently (pinterf)
   
   Project (along with TDeint) is hosted at https://github.com/pinterf/TIVTC

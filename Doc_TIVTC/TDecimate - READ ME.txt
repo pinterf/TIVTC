@@ -773,6 +773,10 @@ F.)  OVERRIDES:
 
 G.)  CHANGE LIST:
 
+    (20200512) (in v1.0.17 pack)
+         - fix regression on metric calculation
+         - fix incorrect clip2 colorspace check (introduced in v1.0.15)
+
     (20200508) (same number - pinterf)
          - opt = 1 and opt = 2 is like opt = 3
          - add all planar YUV support (422, 444, 411) besides 420
