@@ -34,6 +34,7 @@
 #define PLANAR_422 2
 #define PLANAR_444 3
 #define PLANAR_411 4
+#define PLANAR_400 5
 
 __declspec(align(16)) const int64_t Ymask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
 
@@ -45,7 +46,7 @@ private:
   int ypitch, uvpitch;
   int ywidth, uvwidth;
   int yheight, uvheight;
-  unsigned char *y, *u, *v;
+  uint8_t *y, *u, *v;
   bool allocSpace(VideoInfo &viInfo);
   bool allocSpace(int specs[4]);
   void copyInternalFrom(PVideoFrame &frame, VideoInfo &viInfo);
@@ -53,14 +54,14 @@ private:
   void copyInternalTo(PVideoFrame &frame, VideoInfo &viInfo);
   void copyInternalTo(PlanarFrame &frame);
   void copyInternalPlaneTo(PlanarFrame &frame, int plane);
-  void convYUY2to422(const unsigned char *src, unsigned char *py, unsigned char *pu,
-    unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
-  void convYUY2to422_SSE2(const unsigned char *src, unsigned char *py, unsigned char *pu,
-    unsigned char *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
-  void conv422toYUY2(unsigned char *py, unsigned char *pu, unsigned char *pv,
-    unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
-  void conv422toYUY2_SSE2(unsigned char *py, unsigned char *pu, unsigned char *pv,
-    unsigned char *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
+  void convYUY2to422(const uint8_t *src, uint8_t *py, uint8_t *pu,
+    uint8_t *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
+  void convYUY2to422_SSE2(const uint8_t *src, uint8_t *py, uint8_t *pu,
+    uint8_t *pv, int pitch1, int pitch2Y, int pitch2UV, int width, int height);
+  void conv422toYUY2(uint8_t *py, uint8_t *pu, uint8_t *pv,
+    uint8_t *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
+  void conv422toYUY2_SSE2(uint8_t *py, uint8_t *pu, uint8_t *pv,
+    uint8_t *dst, int pitch1Y, int pitch1UV, int pitch2, int width, int height);
 
 public:
   PlanarFrame(int cpuInfo);
@@ -80,11 +81,11 @@ public:
   void copyToForBMP(PVideoFrame &dst, VideoInfo &viInfo);
   void copyPlaneTo(PlanarFrame &dst, int plane);
   void freePlanar();
-  unsigned char* GetPtr(int plane = 0);
+  uint8_t* GetPtr(int plane = 0);
   int GetWidth(int plane = 0);
   int GetHeight(int plane = 0);
   int GetPitch(int plane = 0);
-  void BitBlt(unsigned char* dstp, int dst_pitch, const unsigned char* srcp,
+  void BitBlt(uint8_t* dstp, int dst_pitch, const uint8_t* srcp,
     int src_pitch, int row_size, int height);
   PlanarFrame& operator=(PlanarFrame &ob2);
 };
