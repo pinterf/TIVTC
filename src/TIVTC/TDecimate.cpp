@@ -2030,7 +2030,8 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
         current.diffMetricsN[b] = (metricsArray[i << 1] * 100.0) / MAX_DIFF;
         foundM = true;
       }
-      if (metricsArray[(i << 1) + 1] != ULLONG_MAX) current.diffMetricsUF[b] = metricsArray[(i << 1) + 1];
+      if (metricsArray[(i << 1) + 1] != ULLONG_MAX)
+        current.diffMetricsUF[b] = metricsArray[(i << 1) + 1];
     }
     if (metricsOutArray != NULL && !foundM)
     {
@@ -2039,11 +2040,14 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
         current.diffMetricsU[b] = metricsOutArray[i << 1];
         current.diffMetricsN[b] = (metricsOutArray[i << 1] * 100.0) / MAX_DIFF;
       }
-      if (metricsOutArray[(i << 1) + 1] != ULLONG_MAX) current.diffMetricsUF[b] = metricsOutArray[(i << 1) + 1];
+      if (metricsOutArray[(i << 1) + 1] != ULLONG_MAX)
+        current.diffMetricsUF[b] = metricsOutArray[(i << 1) + 1];
     }
   }
-  if (v > 0 && v == current.cycleE - current.cycleS && current.type != 1) current.type = 5;
-  if (p > 0 && p == current.cycleE - current.cycleS && current.type != 5) current.type = 1;
+  if (v > 0 && v == current.cycleE - current.cycleS && current.type != 1)
+    current.type = 5;
+  if (p > 0 && p == current.cycleE - current.cycleS && current.type != 5)
+    current.type = 1;
   current.setIsFilmD2V();
 }
 
@@ -2052,14 +2056,21 @@ void TDecimate::getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF)
   metricU = metricF = ULLONG_MAX;
   if (metricsArray != NULL)
   {
-    if (metricsArray[n << 1] != ULLONG_MAX) metricU = metricsArray[n << 1];
-    if (metricsArray[(n << 1) + 1] != ULLONG_MAX) metricF = metricsArray[(n << 1) + 1];
+    if (metricsArray[n << 1] != ULLONG_MAX)
+      metricU = metricsArray[n << 1];
+    if (metricsArray[(n << 1) + 1] != ULLONG_MAX)
+      metricF = metricsArray[(n << 1) + 1];
   }
-  if (metricU != ULLONG_MAX && metricF != ULLONG_MAX) return;
+  
+  if (metricU != ULLONG_MAX && metricF != ULLONG_MAX)
+    return;
+
   if (metricsOutArray != NULL)
   {
-    if (metricU == ULLONG_MAX && metricsOutArray[n << 1] != ULLONG_MAX) metricU = metricsOutArray[n << 1];
-    if (metricF == ULLONG_MAX && metricsOutArray[(n << 1) + 1] != ULLONG_MAX) metricF = metricsOutArray[(n << 1) + 1];
+    if (metricU == ULLONG_MAX && metricsOutArray[n << 1] != ULLONG_MAX) 
+      metricU = metricsOutArray[n << 1];
+    if (metricF == ULLONG_MAX && metricsOutArray[(n << 1) + 1] != ULLONG_MAX)
+      metricF = metricsOutArray[(n << 1) + 1];
   }
 }
 
