@@ -55,15 +55,15 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   if (opt == 0) cpu = 0;
   bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
   const int Width = src->GetRowSize();
   const int Height = src->GetHeight();
-  const unsigned char *srcpp = srcp - src_pitch;
-  const unsigned char *srcppp = srcpp - src_pitch;
-  const unsigned char *srcpn = srcp + src_pitch;
-  const unsigned char *srcpnn = srcpn + src_pitch;
-  unsigned char *cmkw = cmask->GetPtr();
+  const uint8_t *srcpp = srcp - src_pitch;
+  const uint8_t *srcppp = srcpp - src_pitch;
+  const uint8_t *srcpn = srcp + src_pitch;
+  const uint8_t *srcpnn = srcpn + src_pitch;
+  uint8_t *cmkw = cmask->GetPtr();
   const int cmk_pitch = cmask->GetPitch();
   const int inc = chroma ? 1 : 2;
   const int xblocks = ((Width + xhalf) >> xshift) + 1;
@@ -79,15 +79,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   if (metric == 0)
   {
     const int cthresh6 = cthresh * 6;
-    __m128i cthreshb_m128i;
-    __m128i cthresh6w_m128i;
-    if (use_sse2)
-    {
-      unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
-      cthreshb_m128i = _mm_set1_epi8(cthresht);
-      unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
-      cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
-    }
+
     for (int x = 0; x < Width; x += inc)
     {
       const int sFirst = srcp[x] - srcpn[x];
@@ -123,7 +115,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     {
       if (chroma)
       {
-        check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
         srcppp += src_pitch * (Height - 4);
         srcpp += src_pitch * (Height - 4);
         srcp += src_pitch * (Height - 4);
@@ -133,7 +125,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
       }
       else
       {
-        check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
+        check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
         srcppp += src_pitch * (Height - 4);
         srcpp += src_pitch * (Height - 4);
         srcp += src_pitch * (Height - 4);
@@ -193,7 +185,6 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
   else
   {
     const int cthreshsq = cthresh*cthresh;
-    __m128i cthreshb_m128i = _mm_set1_epi32(cthreshsq);
 
     // top
     for (int x = 0; x < Width; x += inc)
@@ -212,9 +203,9 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
       // no "inc" here (chroma: inc=1 lumaonly: inc=2)
       // SSE2 is separated instead
       if (chroma)
-        check_combing_SSE2_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
+        check_combing_SSE2_Metric1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
       else
-        check_combing_SSE2_Luma_M1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
+        check_combing_SSE2_Luma_Metric1(srcp, cmkw, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
       srcpp += src_pitch * (Height - 2);
       srcp += src_pitch * (Height - 2);
       srcpn += src_pitch * (Height - 2);
@@ -249,13 +240,13 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
 cjump:
   if (chroma)
   {
-    unsigned char *cmkp = cmask->GetPtr() + cmk_pitch;
+    uint8_t *cmkp = cmask->GetPtr() + cmk_pitch;
  /* fixme PF 20200404: TDeint does this:
-  unsigned char *cmkp = cmask->GetWritePtr() + cmk_pitch;
+  uint8_t *cmkp = cmask->GetWritePtr() + cmk_pitch;
 */
  
-    unsigned char *cmkpp = cmkp - cmk_pitch;
-    unsigned char *cmkpn = cmkp + cmk_pitch;
+    uint8_t *cmkpp = cmkp - cmk_pitch;
+    uint8_t *cmkpn = cmkp + cmk_pitch;
     // middle section
     for (int y = 1; y < Height - 1; ++y)
     {
@@ -273,13 +264,9 @@ cjump:
       cmkpn += cmk_pitch;
     }
   }
-  const unsigned char *cmkp = cmask->GetPtr() + cmk_pitch;
-/*
-fixme PF 20200404: TDeint does this
-const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
-*/
-  const unsigned char *cmkpp = cmkp - cmk_pitch;
-  const unsigned char *cmkpn = cmkp + cmk_pitch;
+  const uint8_t *cmkp = cmask->GetPtr() + cmk_pitch;
+  const uint8_t *cmkpp = cmkp - cmk_pitch;
+  const uint8_t *cmkpn = cmkp + cmk_pitch;
   memset(cArray, 0, arraysize * sizeof(int));
   int Heighta = (Height >> (yshift - 1)) << (yshift - 1);
   if (Heighta == Height) Heighta = Height - yhalf;
@@ -331,9 +318,9 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
     {
       for (int x = 0; x < Widtha; x += xhalf)
       {
-        const unsigned char *cmkppT = cmkpp;
-        const unsigned char *cmkpT = cmkp;
-        const unsigned char *cmkpnT = cmkpn;
+        const uint8_t *cmkppT = cmkpp;
+        const uint8_t *cmkpT = cmkp;
+        const uint8_t *cmkpnT = cmkpn;
         int sum = 0;
         for (int u = 0; u < yhalf; ++u)
         {
@@ -360,9 +347,9 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
     // rest, after the aligned (whole-block) part
     for (int x = Widtha; x < Width; x += 2)
     {
-      const unsigned char *cmkppT = cmkpp;
-      const unsigned char *cmkpT = cmkp;
-      const unsigned char *cmkpnT = cmkpn;
+      const uint8_t *cmkppT = cmkpp;
+      const uint8_t *cmkpT = cmkp;
+      const uint8_t *cmkpnT = cmkpn;
       int sum = 0;
       for (int u = 0; u < yhalf; ++u)
       {
@@ -433,8 +420,8 @@ const unsigned char *cmkp = cmask->GetReadPtr() + cmk_pitch;
   return false;
 }
 
-void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,
-  unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+void TFM::buildDiffMapPlaneYUY2(const uint8_t *prvp, const uint8_t *nxtp,
+  uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
   buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
@@ -447,7 +434,7 @@ void TFM::buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *
 void TFM::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
 {
   int x, y = y1 * 20, num, pitch = dst->GetPitch();
-  unsigned char *dp;
+  uint8_t *dp;
   unsigned int width = dst->GetRowSize();
   int height = dst->GetHeight();
   if (y + 20 >= height) return;
@@ -498,7 +485,7 @@ void TFM::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
 
 void TFM::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
 {
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   int pitch = dst->GetPitch();
   int width = dst->GetRowSize();
   int height = dst->GetHeight();

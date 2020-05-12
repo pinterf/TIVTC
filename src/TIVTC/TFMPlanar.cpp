@@ -56,34 +56,22 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
   bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
 
   const int cthresh6 = cthresh * 6;
-  __m128i cthreshb_m128i;
-  __m128i cthresh6w_m128i;
-  if (metric == 0 && use_sse2)
-  {
-    unsigned int cthresht = min(max(255 - cthresh - 1, 0), 255);
-    cthreshb_m128i = _mm_set1_epi8(cthresht);
-    unsigned int cthresh6t = min(max(65535 - cthresh * 6 - 1, 0), 65535);
-    cthresh6w_m128i = _mm_set1_epi16(cthresh6t);
-  }
-  else if (metric == 1 && use_sse2)
-  {
-    cthreshb_m128i = _mm_set1_epi32(cthresh*cthresh);
-  }
+
   // fix in v15:  U and V index inconsistency between PlanarFrames and PVideoFrame
   const int stop = chroma ? 3 : 1;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
-    const unsigned char *srcp = src->GetReadPtr(plane);
+    const uint8_t *srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int Width = src->GetRowSize(plane);
     const int Height = src->GetHeight(plane);
-    const unsigned char *srcpp = srcp - src_pitch;
-    const unsigned char *srcppp = srcpp - src_pitch;
-    const unsigned char *srcpn = srcp + src_pitch;
-    const unsigned char *srcpnn = srcpn + src_pitch;
-    unsigned char *cmkp = cmask->GetPtr(b);
+    const uint8_t *srcpp = srcp - src_pitch;
+    const uint8_t *srcppp = srcpp - src_pitch;
+    const uint8_t *srcpn = srcp + src_pitch;
+    const uint8_t *srcpnn = srcpn + src_pitch;
+    uint8_t *cmkp = cmask->GetPtr(b);
     const int cmk_pitch = cmask->GetPitch(b);
     if (cthresh < 0) { 
       memset(cmkp, 255, Height*cmk_pitch); 
@@ -123,38 +111,22 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
       srcpn += src_pitch;
       srcpnn += src_pitch;
       cmkp += cmk_pitch;
+      // middle
       if (use_sse2)
       {
-        check_combing_SSE2(srcp, cmkp, Width, Height - 4, src_pitch, src_pitch * 2, cmk_pitch, cthreshb_m128i, cthresh6w_m128i);
-        srcppp += src_pitch * (Height - 4);
-        srcpp += src_pitch * (Height - 4);
-        srcp += src_pitch * (Height - 4);
-        srcpn += src_pitch * (Height - 4);
-        srcpnn += src_pitch * (Height - 4);
-        cmkp += cmk_pitch * (Height - 4);
+        check_combing_SSE2(srcp, cmkp, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
       }
       else
       {
-        for (int y = 2; y < Height - 2; ++y)
-        {
-          for (int x = 0; x < Width; ++x)
-          {
-            const int sFirst = srcp[x] - srcpp[x];
-            const int sSecond = srcp[x] - srcpn[x];
-            if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
-            {
-              if (abs(srcppp[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
-                cmkp[x] = 0xFF;
-            }
-          }
-          srcppp += src_pitch;
-          srcpp += src_pitch;
-          srcp += src_pitch;
-          srcpn += src_pitch;
-          srcpnn += src_pitch;
-          cmkp += cmk_pitch;
-        }
+        check_combing_c<uint8_t, false>(srcp, cmkp, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
       }
+      srcppp += src_pitch * (Height - 4);
+      srcpp += src_pitch * (Height - 4);
+      srcp += src_pitch * (Height - 4);
+      srcpn += src_pitch * (Height - 4);
+      srcpnn += src_pitch * (Height - 4);
+      cmkp += cmk_pitch * (Height - 4);
+
       for (int x = 0; x < Width; ++x)
       {
         const int sFirst = srcp[x] - srcpp[x];
@@ -183,7 +155,9 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     }
     else
     {
+      // metric == 1
       const int cthreshsq = cthresh*cthresh;
+      // top
       for (int x = 0; x < Width; ++x)
       {
         if ((srcp[x] - srcpn[x])*(srcp[x] - srcpn[x]) > cthreshsq)
@@ -193,9 +167,10 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
       srcp += src_pitch;
       srcpn += src_pitch;
       cmkp += cmk_pitch;
+      // middle
       if (use_sse2)
       {
-        check_combing_SSE2_M1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch, cthreshb_m128i);
+        check_combing_SSE2_Metric1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
         srcpp += src_pitch * (Height - 2);
         srcp += src_pitch * (Height - 2);
         srcpn += src_pitch * (Height - 2);
@@ -216,6 +191,7 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
           cmkp += cmk_pitch;
         }
       }
+      // bottom
       for (int x = 0; x < Width; ++x)
       {
         if ((srcp[x] - srcpp[x])*(srcp[x] - srcpp[x]) > cthreshsq)
@@ -223,22 +199,23 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
       }
     }
   }
+
   if (chroma)
   {
-    unsigned char *cmkp = cmask->GetPtr(0);
-    unsigned char *cmkpU = cmask->GetPtr(1);
-    unsigned char *cmkpV = cmask->GetPtr(2);
+    uint8_t *cmkp = cmask->GetPtr(0);
+    uint8_t *cmkpU = cmask->GetPtr(1);
+    uint8_t *cmkpV = cmask->GetPtr(2);
     const int Width = cmask->GetWidth(2);
     const int Height = cmask->GetHeight(2);
     const int cmk_pitch = cmask->GetPitch(0) << 1;
     const int cmk_pitchUV = cmask->GetPitch(2);
-    unsigned char *cmkpp = cmkp - (cmk_pitch >> 1);
-    unsigned char *cmkpn = cmkp + (cmk_pitch >> 1);
-    unsigned char *cmkpnn = cmkpn + (cmk_pitch >> 1);
-    unsigned char *cmkppU = cmkpU - cmk_pitchUV;
-    unsigned char *cmkpnU = cmkpU + cmk_pitchUV;
-    unsigned char *cmkppV = cmkpV - cmk_pitchUV;
-    unsigned char *cmkpnV = cmkpV + cmk_pitchUV;
+    uint8_t *cmkpp = cmkp - (cmk_pitch >> 1);
+    uint8_t *cmkpn = cmkp + (cmk_pitch >> 1);
+    uint8_t *cmkpnn = cmkpn + (cmk_pitch >> 1);
+    uint8_t *cmkppU = cmkpU - cmk_pitchUV;
+    uint8_t *cmkpnU = cmkpU + cmk_pitchUV;
+    uint8_t *cmkppV = cmkpV - cmk_pitchUV;
+    uint8_t *cmkpnV = cmkpV + cmk_pitchUV;
     for (int y = 1; y < Height - 1; ++y)
     {
       cmkpp += cmk_pitch;
@@ -269,9 +246,9 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     }
   }
   const int cmk_pitch = cmask->GetPitch(0);
-  const unsigned char *cmkp = cmask->GetPtr(0) + cmk_pitch;
-  const unsigned char *cmkpp = cmkp - cmk_pitch;
-  const unsigned char *cmkpn = cmkp + cmk_pitch;
+  const uint8_t *cmkp = cmask->GetPtr(0) + cmk_pitch;
+  const uint8_t *cmkpp = cmkp - cmk_pitch;
+  const uint8_t *cmkpn = cmkp + cmk_pitch;
   const int Width = cmask->GetWidth(0);
   const int Height = cmask->GetHeight(0);
   const int xblocks = ((Width + xhalf) >> xshift) + 1;
@@ -329,9 +306,9 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     {
       for (int x = 0; x < Widtha; x += xhalf)
       {
-        const unsigned char *cmkppT = cmkpp;
-        const unsigned char *cmkpT = cmkp;
-        const unsigned char *cmkpnT = cmkpn;
+        const uint8_t *cmkppT = cmkpp;
+        const uint8_t *cmkpT = cmkp;
+        const uint8_t *cmkpnT = cmkpn;
         int sum = 0;
         for (int u = 0; u < yhalf; ++u)
         {
@@ -358,9 +335,9 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     // rest
     for (int x = Widtha; x < Width; ++x)
     {
-      const unsigned char *cmkppT = cmkpp;
-      const unsigned char *cmkpT = cmkp;
-      const unsigned char *cmkpnT = cmkpn;
+      const uint8_t *cmkppT = cmkpp;
+      const uint8_t *cmkpT = cmkp;
+      const uint8_t *cmkpnT = cmkpn;
       int sum = 0;
       for (int u = 0; u < yhalf; ++u)
       {
@@ -431,19 +408,19 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
   return false;
 }
 
-void TFM::buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,
-  unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+void TFM::buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
+  uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
   buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
-  AnalyzeDiffMask_Planar(dstp, dst_pitch, tbuffer, tpitch, Width, Height);
+  AnalyzeDiffMask_Planar<uint8_t>(dstp, dst_pitch, tbuffer, tpitch, Width, Height, 8);
 }
 
 void TFM::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s)
 {
   int x, y = y1 * 20, num, tx, ty;
   int pitchY = dst->GetPitch(PLANAR_Y), pitchUV = dst->GetPitch(PLANAR_V);
-  unsigned char *dpY, *dpU, *dpV;
+  uint8_t *dpY, *dpU, *dpV;
   unsigned int width = dst->GetRowSize(PLANAR_Y);
   int height = dst->GetHeight(PLANAR_Y);
   if (y + 20 >= height) return;
@@ -484,7 +461,7 @@ void TFM::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s)
 
 void TFM::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
 {
-  unsigned char *dstp = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *dstp = dst->GetWritePtr(PLANAR_Y);
   int width = dst->GetRowSize(PLANAR_Y);
   int height = dst->GetHeight(PLANAR_Y);
   int pitch = dst->GetPitch(PLANAR_Y);
