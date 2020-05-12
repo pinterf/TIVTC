@@ -30,16 +30,16 @@
 #include <emmintrin.h>
 #include "internal.h"
 
-void checkSceneChangeYUY2_1_SSE2(const unsigned char* prvp, const unsigned char* srcp,
+void checkSceneChangeYUY2_1_SSE2(const uint8_t* prvp, const uint8_t* srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long& diffp);
-void checkSceneChangeYUY2_2_SSE2(const unsigned char* prvp, const unsigned char* srcp,
-  const unsigned char* nxtp, int height, int width, int prv_pitch, int src_pitch,
+void checkSceneChangeYUY2_2_SSE2(const uint8_t* prvp, const uint8_t* srcp,
+  const uint8_t* nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long& diffp, unsigned long& diffn);
 
-void checkSceneChangeYV12_1_SSE2(const unsigned char* prvp, const unsigned char* srcp,
+void checkSceneChangeYV12_1_SSE2(const uint8_t* prvp, const uint8_t* srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long& diffp);
-void checkSceneChangeYV12_2_SSE2(const unsigned char* prvp, const unsigned char* srcp,
-  const unsigned char* nxtp, int height, int width, int prv_pitch, int src_pitch,
+void checkSceneChangeYV12_2_SSE2(const uint8_t* prvp, const uint8_t* srcp,
+  const uint8_t* nxtp, int height, int width, int prv_pitch, int src_pitch,
   int nxt_pitch, unsigned long& diffp, unsigned long& diffn);
 
 #endif // TFMASM_H__

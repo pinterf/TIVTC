@@ -252,7 +252,7 @@ void Cycle::setDups(double thresh)
 #define ISDT 0x00000006 // h = (deinterlaced c top field)
 #define ISMATCH 0x00000070 // ovr array - bits 5-7
 
-void Cycle::setDupsMatches(Cycle &p, unsigned char *marray)
+void Cycle::setDupsMatches(Cycle &p, uint8_t *marray)
 {
   if (dupsSet) return;
   bool skip = false;

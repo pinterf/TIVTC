@@ -34,40 +34,40 @@
 #define VERSION "v1.0.2"
 
 template<typename pixel_t>
-void maskClip2_C(const unsigned char* srcp, const unsigned char* dntp,
-  const unsigned char* maskp, unsigned char* dstp, int src_pitch, int dnt_pitch,
+void maskClip2_C(const uint8_t* srcp, const uint8_t* dntp,
+  const uint8_t* maskp, uint8_t* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height);
 
-void maskClip2_SSE2(const unsigned char* srcp, const unsigned char* dntp,
-  const unsigned char* maskp, unsigned char* dstp, int src_pitch, int dnt_pitch,
+void maskClip2_SSE2(const uint8_t* srcp, const uint8_t* dntp,
+  const uint8_t* maskp, uint8_t* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height);
 
 template<typename pixel_t>
 #if defined(GCC) || defined(CLANG)
 __attribute__((__target__("sse4.1")))
 #endif 
-void maskClip2_SSE4(const unsigned char* srcp, const unsigned char* dntp,
-  const unsigned char* maskp, unsigned char* dstp, int src_pitch, int dnt_pitch,
+void maskClip2_SSE4(const uint8_t* srcp, const uint8_t* dntp,
+  const uint8_t* maskp, uint8_t* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height);
 
 template<bool with_mask>
-void blendDeintMask_SSE2(const unsigned char* srcp, unsigned char* dstp,
-  const unsigned char* maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void blendDeintMask_SSE2(const uint8_t* srcp, uint8_t* dstp,
+  const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
 template<bool with_mask>
-void blendDeintMask_C(const unsigned char* srcp, unsigned char* dstp,
-  const unsigned char* maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void blendDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+  const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
 template<bool with_mask>
-void cubicDeintMask_SSE2(const unsigned char* srcp, unsigned char* dstp,
-  const unsigned char* maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void cubicDeintMask_SSE2(const uint8_t* srcp, uint8_t* dstp,
+  const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
 template<bool with_mask>
-void cubicDeintMask_C(const unsigned char* srcp, unsigned char* dstp,
-  const unsigned char* maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void cubicDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+  const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
 class TFMPP : public GenericVideoFilter
@@ -119,10 +119,10 @@ private:
   void elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field);
 
   void copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, const VideoInfo &vi, int field);
-  void buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
-    unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width, int height, long cpu);
-  void buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
-    const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
+  void buildMotionMask1_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
+    uint8_t *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width, int height, long cpu);
+  void buildMotionMask2_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
+    const uint8_t *srcp3, uint8_t *dstp, int s1_pitch, int s2_pitch,
     int s3_pitch, int dst_pitch, int width, int height, long cpu);
 
 public:

@@ -47,7 +47,7 @@ PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 
 void TDecimate::restoreHint(PVideoFrame &dst, IScriptEnvironment *env)
 {
-  const unsigned char *srcp = dst->GetReadPtr(PLANAR_Y);
+  const uint8_t *srcp = dst->GetReadPtr(PLANAR_Y);
   unsigned int i, hint = 0, magic_number = 0;
   for (i = 0; i < 32; ++i)
   {
@@ -60,7 +60,7 @@ void TDecimate::restoreHint(PVideoFrame &dst, IScriptEnvironment *env)
     hint |= ((*srcp++ & 1) << i);
   }
   env->MakeWritable(&dst);
-  unsigned char *p = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
   if (hint & 0x80)
   {
     hint >>= 8;
@@ -1168,7 +1168,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
 }
 
 template<bool SAD>
-void calcLumaDiffYUY2_SADorSSD_c(const unsigned char* prvp, const unsigned char* nxtp,
+void calcLumaDiffYUY2_SADorSSD_c(const uint8_t* prvp, const uint8_t* nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, int nt, uint64_t& diff) {
 
   if (width <= 0)
@@ -1193,7 +1193,7 @@ void calcLumaDiffYUY2_SADorSSD_c(const unsigned char* prvp, const unsigned char*
 }
 
 template<bool SAD>
-uint64_t calcLumaDiffYUY2_SADorSSD(const unsigned char* prvp, const unsigned char* nxtp,
+uint64_t calcLumaDiffYUY2_SADorSSD(const uint8_t* prvp, const uint8_t* nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
 {
   uint64_t diff = 0;
@@ -1221,13 +1221,13 @@ uint64_t calcLumaDiffYUY2_SADorSSD(const unsigned char* prvp, const unsigned cha
   return diff;
 }
 
-uint64_t calcLumaDiffYUY2_SAD(const unsigned char* prvp, const unsigned char* nxtp,
+uint64_t calcLumaDiffYUY2_SAD(const uint8_t* prvp, const uint8_t* nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
 {
   return calcLumaDiffYUY2_SADorSSD<true>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, opt, env);
 }
 
-uint64_t calcLumaDiffYUY2_SSD(const unsigned char* prvp, const unsigned char* nxtp,
+uint64_t calcLumaDiffYUY2_SSD(const uint8_t* prvp, const uint8_t* nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
 {
   return calcLumaDiffYUY2_SADorSSD<false>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, opt, env);
@@ -1246,7 +1246,7 @@ void TDecimate::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment
 
 int TDecimate::getHint(PVideoFrame &src, int &d2vfilm)
 {
-  const unsigned char *p = src->GetReadPtr(PLANAR_Y);
+  const uint8_t *p = src->GetReadPtr(PLANAR_Y);
   unsigned int i, magic_number = 0, hint = 0;
   int match = -200, field = 0;
   d2vfilm = 0;
@@ -2127,8 +2127,8 @@ void TDecimate::calcBlendRatios2(double &amount1, double &amount2, int &frame1, 
 void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst,
   double amount1, double amount2, int np, IScriptEnvironment *env)
 {
-  const unsigned char *srcp1, *srcp2;
-  unsigned char *dstp;
+  const uint8_t *srcp1, *srcp2;
+  uint8_t *dstp;
   int x, y, width, height;
   int s1_pitch, dst_pitch, s2_pitch, widthM;
 
@@ -2188,7 +2188,7 @@ int TDecimate::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np, int
 
 void TDecimate::setBlack(PVideoFrame &dst, int np)
 {
-  unsigned char *dstp;
+  uint8_t *dstp;
   int x, y, pitch, width, height;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
@@ -3088,7 +3088,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     {
       if (ovrArray == NULL)
       {
-        ovrArray = (unsigned char *)malloc(vi.num_frames * sizeof(unsigned char));
+        ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
         if (ovrArray == NULL)
         {
           fclose(f);
@@ -3280,7 +3280,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       int fieldt, firstLine, z, q, r;
       if (ovrArray == NULL)
       {
-        ovrArray = (unsigned char *)malloc(vi.num_frames * sizeof(unsigned char));
+        ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
         if (ovrArray == NULL)
         {
           fclose(f);
@@ -3417,7 +3417,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   {
     if (ovrArray == NULL)
     {
-      ovrArray = (unsigned char *)malloc(vi.num_frames * sizeof(unsigned char));
+      ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
       if (ovrArray == NULL) env->ThrowError("TDecimate:  malloc failure (ovrArray, tfmIn)!");
       memset(ovrArray, 16, vi.num_frames);
     }

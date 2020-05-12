@@ -540,7 +540,7 @@ int TFM::D2V_fill_d2vfilmarray(int *array, int frames)
 {
   int i = 0, v, fields = 0, val, outpattern = 0;
   if (d2vfilmarray != NULL) { free(d2vfilmarray); d2vfilmarray = NULL; }
-  d2vfilmarray = (unsigned char *)malloc((frames + 1) * sizeof(unsigned char));
+  d2vfilmarray = (uint8_t *)malloc((frames + 1) * sizeof(unsigned char));
   if (d2vfilmarray == NULL) return 1;
   memset(d2vfilmarray, 0, (frames + 1) * sizeof(unsigned char));
   while (array[i] != 9)
@@ -589,7 +589,7 @@ int TFM::D2V_fill_d2vfilmarray(int *array, int frames)
   if (flags == 0) d2vpercent = -20.0;
   if (*trimIn && trimArray != NULL)
   {
-    unsigned char *d2vt = (unsigned char*)malloc(vi.num_frames * sizeof(unsigned char));
+    uint8_t *d2vt = (uint8_t*)malloc(vi.num_frames * sizeof(unsigned char));
     if (d2vt == NULL) return 2;
     memset(d2vt, 0, vi.num_frames * sizeof(unsigned char));
     for (v = 0, i = 0; i <= nfrms && v < frames; ++v)
@@ -601,7 +601,7 @@ int TFM::D2V_fill_d2vfilmarray(int *array, int frames)
       }
     }
     free(d2vfilmarray);
-    d2vfilmarray = (unsigned char*)malloc(vi.num_frames * sizeof(unsigned char));
+    d2vfilmarray = (uint8_t*)malloc(vi.num_frames * sizeof(unsigned char));
     if (d2vfilmarray == NULL)
     {
       free(d2vt);

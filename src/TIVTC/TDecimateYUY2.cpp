@@ -27,7 +27,7 @@
 
 void TDecimate::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
 {
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   int pitch = dst->GetPitch();
   int width = dst->GetRowSize();
   int height = dst->GetHeight();
@@ -72,7 +72,7 @@ void TDecimate::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
 int TDecimate::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s, int start)
 {
   int x, y = y1 * 20, num, pitch = dst->GetPitch();
-  unsigned char *dp;
+  uint8_t *dp;
   unsigned int width = dst->GetRowSize();
   int height = dst->GetHeight();
   if (y + 20 >= height) return -1;

@@ -157,21 +157,21 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const unsigned char *prvpp = prv->GetReadPtr(plane);
+    const uint8_t *prvpp = prv->GetReadPtr(plane);
     const int prv_pitch = prv->GetPitch(plane);
-    const unsigned char *prvp = prvpp + prv_pitch;
-    const unsigned char *prvpn = prvp + prv_pitch;
-    const unsigned char *srcpp = src->GetReadPtr(plane);
+    const uint8_t *prvp = prvpp + prv_pitch;
+    const uint8_t *prvpn = prvp + prv_pitch;
+    const uint8_t *srcpp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int width = src->GetRowSize(plane);
     const int height = src->GetHeight(plane);
-    const unsigned char *srcp = srcpp + src_pitch;
-    const unsigned char *srcpn = srcp + src_pitch;
-    const unsigned char *nxtpp = nxt->GetReadPtr(plane);
+    const uint8_t *srcp = srcpp + src_pitch;
+    const uint8_t *srcpn = srcp + src_pitch;
+    const uint8_t *nxtpp = nxt->GetReadPtr(plane);
     const int nxt_pitch = nxt->GetPitch(plane);
-    const unsigned char *nxtp = nxtpp + nxt_pitch;
-    const unsigned char *nxtpn = nxtp + nxt_pitch;
-    unsigned char *maskw = mask->GetPtr(b);
+    const uint8_t *nxtp = nxtpp + nxt_pitch;
+    const uint8_t *nxtpn = nxtp + nxt_pitch;
+    uint8_t *maskw = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
     maskw += msk_pitch;
     if (use == 1)
@@ -293,8 +293,8 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   }
 }
 
-void TFMPP::buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
-  unsigned char *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width,
+void TFMPP::buildMotionMask1_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
+  uint8_t *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width,
   int height, long cpu)
 {
   memset(dstp - dst_pitch, 0xFF, dst_pitch);
@@ -334,8 +334,8 @@ void TFMPP::buildMotionMask1_SSE2(const unsigned char *srcp1, const unsigned cha
 }
 
 
-void TFMPP::buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned char *srcp2,
-  const unsigned char *srcp3, unsigned char *dstp, int s1_pitch, int s2_pitch,
+void TFMPP::buildMotionMask2_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
+  const uint8_t *srcp3, uint8_t *dstp, int s1_pitch, int s2_pitch,
   int s3_pitch, int dst_pitch, int width, int height, long cpu)
 {
   __m128i thresh = _mm_set1_epi8((char)(max(min(255 - mthresh - 1, 255), 0)));
@@ -397,12 +397,12 @@ void TFMPP::buildMotionMask2_SSE2(const unsigned char *srcp1, const unsigned cha
 // not the same as in TDeint. Here 0xFF instead of 0x3C
 void TFMPP::denoiseYUY2(PlanarFrame *mask)
 {
-  unsigned char *maskw = mask->GetPtr();
+  uint8_t *maskw = mask->GetPtr();
   const int mask_pitch = mask->GetPitch();
   const int Height = mask->GetHeight();
   const int Width = mask->GetWidth();
-  unsigned char *maskwp = maskw - mask_pitch;
-  unsigned char *maskwn = maskw + mask_pitch;
+  uint8_t *maskwp = maskw - mask_pitch;
+  uint8_t *maskwn = maskw + mask_pitch;
   for (int y = 1; y < Height - 1; ++y)
   {
     maskwp += mask_pitch;
@@ -442,7 +442,7 @@ void TFMPP::denoiseYUY2(PlanarFrame *mask)
 
 void TFMPP::linkYUY2(PlanarFrame *mask)
 {
-  unsigned char *maskw = mask->GetPtr();
+  uint8_t *maskw = mask->GetPtr();
   const int mask_pitch = mask->GetPitch();
   const int Height = mask->GetHeight();
   const int Width = mask->GetWidth() >> 2;
@@ -463,10 +463,10 @@ void TFMPP::denoisePlanar(PlanarFrame *mask)
 {
   for (int b = 0; b < 3; ++b)
   {
-    unsigned char *maskpp = mask->GetPtr(b);
+    uint8_t *maskpp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
-    unsigned char *maskp = maskpp + msk_pitch;
-    unsigned char *maskpn = maskp + msk_pitch;
+    uint8_t *maskp = maskpp + msk_pitch;
+    uint8_t *maskpn = maskp + msk_pitch;
     const int Height = mask->GetHeight(b);
     const int Width = mask->GetWidth(b);
     for (int y = 1; y < Height - 1; ++y)
@@ -496,9 +496,9 @@ void TFMPP::denoisePlanar(PlanarFrame *mask)
 template<int planarType>
 void TFMPP::linkPlanar(PlanarFrame* mask)
 {
-  unsigned char* maskpY = mask->GetPtr(0);
-  unsigned char* maskpV = mask->GetPtr(2);
-  unsigned char* maskpU = mask->GetPtr(1);
+  uint8_t* maskpY = mask->GetPtr(0);
+  uint8_t* maskpV = mask->GetPtr(2);
+  uint8_t* maskpU = mask->GetPtr(1);
   const int mask_pitchY = mask->GetPitch(0);
   const int mask_pitchUV = mask->GetPitch(2);
   const int HeightUV = mask->GetHeight(2);
@@ -506,9 +506,9 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
 
   if constexpr (planarType == 420) 
   {
-    unsigned char* maskppY = maskpY - mask_pitchY; // prev Y use at 420
-    unsigned char* maskpnY = maskpY + mask_pitchY; // next Y
-    unsigned char* maskpnnY = maskpY + 2 * mask_pitchY; // nextnextY used at 420
+    uint8_t* maskppY = maskpY - mask_pitchY; // prev Y use at 420
+    uint8_t* maskpnY = maskpY + mask_pitchY; // next Y
+    uint8_t* maskpnnY = maskpY + 2 * mask_pitchY; // nextnextY used at 420
     for (int y = 1; y < HeightUV - 1; ++y)
     {
       maskppY = maskpnY; // prev = next
@@ -572,16 +572,16 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const unsigned char *srcp = src->GetReadPtr(plane);
+    const uint8_t *srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane);
     const int rowsize = src->GetRowSize(plane);
     const int width = rowsize / pixelsize;
     const int height = src->GetHeight(plane);
-    const unsigned char *srcpp = srcp - src_pitch;
-    const unsigned char *srcpn = srcp + src_pitch;
-    unsigned char *dstp = dst->GetWritePtr(plane);
+    const uint8_t *srcpp = srcp - src_pitch;
+    const uint8_t *srcpn = srcp + src_pitch;
+    uint8_t *dstp = dst->GetWritePtr(plane);
     const int dst_pitch = dst->GetPitch(plane);
-    const unsigned char *maskp = mask->GetPtr(b);
+    const uint8_t *maskp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
     // top line
     for (int x = 0; x < width; ++x)
@@ -627,8 +627,8 @@ static AVS_FORCEINLINE __m128i _MM_BLENDV_EPI8(__m128i const& a, __m128i const& 
 }
 
 template<bool with_mask>
-void blendDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
-  const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void blendDeintMask_SSE2(const uint8_t *srcp, uint8_t *dstp,
+  const uint8_t *maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
 {
   auto zero = _mm_setzero_si128();
@@ -666,8 +666,8 @@ void blendDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
 }
 
 template<bool with_mask>
-void blendDeintMask_C(const unsigned char* srcp, unsigned char* dstp,
-  const unsigned char* maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void blendDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+  const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
 {
   while (height--) {
@@ -699,22 +699,22 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const unsigned char *srcp = src->GetReadPtr(plane);
+    const uint8_t *srcp = src->GetReadPtr(plane);
     const int src_pitch = src->GetPitch(plane) * 2; // !!;
     const int rowsize = src->GetRowSize(plane);
     const int width = rowsize / pixelsize;
     const int height = src->GetHeight(plane);
-    unsigned char *dstp = dst->GetWritePtr(plane);
+    uint8_t *dstp = dst->GetWritePtr(plane);
     const int dst_pitch = dst->GetPitch(plane) << 1;
-    const unsigned char *maskp = mask->GetPtr(b);
+    const uint8_t *maskp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b) << 1;
     srcp += (src_pitch >> 1)*(3 - field);
     dstp += (dst_pitch >> 1)*(2 - field);
     maskp += (msk_pitch >> 1)*(2 - field);
-    const unsigned char *srcpp = srcp - src_pitch;
-    const unsigned char *srcppp = srcpp - src_pitch;
-    const unsigned char *srcpn = srcp + src_pitch;
-    const unsigned char *srcr = srcp - (src_pitch >> 1);
+    const uint8_t *srcpp = srcp - src_pitch;
+    const uint8_t *srcppp = srcpp - src_pitch;
+    const uint8_t *srcpn = srcp + src_pitch;
+    const uint8_t *srcr = srcp - (src_pitch >> 1);
 
     // top orphan
     if (field == 0)
@@ -805,8 +805,8 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
 
 
 template<bool with_mask>
-void cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
-  const unsigned char *maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void cubicDeintMask_SSE2(const uint8_t *srcp, uint8_t *dstp,
+  const uint8_t *maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
 {
   /*
@@ -874,8 +874,8 @@ void cubicDeintMask_SSE2(const unsigned char *srcp, unsigned char *dstp,
 }
 
 template<bool with_mask>
-void cubicDeintMask_C(const unsigned char* srcp, unsigned char* dstp,
-  const unsigned char* maskp, int src_pitch, int dst_pitch, int msk_pitch,
+void cubicDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+  const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
 {
   while (height--) {
@@ -904,7 +904,7 @@ void cubicDeintMask_C(const unsigned char* srcp, unsigned char* dstp,
 
 void TFMPP::destroyHint(PVideoFrame &dst, unsigned int hint)
 {
-  unsigned char *p = dst->GetWritePtr(PLANAR_Y), i;
+  uint8_t *p = dst->GetWritePtr(PLANAR_Y), i;
   if (hint & 0x80)
   {
     hint >>= 8;
@@ -928,7 +928,7 @@ void TFMPP::destroyHint(PVideoFrame &dst, unsigned int hint)
 
 void TFMPP::putHint(PVideoFrame &dst, int field, unsigned int hint)
 {
-  unsigned char *p = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
   unsigned int i;
   hint &= (D2VFILM | 0xFF80);
   if (field == 1)
@@ -952,7 +952,7 @@ void TFMPP::putHint(PVideoFrame &dst, int field, unsigned int hint)
 bool TFMPP::getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hint)
 {
   field = -1; combed = false; hint = 0;
-  const unsigned char *srcp = src->GetReadPtr(PLANAR_Y);
+  const uint8_t *srcp = src->GetReadPtr(PLANAR_Y);
   unsigned int i, magic_number = 0;
   for (i = 0; i < 32; ++i)
   {
@@ -1054,23 +1054,23 @@ void TFMPP::elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool
 
 void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi)
 {
-  const unsigned char *srcpY = src->GetReadPtr(PLANAR_Y);
-  const unsigned char *srcpV = src->GetReadPtr(PLANAR_V);
-  const unsigned char *srcpU = src->GetReadPtr(PLANAR_U);
+  const uint8_t *srcpY = src->GetReadPtr(PLANAR_Y);
+  const uint8_t *srcpV = src->GetReadPtr(PLANAR_V);
+  const uint8_t *srcpU = src->GetReadPtr(PLANAR_U);
   int src_pitchY = src->GetPitch(PLANAR_Y);
   int src_pitchUV = src->GetPitch(PLANAR_V);
   int WidthY = src->GetRowSize(PLANAR_Y);
   int WidthUV = src->GetRowSize(PLANAR_V);
   int HeightY = src->GetHeight(PLANAR_Y);
   int HeightUV = src->GetHeight(PLANAR_V);
-  unsigned char *dstpY = dst->GetWritePtr(PLANAR_Y);
-  unsigned char *dstpV = dst->GetWritePtr(PLANAR_V);
-  unsigned char *dstpU = dst->GetWritePtr(PLANAR_U);
+  uint8_t *dstpY = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *dstpV = dst->GetWritePtr(PLANAR_V);
+  uint8_t *dstpU = dst->GetWritePtr(PLANAR_U);
   int dst_pitchY = dst->GetPitch(PLANAR_Y);
   int dst_pitchUV = dst->GetPitch(PLANAR_V);
-  const unsigned char *maskpY = mask->GetPtr(0);
-  const unsigned char *maskpV = mask->GetPtr(2);
-  const unsigned char *maskpU = mask->GetPtr(1);
+  const uint8_t *maskpY = mask->GetPtr(0);
+  const uint8_t *maskpV = mask->GetPtr(2);
+  const uint8_t *maskpU = mask->GetPtr(1);
   int mask_pitchY = mask->GetPitch(0);
   int mask_pitchUV = mask->GetPitch(2);
   srcpY += src_pitchY*(3 - field);
@@ -1088,15 +1088,15 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
   dst_pitchUV <<= 1;
   mask_pitchY <<= 1;
   mask_pitchUV <<= 1;
-  const unsigned char *srcppY = srcpY - src_pitchY;
-  const unsigned char *srcpppY = srcppY - src_pitchY;
-  const unsigned char *srcpnY = srcpY + src_pitchY;
-  const unsigned char *srcppV = srcpV - src_pitchUV;
-  const unsigned char *srcpppV = srcppV - src_pitchUV;
-  const unsigned char *srcpnV = srcpV + src_pitchUV;
-  const unsigned char *srcppU = srcpU - src_pitchUV;
-  const unsigned char *srcpppU = srcppU - src_pitchUV;
-  const unsigned char *srcpnU = srcpU + src_pitchUV;
+  const uint8_t *srcppY = srcpY - src_pitchY;
+  const uint8_t *srcpppY = srcppY - src_pitchY;
+  const uint8_t *srcpnY = srcpY + src_pitchY;
+  const uint8_t *srcppV = srcpV - src_pitchUV;
+  const uint8_t *srcpppV = srcppV - src_pitchUV;
+  const uint8_t *srcpnV = srcpV + src_pitchUV;
+  const uint8_t *srcppU = srcpU - src_pitchUV;
+  const uint8_t *srcpppU = srcppU - src_pitchUV;
+  const uint8_t *srcpnU = srcpU + src_pitchUV;
   int stopx = WidthY;
   int startxuv = 0, x, y;
   int stopxuv = WidthUV;
@@ -1327,13 +1327,13 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
 
 void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field)
 {
-  const unsigned char *srcp = src->GetReadPtr();
+  const uint8_t *srcp = src->GetReadPtr();
   int src_pitch = src->GetPitch();
   int Width = src->GetRowSize();
   int Height = src->GetHeight();
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   int dst_pitch = dst->GetPitch();
-  const unsigned char *maskp = mask->GetPtr();
+  const uint8_t *maskp = mask->GetPtr();
   int mask_pitch = mask->GetPitch();
   srcp += src_pitch*(3 - field);
   dstp += dst_pitch*(2 - field);
@@ -1341,9 +1341,9 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
   src_pitch <<= 1;
   dst_pitch <<= 1;
   mask_pitch <<= 1;
-  const unsigned char *srcpp = srcp - src_pitch;
-  const unsigned char *srcppp = srcpp - src_pitch;
-  const unsigned char *srcpn = srcp + src_pitch;
+  const uint8_t *srcpp = srcp - src_pitch;
+  const uint8_t *srcppp = srcpp - src_pitch;
+  const uint8_t *srcpn = srcp + src_pitch;
   int stopx = Width;
   int Iy1, Iy2, Iye, Ix1, Ix2, edgeS1, edgeS2, sum, sumsq, temp, temp1, temp2, minN, maxN, x, y;
   double dir1, dir2, dir, dirF;
@@ -1555,8 +1555,8 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
   const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
   const bool use_sse4 = (cpuFlags & CPUF_SSE4_1) ? true : false;
 
-  const unsigned char *srcp, *maskp, *dntp;
-  unsigned char *dstp;
+  const uint8_t *srcp, *maskp, *dntp;
+  uint8_t *dstp;
   int src_pitch, msk_pitch, dst_pitch, dnt_pitch;
 
   const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
@@ -1607,8 +1607,8 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
 
 
 template<typename pixel_t>
-void maskClip2_C(const unsigned char* srcp, const unsigned char* dntp,
-  const unsigned char* maskp, unsigned char* dstp, int src_pitch, int dnt_pitch,
+void maskClip2_C(const uint8_t* srcp, const uint8_t* dntp,
+  const uint8_t* maskp, uint8_t* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height)
 {
   for (int y = 0; y < height; ++y)
@@ -1631,8 +1631,8 @@ template<typename pixel_t>
 #if defined(GCC) || defined(CLANG)
 __attribute__((__target__("sse4.1")))
 #endif 
-void maskClip2_SSE4(const unsigned char* srcp, const unsigned char* dntp,
-  const unsigned char* maskp, unsigned char* dstp, int src_pitch, int dnt_pitch,
+void maskClip2_SSE4(const uint8_t* srcp, const uint8_t* dntp,
+  const uint8_t* maskp, uint8_t* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height)
 {
   // mask is always 8 bits 0x00 or 0xFF
@@ -1657,8 +1657,8 @@ void maskClip2_SSE4(const unsigned char* srcp, const unsigned char* dntp,
 }
 
 // 8 bit only
-void maskClip2_SSE2(const unsigned char *srcp, const unsigned char *dntp,
-  const unsigned char *maskp, unsigned char *dstp, int src_pitch, int dnt_pitch,
+void maskClip2_SSE2(const uint8_t *srcp, const uint8_t *dntp,
+  const uint8_t *maskp, uint8_t *dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height)
 {
   // mask is always 8 bits

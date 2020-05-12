@@ -54,7 +54,7 @@ MergeHints::~MergeHints()
 PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env)
 {
   PVideoFrame hnt = hintClip->GetFrame(n, env);
-  const unsigned char *hntp = hnt->GetReadPtr(PLANAR_Y);
+  const uint8_t *hntp = hnt->GetReadPtr(PLANAR_Y);
   unsigned int i, magic_number = 0, hint = 0;
   for (i = 0; i < 32; ++i) magic_number |= ((*hntp++ & 1) << i);
   for (i = 0; i < 32; ++i) hint |= ((*hntp++ & 1) << i);
@@ -67,7 +67,7 @@ PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env)
   }
   PVideoFrame src = child->GetFrame(n, env);
   env->MakeWritable(&src);
-  unsigned char *dstp = src->GetWritePtr(PLANAR_Y);
+  uint8_t *dstp = src->GetWritePtr(PLANAR_Y);
   for (i = 0; i < 32; ++i)
   {
     *dstp &= ~1;

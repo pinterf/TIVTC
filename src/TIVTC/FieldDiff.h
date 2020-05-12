@@ -49,21 +49,21 @@ private:
     int opti, IScriptEnvironment *env);
   static int64_t getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn,
     int opti, IScriptEnvironment *env);
-  static void calcFieldDiff_SSE_SSE2_16(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_16(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SSE_SSE2_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_8(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SSE_SSE2_Luma_16(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_Luma_16(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SSE_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SSE_SSE2_Luma_8(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_16(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_16(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_8(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(const unsigned char *src2p, int src_pitch,
+  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(const uint8_t *src2p, int src_pitch,
     int width, int height, __m128i nt, int64_t &diff);
 
 public:

@@ -77,6 +77,7 @@ class TFM : public GenericVideoFilter
 {
 private:
   bool has_at_least_v8;
+  int cpuFlags;
 
   int order, field, mode;
   int PP;
@@ -113,20 +114,21 @@ private:
   int *cArray, *setArray;
   bool *trimArray;
   double d2vpercent;
-  unsigned char *ovrArray, *outArray, *d2vfilmarray, *tbuffer;
+  uint8_t* ovrArray, * outArray, * d2vfilmarray;
+  uint8_t *tbuffer; // absdiff buffer
   int tpitchy, tpitchuv, *moutArray, *moutArrayE;
   MTRACK lastMatch;
   SCTRACK sclast;
   char buf[4096], outputFull[270], outputCFull[270];
   PlanarFrame *map, *cmask;
-  void buildDiffMapPlane_Planar(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+  void buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
+    uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
-  void buildDiffMapPlaneYUY2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+  void buildDiffMapPlaneYUY2(const uint8_t *prvp, const uint8_t *nxtp,
+    uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
-  void buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxtp,
-    unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+  void buildDiffMapPlane2(const uint8_t *prvp, const uint8_t *nxtp,
+    uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, IScriptEnvironment *env);
   void fileOut(int match, int combed, bool d2vfilm, int n, int MICount, int mics[5]);
   void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
@@ -175,7 +177,7 @@ private:
     int *blockN, int &xblocks, int *mics);
 
   // O.K. common parts with TDeint
-  void buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
+  void buildABSDiffMask(const uint8_t *prvp, const uint8_t *nxtp,
     int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
 
   void generateOvrHelpOutput(FILE *f);

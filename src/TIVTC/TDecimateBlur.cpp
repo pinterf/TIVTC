@@ -52,12 +52,12 @@ void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const unsigned char *srcp = src->GetReadPtr(plane);
+    const uint8_t *srcp = src->GetReadPtr(plane);
     int src_pitch = src->GetPitch(plane);
     int width = src->GetRowSize(plane);
     int widtha = (width >> 3) << 3; // mod 8
     int height = src->GetHeight(plane);
-    unsigned char *dstp = dst->GetWritePtr(plane);
+    uint8_t *dstp = dst->GetWritePtr(plane);
     int dst_pitch = dst->GetPitch(plane), x, y;
     if (vi_t.IsPlanar())
     {
@@ -192,13 +192,13 @@ void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const unsigned char* srcp = src->GetReadPtr(plane);
+    const uint8_t* srcp = src->GetReadPtr(plane);
     int src_pitch = src->GetPitch(plane);
     int width = src->GetRowSize(plane);
     int widtha;
     int widtha2 = (width >> 4) << 4; // mod 16
     int height = src->GetHeight(plane);
-    unsigned char* dstp = dst->GetWritePtr(plane);
+    uint8_t* dstp = dst->GetWritePtr(plane);
     int dst_pitch = dst->GetPitch(plane);
 
     if (use_sse2 && widtha2 >= 16)
@@ -214,8 +214,8 @@ void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
     if (width != widtha)
     {
       const int inc = (vi_t.IsYUY2() && !bchroma) ? 2 : 1; // YUY2 luma only: step 2 on 1st plane
-      const unsigned char* srcpp = srcp - src_pitch;
-      const unsigned char* srcpn = srcp + src_pitch;
+      const uint8_t* srcpp = srcp - src_pitch;
+      const uint8_t* srcpn = srcp + src_pitch;
       // top line
       for (int x = widtha; x < width; x += inc)
         dstp[x] = (srcp[x] + srcpn[x] + 1) >> 1;
@@ -241,7 +241,7 @@ void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
 }
 
 // always mod 8, sse2 unaligned
-void HorizontalBlur_SSE2_Planar(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+void HorizontalBlur_SSE2_Planar(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
   // left and right 8 pixel is omitted in SIMD, special
@@ -267,7 +267,7 @@ void HorizontalBlur_SSE2_Planar(const unsigned char *srcp, unsigned char *dstp, 
   }
 }
 
-void HorizontalBlur_SSE2_YUY2_lumaonly(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+void HorizontalBlur_SSE2_YUY2_lumaonly(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
   HorizontalBlurSSE2_YUY2_R_luma(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
@@ -287,7 +287,7 @@ void HorizontalBlur_SSE2_YUY2_lumaonly(const unsigned char *srcp, unsigned char 
   }
 }
 
-void HorizontalBlur_SSE2_YUY2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+void HorizontalBlur_SSE2_YUY2(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
   HorizontalBlurSSE2_YUY2_R(srcp + 8, dstp + 8, src_pitch, dst_pitch, width - 16, height);
@@ -315,7 +315,7 @@ void HorizontalBlur_SSE2_YUY2(const unsigned char *srcp, unsigned char *dstp, in
 }
 
 
-void VerticalBlurSSE2(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+void VerticalBlurSSE2(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
   VerticalBlurSSE2_R(srcp + src_pitch, dstp + dst_pitch, src_pitch, dst_pitch, width, height - 2);

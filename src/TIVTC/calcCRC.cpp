@@ -99,7 +99,7 @@ void calcCRC(PClip hclip, int stop, unsigned int &crc, IScriptEnvironment *env)
   crc = 0xFFFFFFFF;
   PVideoFrame src;
   const unsigned int *ptrCrcTable = Crc32Table;
-  const unsigned char *buffer;
+  const uint8_t *buffer;
   int width, height, pitch, modulo, x;
   const VideoInfo &vi2 = hclip->GetVideoInfo();
   if (stop > vi2.num_frames) stop = vi2.num_frames;

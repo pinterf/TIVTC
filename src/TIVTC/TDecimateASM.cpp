@@ -28,8 +28,8 @@
 #include <assert.h>
 
 // Leak's sse2 blend routine
-void blend_SSE2_16(unsigned char* dstp, const unsigned char* srcp,
-  const unsigned char* nxtp, int width, int height, int dst_pitch,
+void blend_SSE2_16(uint8_t* dstp, const uint8_t* srcp,
+  const uint8_t* nxtp, int width, int height, int dst_pitch,
   int src_pitch, int nxt_pitch, double w1, double w2)
 {
   __m128i iw1 = _mm_set1_epi16((int)(w1*65536.0));
@@ -60,8 +60,8 @@ void blend_SSE2_16(unsigned char* dstp, const unsigned char* srcp,
 }
 
 // fast blend routine for 50:50 case
-void blend_SSE2_5050(unsigned char* dstp, const unsigned char* srcp,
-  const unsigned char* nxtp, int width, int height, int dst_pitch,
+void blend_SSE2_5050(uint8_t* dstp, const uint8_t* srcp,
+  const uint8_t* nxtp, int width, int height, int dst_pitch,
   int src_pitch, int nxt_pitch)
 {
   while (height--) {
@@ -77,7 +77,7 @@ void blend_SSE2_5050(unsigned char* dstp, const unsigned char* srcp,
   }
 }
 
-void calcLumaDiffYUY2SAD_SSE2_16(const unsigned char *prvp, const unsigned char *nxtp,
+void calcLumaDiffYUY2SAD_SSE2_16(const uint8_t *prvp, const uint8_t *nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
 {
   sad = 0; 
@@ -101,7 +101,7 @@ void calcLumaDiffYUY2SAD_SSE2_16(const unsigned char *prvp, const unsigned char 
 }
 
 
-void calcLumaDiffYUY2SSD_SSE2_16(const unsigned char *prvp, const unsigned char *nxtp,
+void calcLumaDiffYUY2SSD_SSE2_16(const uint8_t *prvp, const uint8_t *nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, uint64_t &ssd)
 {
   ssd = 0; // sum of squared differences
@@ -137,7 +137,7 @@ void calcLumaDiffYUY2SSD_SSE2_16(const unsigned char *prvp, const unsigned char 
 }
 
 template<int blkSizeY>
-void calcSAD_SSE2_16xN(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcSAD_SSE2_16xN(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int& sad)
 {
   assert(0 == blkSizeY % 8);
@@ -191,7 +191,7 @@ void calcSAD_SSE2_16xN(const unsigned char* ptr1, const unsigned char* ptr2,
 
 // only 411 uses
 template<int blkSizeY>
-void calcSAD_C_2xN(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcSAD_C_2xN(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int& sad)
 {
   int tmpsum = 0;
@@ -206,7 +206,7 @@ void calcSAD_C_2xN(const unsigned char* ptr1, const unsigned char* ptr2,
 }
 
 template<int blkSizeY>
-void calcSSD_C_2xN(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcSSD_C_2xN(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int& sad)
 {
   int tmpsum = 0;
@@ -223,7 +223,7 @@ void calcSSD_C_2xN(const unsigned char* ptr1, const unsigned char* ptr2,
 
 
 template<int blkSizeY>
-void calcSAD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSAD_SSE2_4xN(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &sad)
 {
   assert(0 == blkSizeY % 4);
@@ -256,7 +256,7 @@ void calcSAD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
 }
 
 template<int blkSizeY>
-void calcSAD_SSE2_8xN(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSAD_SSE2_8xN(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &sad)
 {
   assert(0 == blkSizeY % 8);
@@ -308,7 +308,7 @@ void calcSAD_SSE2_8xN(const unsigned char *ptr1, const unsigned char *ptr2,
 }
 
 // new
-void calcSAD_SSE2_8x8_YUY2_lumaonly(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSAD_SSE2_8x8_YUY2_lumaonly(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &sad)
 {
   __m128i tmpsum = _mm_setzero_si128();
@@ -356,7 +356,7 @@ void calcSAD_SSE2_8x8_YUY2_lumaonly(const unsigned char *ptr1, const unsigned ch
 }
 
 // really YUY2 16x16 with chroma
-void calcSAD_SSE2_32x16(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcSAD_SSE2_32x16(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int& sad)
 {
   __m128i tmpsum = _mm_setzero_si128();
@@ -402,7 +402,7 @@ void calcSAD_SSE2_32x16(const unsigned char* ptr1, const unsigned char* ptr2,
 }
 
 // really YUY2 16x16 no chroma
-void calcSAD_SSE2_32x16_YUY2_lumaonly(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSAD_SSE2_32x16_YUY2_lumaonly(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &sad)
 {
   __m128i tmpsum = _mm_setzero_si128();
@@ -435,7 +435,7 @@ void calcSAD_SSE2_32x16_YUY2_lumaonly(const unsigned char *ptr1, const unsigned 
 
 
 template<int blkSizeY>
-void calcSSD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSSD_SSE2_4xN(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
   assert(0 == blkSizeY % 2);
@@ -476,7 +476,7 @@ void calcSSD_SSE2_4xN(const unsigned char *ptr1, const unsigned char *ptr2,
 }
 
 template<int blkSizeY>
-void calcSSD_SSE2_8xN(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSSD_SSE2_8xN(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
   assert(0 == blkSizeY % 2);
@@ -517,7 +517,7 @@ void calcSSD_SSE2_8xN(const unsigned char *ptr1, const unsigned char *ptr2,
   ssd = _mm_cvtsi128_si32(sum);
 }
 
-void calcSSD_SSE2_8x8_YUY2_lumaonly(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSSD_SSE2_8x8_YUY2_lumaonly(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
   __m128i tmpsum = _mm_setzero_si128();
@@ -560,7 +560,7 @@ void calcSSD_SSE2_8x8_YUY2_lumaonly(const unsigned char *ptr1, const unsigned ch
 
 
 template<int blkSizeY>
-void calcSSD_SSE2_16xN(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSSD_SSE2_16xN(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
   assert(0 == blkSizeY % 2);
@@ -606,15 +606,15 @@ void calcSSD_SSE2_16xN(const unsigned char *ptr1, const unsigned char *ptr2,
 }
 
 // instantiate
-template void calcSSD_SSE2_16xN<16>(const unsigned char *ptr1, const unsigned char *ptr2, int pitch1, int pitch2, int &ssd);
-template void calcSSD_SSE2_8xN<16>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
-template void calcSSD_SSE2_8xN<8>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
-template void calcSSD_SSE2_4xN<4>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
-template void calcSSD_SSE2_4xN<8>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
-template void calcSSD_SSE2_4xN<16>(const unsigned char* ptr1, const unsigned char* ptr2, int pitch1, int pitch2, int& ssd);
+template void calcSSD_SSE2_16xN<16>(const uint8_t *ptr1, const uint8_t *ptr2, int pitch1, int pitch2, int &ssd);
+template void calcSSD_SSE2_8xN<16>(const uint8_t* ptr1, const uint8_t* ptr2, int pitch1, int pitch2, int& ssd);
+template void calcSSD_SSE2_8xN<8>(const uint8_t* ptr1, const uint8_t* ptr2, int pitch1, int pitch2, int& ssd);
+template void calcSSD_SSE2_4xN<4>(const uint8_t* ptr1, const uint8_t* ptr2, int pitch1, int pitch2, int& ssd);
+template void calcSSD_SSE2_4xN<8>(const uint8_t* ptr1, const uint8_t* ptr2, int pitch1, int pitch2, int& ssd);
+template void calcSSD_SSE2_4xN<16>(const uint8_t* ptr1, const uint8_t* ptr2, int pitch1, int pitch2, int& ssd);
 
 // YUY2 16x16 luma+chroma
-void calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSSD_SSE2_32x16(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
   __m128i tmpsum = _mm_setzero_si128();
@@ -679,7 +679,7 @@ void calcSSD_SSE2_32x16(const unsigned char *ptr1, const unsigned char *ptr2,
   ssd = _mm_cvtsi128_si32(sum);
 }
 
-void calcSSD_SSE2_32x16_YUY2_lumaonly(const unsigned char *ptr1, const unsigned char *ptr2,
+void calcSSD_SSE2_32x16_YUY2_lumaonly(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int &ssd)
 {
   __m128i tmpsum = _mm_setzero_si128();
@@ -738,7 +738,7 @@ void calcSSD_SSE2_32x16_YUY2_lumaonly(const unsigned char *ptr1, const unsigned 
 }
 
 // always mod 8, sse2 unaligned!
-void HorizontalBlurSSE2_Planar_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+void HorizontalBlurSSE2_Planar_R(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
   __m128i two = _mm_set1_epi16(0x0002); // rounder
@@ -772,7 +772,7 @@ void HorizontalBlurSSE2_Planar_R(const unsigned char *srcp, unsigned char *dstp,
 }
 
 
-void HorizontalBlurSSE2_YUY2_R_luma(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+void HorizontalBlurSSE2_YUY2_R_luma(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
   __m128i two = _mm_set1_epi16(0x0002); // rounder
@@ -809,7 +809,7 @@ void HorizontalBlurSSE2_YUY2_R_luma(const unsigned char *srcp, unsigned char *ds
 
 
 // mod 8 always, unaligned
-void HorizontalBlurSSE2_YUY2_R(const unsigned char *srcp, unsigned char *dstp, int src_pitch,
+void HorizontalBlurSSE2_YUY2_R(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
   int dst_pitch, int width, int height)
 {
   __m128i two = _mm_set1_epi16(2); // rounder
@@ -874,7 +874,7 @@ void HorizontalBlurSSE2_YUY2_R(const unsigned char *srcp, unsigned char *dstp, i
 }
 
 
-void VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dstp,
+void VerticalBlurSSE2_R(const uint8_t *srcp, uint8_t *dstp,
   int src_pitch, int dst_pitch, int width, int height)
 {
   __m128i two = _mm_set1_epi16(0x0002); // rounder
@@ -912,12 +912,12 @@ void VerticalBlurSSE2_R(const unsigned char *srcp, unsigned char *dstp,
 
 // true SAD false SSD
 template<bool SAD>
-void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcDiff_SADorSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
-  const unsigned char* ptr1T, * ptr2T;
+  const uint8_t* ptr1T, * ptr2T;
   const bool IsPlanar = (np == 3);
   if (IsPlanar) // YV12, YV16, YV24: number of planes = 3 (planar)
   {
@@ -1170,13 +1170,13 @@ void calcDiff_SADorSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char
   }
 }
 
-void calcDiffSAD_32x32_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcDiffSAD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
   calcDiff_SADorSSD_32x32_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, vi);
 }
 
-void calcDiffSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcDiffSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
   calcDiff_SADorSSD_32x32_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, vi);
@@ -1185,14 +1185,14 @@ void calcDiffSSD_32x32_SSE2(const unsigned char* ptr1, const unsigned char* ptr2
 
 // true: SAD, false: SSD
 template<bool SAD>
-void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcDiff_SADorSSD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
   int heighta, heights = height, widtha, widths = width;
   int yshifta, yhalfa, xshifta, xhalfa;
-  const unsigned char* ptr1T, * ptr2T;
+  const uint8_t* ptr1T, * ptr2T;
   const bool IsPlanar = (np == 3);
   if (IsPlanar) // YV12, YV16, YV24
   {
@@ -1458,13 +1458,13 @@ void calcDiff_SADorSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned ch
   }
 }
 
-void calcDiffSAD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcDiffSAD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
 {
   calcDiff_SADorSSD_Generic_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
 }
 
-void calcDiffSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* ptr2,
+void calcDiffSSD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
 {
   calcDiff_SADorSSD_Generic_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
@@ -1472,13 +1472,13 @@ void calcDiffSSD_Generic_SSE2(const unsigned char* ptr1, const unsigned char* pt
 
 // true: SAD, false: SSD
 template<bool SAD, int inc>
-void calcDiff_SADorSSD_Generic_c(const unsigned char* prvp, const unsigned char* curp,
+void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
   int heighta, widtha;
-  const unsigned char* prvpT, * curpT;
+  const uint8_t* prvpT, * curpT;
   const bool IsPlanar = (np == 3);
   int diffs;
 
@@ -1594,13 +1594,13 @@ void calcDiff_SADorSSD_Generic_c(const unsigned char* prvp, const unsigned char*
 }
 
 // instantiate
-template void calcDiff_SADorSSD_Generic_c<false, 1>(const unsigned char* prvp, const unsigned char* curp,
+template void calcDiff_SADorSSD_Generic_c<false, 1>(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
-template void calcDiff_SADorSSD_Generic_c<false, 2>(const unsigned char* prvp, const unsigned char* curp,
+template void calcDiff_SADorSSD_Generic_c<false, 2>(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
-template void calcDiff_SADorSSD_Generic_c<true, 1>(const unsigned char* prvp, const unsigned char* curp,
+template void calcDiff_SADorSSD_Generic_c<true, 1>(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
-template void calcDiff_SADorSSD_Generic_c<true, 2>(const unsigned char* prvp, const unsigned char* curp,
+template void calcDiff_SADorSSD_Generic_c<true, 2>(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 
 

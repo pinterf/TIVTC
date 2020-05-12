@@ -127,7 +127,7 @@ int64_t FieldDiff::getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   const int stop = chromaIn ? np : 1; // YUY2 or Planar Luma-only is 1 plane
   const int inc = (np == 1 && !chromaIn) ? 2 : 1; // YUY2 lumaonly is 2, planar and YUY2 LumaChroma is 1
-  const unsigned char *srcp, *srcpp, *src2p, *srcpn, *src2n;
+  const uint8_t *srcp, *srcpp, *src2p, *srcpn, *src2n;
   int src_pitch, width, widtha, widtha1, widtha2, height, temp;
 
   int64_t diff = 0;
@@ -254,7 +254,7 @@ int64_t FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   const int stop = chromaIn ? np : 1;
   const int inc = (np == 1 && !chromaIn) ? 2 : 1;
-  const unsigned char *srcp, *srcpp, *src2p, *srcpn, *src2n;
+  const uint8_t *srcp, *srcpp, *src2p, *srcpn, *src2n;
   int src_pitch, width, widtha, widtha1, widtha2, height, temp;
 
   int64_t diff = 0;
@@ -397,13 +397,13 @@ AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnviron
 // SSE here: sum of squared errors (not the CPU)
 
 template<bool yuy2luma_only, bool ssd_mode>
-static void calcFieldDiff_SSEorSSD_SSE2_simd_8(const unsigned char *src2p, int src_pitch,
+static void calcFieldDiff_SSEorSSD_SSE2_simd_8(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   __m128i zero = _mm_setzero_si128();
   __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF); // used in YUY2 luma-only mode
 
-  const unsigned char *src2p_odd = src2p + src_pitch;
+  const uint8_t *src2p_odd = src2p + src_pitch;
   auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(&diff));
   while (height--) {
     __m128i sum = _mm_setzero_si128();
@@ -459,13 +459,13 @@ static void calcFieldDiff_SSEorSSD_SSE2_simd_8(const unsigned char *src2p, int s
 
 
 template<bool yuy2luma_only, bool ssd_mode>
-static void calcFieldDiff_SSEorSSD_SSE2_simd_16(const unsigned char *src2p, int src_pitch,
+static void calcFieldDiff_SSEorSSD_SSE2_simd_16(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   __m128i zero = _mm_setzero_si128();
   __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF);
 
-  const unsigned char *src2p_odd = src2p + src_pitch;
+  const uint8_t *src2p_odd = src2p + src_pitch;
   auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(&diff));
   while (height--) {
     __m128i sum = _mm_setzero_si128();
@@ -532,14 +532,14 @@ static void calcFieldDiff_SSEorSSD_SSE2_simd_16(const unsigned char *src2p, int 
 
 }
 
-void FieldDiff::calcFieldDiff_SAD_SSE2_8(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SAD_SSE2_8(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // luma and chroma, sad_mode
   calcFieldDiff_SSEorSSD_SSE2_simd_8<false, false>(src2p, src_pitch, width, height, nt, diff);
 }
 
-void FieldDiff::calcFieldDiff_SAD_SSE2_16(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SAD_SSE2_16(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // luma and chroma, sad_mode
@@ -547,14 +547,14 @@ void FieldDiff::calcFieldDiff_SAD_SSE2_16(const unsigned char *src2p, int src_pi
 }
 
 
-void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // yuy2 luma only, sad mode
   calcFieldDiff_SSEorSSD_SSE2_simd_8<true, false>(src2p, src_pitch, width, height, nt, diff);
 }
 
-void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // yuy2 luma only, sad mode
@@ -562,14 +562,14 @@ void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const unsigned char *src
 }
 
 
-void FieldDiff::calcFieldDiff_SSE_SSE2_8(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SSE_SSE2_8(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // w/o luma, ssd mode
   calcFieldDiff_SSEorSSD_SSE2_simd_8<false, true>(src2p, src_pitch, width, height, nt, diff);
 }
 
-void FieldDiff::calcFieldDiff_SSE_SSE2_16(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SSE_SSE2_16(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // w/o luma, ssd mode
@@ -577,14 +577,14 @@ void FieldDiff::calcFieldDiff_SSE_SSE2_16(const unsigned char *src2p, int src_pi
 }
 
 
-void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_8(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_8(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // with luma, ssd mode
   calcFieldDiff_SSEorSSD_SSE2_simd_8<true, true>(src2p, src_pitch, width, height, nt, diff);
 }
 
-void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_16(const unsigned char *src2p, int src_pitch,
+void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_16(const uint8_t *src2p, int src_pitch,
   int width, int height, __m128i nt, int64_t &diff)
 {
   // with luma, ssd mode

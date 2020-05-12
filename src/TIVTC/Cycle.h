@@ -98,7 +98,7 @@ public:
   void setDecimateLow(int num, IScriptEnvironment *env);
   void setLowest(bool exludeD);
   void setDups(double thresh);
-  void setDupsMatches(Cycle &p, unsigned char *marray);
+  void setDupsMatches(Cycle &p, uint8_t *marray);
   void setDecimateLowP(int num, IScriptEnvironment *env);
   void setIsFilmD2V();
   int sceneDetect(uint64_t thresh);

@@ -776,10 +776,10 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   IScriptEnvironment *env)
 {
   int ret, y0a, y1a;
-  const unsigned char *prvp, *srcp, *nxtp;
-  const unsigned char *curpf, *curf, *curnf;
-  const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
-  unsigned char *mapp, *mapn;
+  const uint8_t *prvp, *srcp, *nxtp;
+  const uint8_t *curpf, *curf, *curnf;
+  const uint8_t *prvpf, *prvnf, *nxtpf, *nxtnf;
+  uint8_t *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
   int incl = np == 3 ? 1 : mChroma ? 1 : 2;  // pixel increments: 2 if YUY2 with no-chroma option otherwise 1
@@ -1087,10 +1087,10 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   if (slow == 2)
     return compareFieldsSlow2(prv, src, nxt, match1, match2, norm1, norm2, mtn1, mtn2, np, n, env);
   int ret, y0a, y1a, tp;
-  const unsigned char *prvp, *srcp, *nxtp;
-  const unsigned char *curpf, *curf, *curnf;
-  const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
-  unsigned char *mapp, *mapn;
+  const uint8_t *prvp, *srcp, *nxtp;
+  const uint8_t *curpf, *curf, *curnf;
+  const uint8_t *prvpf, *prvnf, *nxtpf, *nxtnf;
+  uint8_t *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
   int incl = np == 3 ? 1 : mChroma ? 1 : 2; // YUY2 lumaonly: step 2
@@ -1438,11 +1438,11 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env)
 {
   int ret, y0a, y1a, tp;
-  const unsigned char *prvp, *srcp, *nxtp;
-  const unsigned char *curpf, *curf, *curnf;
-  const unsigned char *prvpf, *prvnf, *nxtpf, *nxtnf;
-  const unsigned char *prvppf, *nxtppf, *prvnnf, *nxtnnf;
-  unsigned char *mapp, *mapn;
+  const uint8_t *prvp, *srcp, *nxtp;
+  const uint8_t *curpf, *curf, *curnf;
+  const uint8_t *prvpf, *prvnf, *nxtpf, *nxtnf;
+  const uint8_t *prvppf, *nxtppf, *prvnnf, *nxtnnf;
+  uint8_t *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
   int incl = np == 3 ? 1 : mChroma ? 1 : 2; // YUY2 luma only is 2
@@ -2205,9 +2205,9 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 {
   if (sclast.frame == n + 1) return sclast.sc;
   unsigned long diffp = 0, diffn = 0;
-  const unsigned char *prvp = prv->GetReadPtr(PLANAR_Y);
-  const unsigned char *srcp = src->GetReadPtr(PLANAR_Y);
-  const unsigned char *nxtp = nxt->GetReadPtr(PLANAR_Y);
+  const uint8_t *prvp = prv->GetReadPtr(PLANAR_Y);
+  const uint8_t *srcp = src->GetReadPtr(PLANAR_Y);
+  const uint8_t *nxtp = nxt->GetReadPtr(PLANAR_Y);
   int height = src->GetHeight(PLANAR_Y) >> 1;
   int width = src->GetRowSize(PLANAR_Y);
   if (vi.IsPlanar()) 
@@ -2398,8 +2398,8 @@ void TFM::createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
 
 void TFM::putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm)
 {
-  unsigned char *p = dst->GetWritePtr(PLANAR_Y);
-  unsigned char *srcp = p;
+  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *srcp = p;
   unsigned int i, hint = 0;
   unsigned int hint2 = 0, magic_number = 0;
   if (match == 0) hint |= ISP;
@@ -2440,27 +2440,21 @@ void TFM::putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm)
 
 
 // check in TDeint, plus don't call with aligned width!'
-void TFM::buildDiffMapPlane2(const unsigned char *prvp, const unsigned char *nxtp,
-  unsigned char *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+void TFM::buildDiffMapPlane2(const uint8_t *prvp, const uint8_t *nxtp,
+  uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, IScriptEnvironment *env)
 {
-  long cpu = env->GetCPUFlags();
-  //if (optt == 0) cpu = 0;
-
   const bool YUY2_LumaOnly = vi.IsYUY2() && !mChroma;
-  do_buildABSDiffMask2(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, Width, Height, YUY2_LumaOnly, cpu);
+  do_buildABSDiffMask2<uint8_t>(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, Width, Height, YUY2_LumaOnly, cpuFlags, 8);
 
 }
 
-void TFM::buildABSDiffMask(const unsigned char *prvp, const unsigned char *nxtp,
+void TFM::buildABSDiffMask(const uint8_t *prvp, const uint8_t *nxtp,
   int prv_pitch, int nxt_pitch, int tpitch, int width, int height,
   IScriptEnvironment *env)
 {
-  long cpu = env->GetCPUFlags();
-  //if (opt == 0) cpu = 0;
-
   const bool YUY2_LumaOnly = vi.IsYUY2() && !mChroma;
-  do_buildABSDiffMask(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height, YUY2_LumaOnly, cpu);
+  do_buildABSDiffMask<uint8_t>(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height, YUY2_LumaOnly, cpuFlags);
 }
 
 
@@ -2516,6 +2510,9 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   has_at_least_v8 = true;
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
+
+  cpuFlags = env->GetCPUFlags();
+  if (opt == 0) cpuFlags = 0;
 
   if (!vi.IsYUV())
     env->ThrowError("TFM:  YUV data only!");
@@ -2622,15 +2619,17 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   const int ALIGN_BUF = 64;
   if (vi.IsPlanar())
   {
-    tpitchy = AlignNumber(vi.width, ALIGN_BUF);
+    // tbuffer is 8 or 16 bits wide
+    const int pixelsize = vi.ComponentSize();
+    tpitchy = AlignNumber(vi.width * pixelsize, ALIGN_BUF);
     const int widthUV = vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U);
-    tpitchuv = AlignNumber(widthUV, ALIGN_BUF);
+    tpitchuv = AlignNumber(widthUV * pixelsize, ALIGN_BUF);
   }
-  else {
+  else { // YUY2
     tpitchy = AlignNumber((vi.width << 1), ALIGN_BUF);
   }
   // 16 would be is enough for sse2 but maybe we'll do AVX2?
-  tbuffer = (unsigned char*)_aligned_malloc((vi.height >> 1) * tpitchy, ALIGN_BUF);
+  tbuffer = (uint8_t*)_aligned_malloc((vi.height >> 1) * tpitchy, ALIGN_BUF);
   if (tbuffer == NULL)
     env->ThrowError("TFM:  malloc failure (tbuffer)!");
   mode7_field = field;
@@ -2639,7 +2638,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     bool d2vmarked, micmarked;
     if ((f = fopen(input, "r")) != NULL)
     {
-      ovrArray = (unsigned char *)malloc(vi.num_frames * sizeof(unsigned char));
+      ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
       if (ovrArray == NULL)
       {
         fclose(f);
@@ -2649,7 +2648,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
       memset(ovrArray, 255, vi.num_frames);
       if (d2vfilmarray == NULL)
       {
-        d2vfilmarray = (unsigned char *)malloc((vi.num_frames + 1) * sizeof(unsigned char));
+        d2vfilmarray = (uint8_t *)malloc((vi.num_frames + 1) * sizeof(unsigned char));
         if (d2vfilmarray == NULL) env->ThrowError("TFM:  malloc failure (d2vfilmarray)!");
         memset(d2vfilmarray, 0, (vi.num_frames + 1) * sizeof(unsigned char));
       }
@@ -2854,7 +2853,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
       }
       if (countOvrM > 0 && ovrArray == NULL)
       {
-        ovrArray = (unsigned char *)malloc(vi.num_frames * sizeof(unsigned char));
+        ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
         if (ovrArray == NULL) env->ThrowError("TFM:  malloc failure (ovrArray)!");
         memset(ovrArray, 255, vi.num_frames);
         if (ovrDefault != 0)
@@ -3285,7 +3284,7 @@ emptyovr:
       calcCRC(child, 15, outputCrc, env);
       fclose(f);
       f = NULL;
-      outArray = (unsigned char *)malloc(vi.num_frames * sizeof(unsigned char));
+      outArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
       if (outArray == NULL)
         env->ThrowError("TFM:  malloc failure (outArray, output)!");
       memset(outArray, 0, vi.num_frames);
@@ -3313,7 +3312,7 @@ emptyovr:
       f = NULL;
       if (outArray == NULL)
       {
-        outArray = (unsigned char *)malloc(vi.num_frames * sizeof(unsigned char));
+        outArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
         if (outArray == NULL)
           env->ThrowError("TFM:  malloc failure (outArray, outputC)!");
         memset(outArray, 0, vi.num_frames);

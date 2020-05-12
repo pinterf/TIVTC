@@ -86,10 +86,10 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 void blurFrame(PVideoFrame& src, PVideoFrame& dst, int np, int iterations,
   bool bchroma, IScriptEnvironment* env, VideoInfo& vi_t, int opti);
 
-uint64_t calcLumaDiffYUY2_SSD(const unsigned char* prvp, const unsigned char* nxtp,
+uint64_t calcLumaDiffYUY2_SSD(const uint8_t* prvp, const uint8_t* nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
 
-uint64_t calcLumaDiffYUY2_SAD(const unsigned char* prvp, const unsigned char* nxtp,
+uint64_t calcLumaDiffYUY2_SAD(const uint8_t* prvp, const uint8_t* nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env);
 
 class TDecimate : public GenericVideoFilter
@@ -142,7 +142,7 @@ private:
   uint64_t *diff, *metricsArray, *metricsOutArray, *mode2_metrics;
   int *aLUT, *mode2_decA, *mode2_order;
   unsigned int outputCrc;
-  unsigned char *ovrArray;
+  uint8_t *ovrArray;
   int mode2_num, mode2_den, mode2_numCycles, mode2_cfs[10];
   FILE *mkvOutF;
   char buf[8192], outputFull[270];

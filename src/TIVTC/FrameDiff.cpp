@@ -404,7 +404,7 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 
   // core start
 
-  const unsigned char* prvp, * curp;
+  const uint8_t* prvp, * curp;
   int prv_pitch, cur_pitch, width, height;
 
   int xblocks = ((d.vi.width + d.blockx_half) >> d.blockx_shift) + 1;
@@ -508,7 +508,7 @@ void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot)
 
 void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot)
 {
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   int pitch = dst->GetPitch();
   int width = dst->GetRowSize();
   int height = dst->GetHeight();
@@ -556,7 +556,7 @@ void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot)
 
 void FrameDiff::fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool dot)
 {
-  unsigned char *dstp = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *dstp = dst->GetWritePtr(PLANAR_Y);
   int width = dst->GetRowSize(PLANAR_Y);
   int height = dst->GetHeight(PLANAR_Y);
   int pitch = dst->GetPitch(PLANAR_Y);
@@ -608,7 +608,7 @@ void FrameDiff::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np)
 
 void FrameDiff::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
 {
-  unsigned char *dstp = dst->GetWritePtr();
+  uint8_t *dstp = dst->GetWritePtr();
   int pitch = dst->GetPitch();
   int width = dst->GetRowSize();
   int height = dst->GetHeight();
@@ -653,7 +653,7 @@ void FrameDiff::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
 void FrameDiff::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
 {
   int x, y = y1 * 20, num, pitch = dst->GetPitch();
-  unsigned char *dp;
+  uint8_t *dp;
   unsigned int width = dst->GetRowSize();
   int height = dst->GetHeight();
   if (y + 20 >= height) return;
@@ -704,7 +704,7 @@ void FrameDiff::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
 
 void FrameDiff::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
 {
-  unsigned char *dstp = dst->GetWritePtr(PLANAR_Y);
+  uint8_t *dstp = dst->GetWritePtr(PLANAR_Y);
   int width = dst->GetRowSize(PLANAR_Y);
   int height = dst->GetHeight(PLANAR_Y);
   int pitch = dst->GetPitch(PLANAR_Y);
@@ -739,7 +739,7 @@ void FrameDiff::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s)
 {
   int x, y = y1 * 20, num, tx, ty;
   int pitchY = dst->GetPitch(PLANAR_Y), pitchUV = dst->GetPitch(PLANAR_V);
-  unsigned char *dpY, *dpU, *dpV;
+  uint8_t *dpY, *dpU, *dpV;
   unsigned int width = dst->GetRowSize(PLANAR_Y);
   int height = dst->GetHeight(PLANAR_Y);
   if (y + 20 >= height) return;
