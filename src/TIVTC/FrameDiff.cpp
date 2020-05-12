@@ -24,6 +24,7 @@
 */
 
 #include "FrameDiff.h"
+#include <inttypes.h>
 
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
   bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise, bool _ssd,
@@ -184,8 +185,8 @@ AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env)
   }
   if (debug)
   {
-    sprintf(buf, "FrameDiff:  frame %d to %d  metricH = %3.2f %I64u  " \
-      "metricL = %3.2f %I64u  hpos = %d  lpos = %d", n,
+    sprintf(buf, "FrameDiff:  frame %d to %d  metricH = %3.2f %" PRIu64 "  " \
+      "metricL = %3.2f %" PRIu64 "  hpos = %d  lpos = %d", n,
       prevf ? mapn(n - 1) : mapn(n + 1), double(highestDiff)*100.0 / double(MAX_DIFF),
       highestDiff, double(lowestDiff)*100.0 / double(MAX_DIFF), lowestDiff,
       hpos, lpos);
@@ -294,9 +295,9 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
     }
     else
     {
-      sprintf(buf, "Frame %d to %d:  thresh = %I64u", n, prevf ? mapn(n - 1) : mapn(n + 1), threshU);
+      sprintf(buf, "Frame %d to %d:  thresh = %" PRIu64 "", n, prevf ? mapn(n - 1) : mapn(n + 1), threshU);
       Draw(src, 0, 4, buf, np);
-      sprintf(buf, "H = %I64u  L = %I64u", highestDiff, lowestDiff);
+      sprintf(buf, "H = %" PRIu64 "  L = %" PRIu64 "", highestDiff, lowestDiff);
       Draw(src, 0, 5, buf, np);
     }
   }
@@ -312,7 +313,7 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
   }
   if (debug)
   {
-    sprintf(buf, "FrameDiff:  frame %d to %d  metricH = %3.2f %I64u  metricL = %3.2f %I64u", n,
+    sprintf(buf, "FrameDiff:  frame %d to %d  metricH = %3.2f %" PRIu64 "  metricL = %3.2f %" PRIu64 "", n,
       prevf ? mapn(n - 1) : mapn(n + 1), double(highestDiff)*100.0 / double(MAX_DIFF),
       highestDiff, double(lowestDiff)*100.0 / double(MAX_DIFF), lowestDiff);
     OutputDebugString(buf);

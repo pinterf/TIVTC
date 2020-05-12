@@ -24,6 +24,7 @@
 */
 #include "FieldDiff.h"
 #include <emmintrin.h>
+#include <inttypes.h>
 
 FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _debug,
   bool _sse, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child),
@@ -77,8 +78,8 @@ AVSValue FieldDiff::ConditionalFieldDiff(int n, IScriptEnvironment* env)
   
   if (debug)
   {
-    if (sse) sprintf(buf, "FieldDiff:  Frame = %d  Diff = %I64d (sse)\n", n, diff);
-    else sprintf(buf, "FieldDiff:  Frame = %d  Diff = %I64d (sad)\n", n, diff);
+    if (sse) sprintf(buf, "FieldDiff:  Frame = %d  Diff = %" PRId64 " (sse)\n", n, diff);
+    else sprintf(buf, "FieldDiff:  Frame = %d  Diff = %" PRId64 " (sad)\n", n, diff);
     OutputDebugString(buf);
   }
   return double(diff); 
@@ -100,8 +101,8 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
     diff = getDiff_SAD(src, np, chroma, nt, opt, env);
   if (debug)
   {
-    if (sse) sprintf(buf, "FieldDiff:  Frame = %d  Diff = %I64d (sse)\n", n, diff);
-    else sprintf(buf, "FieldDiff:  Frame = %d  Diff = %I64d (sad)\n", n, diff);
+    if (sse) sprintf(buf, "FieldDiff:  Frame = %d  Diff = %" PRId64 " (sse)\n", n, diff);
+    else sprintf(buf, "FieldDiff:  Frame = %d  Diff = %" PRId64 " (sad)\n", n, diff);
     OutputDebugString(buf);
   }
   if (display)
@@ -111,8 +112,8 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
     // fixme: use display drawing which supports any videoformat like in mvtools2
     if (vi.IsPlanar()) TFM::DrawYV12(src, 0, 0, buf);
     else TFM::DrawYUY2(src, 0, 0, buf);
-    if (sse) sprintf(buf, "Frame = %d  Diff = %I64d (sse)", n, diff);
-    else sprintf(buf, "Frame = %d  Diff = %I64d (sad)", n, diff);
+    if (sse) sprintf(buf, "Frame = %d  Diff = %" PRId64 " (sse)", n, diff);
+    else sprintf(buf, "Frame = %d  Diff = %" PRId64 " (sad)", n, diff);
     if (vi.IsPlanar()) TFM::DrawYV12(src, 0, 1, buf);
     else TFM::DrawYUY2(src, 0, 1, buf);
     return src;

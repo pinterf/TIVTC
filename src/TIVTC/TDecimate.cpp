@@ -26,6 +26,7 @@
 
 #include "TDecimate.h"
 #include "TDecimateASM.h"
+#include <inttypes.h>
 
 PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 {
@@ -756,7 +757,7 @@ PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, int np)
   double metricN = (metricU*100.0) / MAX_DIFF;
   if (debug)
   {
-    sprintf(buf, "TDecimate:  frame %d  metric = %3.2f  metricF = %I64u (%3.2f)", n, metricN, metricF,
+    sprintf(buf, "TDecimate:  frame %d  metric = %3.2f  metricF =  %" PRIu64 " (%3.2f)", n, metricN, metricF,
       (double)metricF*100.0 / (double)sceneDivU);
     OutputDebugString(buf);
   }
@@ -3035,7 +3036,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         }
         else if (*linep == ' ' && *(linep + 1) != 0 && *(linep + 1) != ' ')
         {
-          sscanf(linein, "%d %I64u %I64u", &w, &metricU, &metricF);
+          sscanf(linein, "%d %" PRIu64 " %" PRIu64 "", &w, &metricU, &metricF);
           if (w < 0 || w > nfrms)
           {
             free(metricsArray);
@@ -3735,7 +3736,7 @@ TDecimate::~TDecimate()
           if (metricsOutArray[h] != ULLONG_MAX) metricU = metricsOutArray[h];
           if (metricsOutArray[h + 1] != ULLONG_MAX) metricF = metricsOutArray[h + 1];
           if (metricU != ULLONG_MAX || metricF != ULLONG_MAX)
-            fprintf(f, "%d %I64u %I64u\n", h >> 1, metricU, metricF);
+            fprintf(f, "%d %" PRIu64 " %" PRIu64 "\n", h >> 1, metricU, metricF);
         }
         fclose(f);
         f = NULL;

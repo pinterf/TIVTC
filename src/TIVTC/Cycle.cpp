@@ -26,6 +26,7 @@
 #include "Cycle.h"
 #include "avisynth.h"
 #include "stdint.h"
+#include <inttypes.h>
 
 void Cycle::setFrame(int frameIn)
 {
@@ -430,7 +431,7 @@ void Cycle::debugMetrics(int length)
   char temp[256];
   for (int x = 0; x < length; ++x)
   {
-    sprintf(temp, "Cycle:  %d - %3.2f  %I64u  %I64u\n", x, diffMetricsN[x], diffMetricsU[x],
+    sprintf(temp, "Cycle:  %d - %3.2f  %" PRIu64 "  %" PRIu64 "\n", x, diffMetricsN[x], diffMetricsU[x],
       diffMetricsUF[x]);
     OutputDebugString(temp);
     sprintf(temp, "Cycle:  %d - dup = %d  lowest = %d  decimate = %d  decimate2 = %d  match = %d  filmd2v = %d\n", x,

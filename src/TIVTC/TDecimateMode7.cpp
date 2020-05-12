@@ -110,7 +110,7 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
     OutputDebugString(buf);
     for (int i = max(0, ret - 3); i <= min(ret + 3, nfrms); ++i)
     {
-      sprintf(buf, "TDecimate:  %d:  %3.2f  %I64u%s%s\n", i, double(metricsOutArray[i << 1])*100.0 / double(MAX_DIFF),
+      sprintf(buf, "TDecimate:  %d:  %3.2f  %" PRIu64 "%s%s\n", i, double(metricsOutArray[i << 1])*100.0 / double(MAX_DIFF),
         metricsOutArray[i << 1], metricsOutArray[i << 1] < same_thresh ? "  (D)" :
         metricsOutArray[i << 1] > diff_thresh ? "  (N)" :
         aLUT[i] == 2 ? "  (N)" : aLUT[i] == 1 ? "  (S)" :
@@ -137,13 +137,13 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
     sprintf(buf, "p = %d  c1 = %d  c2 = %d  n = %d", prev_f,
       curr1_f, curr2_f, next_f);
     Draw(dst, 0, 3, buf, np);
-    sprintf(buf, "dt = %3.2f  %I64u  vt = %3.2f  %I64u", dupThresh, same_thresh,
+    sprintf(buf, "dt = %3.2f  %" PRIu64 "  vt = %3.2f  %" PRIu64 "", dupThresh, same_thresh,
       vidThresh, diff_thresh);
     Draw(dst, 0, 4, buf, np);
     int pt = 5;
     for (int i = max(0, ret - 3); i <= min(ret + 3, nfrms); ++i)
     {
-      sprintf(buf, "%d:  %3.2f  %I64u%s%s", i, double(metricsOutArray[i << 1])*100.0 / double(MAX_DIFF),
+      sprintf(buf, "%d:  %3.2f  %" PRIu64 "%s%s", i, double(metricsOutArray[i << 1])*100.0 / double(MAX_DIFF),
         metricsOutArray[i << 1], metricsOutArray[i << 1] < same_thresh ? "  (D)" :
         metricsOutArray[i << 1] > diff_thresh ? "  (N)" :
         aLUT[i] == 2 ? "  (N)" : aLUT[i] == 1 ? "  (S)" :
