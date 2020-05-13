@@ -43,9 +43,11 @@
 #define TDEINT_DATE "04/04/2020"
 #define TDEINT_VERSION "v1.3"
 #define TDEINT_DATE "05/08/2020"
-*/
 #define TDEINT_VERSION "v1.4"
 #define TDEINT_DATE "05/12/2020"
+*/
+#define TDEINT_VERSION "v1.5"
+#define TDEINT_DATE "05/13/2020"
 
 // fixme: put in separate file, common TDeint TIVTC?
 // fixme: check for all, if they are the same as in TIVTC
