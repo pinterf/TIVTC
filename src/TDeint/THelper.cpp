@@ -222,7 +222,8 @@ uint64_t TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptE
   const uint8_t *srcp1 = src1->GetReadPtr();
   const int src1_pitch = src1->GetPitch();
   const int height = src1->GetHeight();
-  const int rowsize = (src1->GetRowSize() >> 4) << 4; // mod 16
+  //const int rowsize = (src1->GetRowSize() >> 4) << 4; // mod 16
+  const int rowsize = src1->GetRowSize(); // no problem if SSE2 is overworking to 16 bytes
   const int width = src1->GetRowSize() / sizeof(pixel_t);
   const uint8_t *srcp2 = src2->GetReadPtr();
   const int src2_pitch = src2->GetPitch();
@@ -260,7 +261,8 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
     const int src1_pitch = src1->GetPitch(plane);
     const int height = src1->GetHeight(plane);
 
-    const int rowsize = (src1->GetRowSize(plane) >> 4) << 4; // mod 16
+    // const int rowsize = (src1->GetRowSize(plane) >> 4) << 4; // mod 16
+    const int rowsize = src1->GetRowSize(plane); // no problem if SSE2 is overworking to 16 bytes
     const int width = src1->GetRowSize(plane) / sizeof(pixel_t);
 
     const uint8_t *srcp2 = src2->GetReadPtr(plane);
