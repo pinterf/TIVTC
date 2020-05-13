@@ -117,7 +117,7 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
   else {
     VideoInfo vi_map = vi;
     // for mask vi to 8 bits
-    vi.pixel_type = (vi.pixel_type & ~VideoInfo::CS_Sample_Bits_Mask) | VideoInfo::CS_Sample_Bits_8;
+    vi_map.pixel_type = (vi.pixel_type & ~VideoInfo::CS_Sample_Bits_Mask) | VideoInfo::CS_Sample_Bits_8;
     if (bits_per_pixel == 8)
       tdptr->subtractFields<uint8_t>(prv, src, nxt, vi_map, 
         norm1, norm2, mtn1, mtn2, // output is 8 bit normalized
