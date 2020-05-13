@@ -1,9 +1,13 @@
 # TIVTC v1.0.17 (20200512) 
-# TDeInt v1.4 (20200512)
+# TDeInt v1.5 (20200513)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
 # TDeint (see change log of TIVTC later) 
+
+** TDeInt v1.5 (20200513) - pinterf
+- Fix: mode=2 10-16 bit green screen
+- Fix: mode=2 right side artifact regression in v1.4 (SSE2)
 
 ** TDeInt v1.4 (20200512) - pinterf
 - 10-16 bit support
