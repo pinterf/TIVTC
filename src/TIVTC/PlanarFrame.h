@@ -36,8 +36,6 @@
 #define PLANAR_411 4
 #define PLANAR_400 5
 
-__declspec(align(16)) const int64_t Ymask[2] = { 0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF };
-
 class PlanarFrame
 {
 private:
@@ -82,6 +80,7 @@ public:
   void copyPlaneTo(PlanarFrame &dst, int plane);
   void freePlanar();
   uint8_t* GetPtr(int plane = 0);
+  int NumComponents();
   int GetWidth(int plane = 0);
   int GetHeight(int plane = 0);
   int GetPitch(int plane = 0);

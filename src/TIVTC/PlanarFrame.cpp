@@ -246,6 +246,12 @@ uint8_t* PlanarFrame::GetPtr(int plane)
   return v;
 }
 
+int PlanarFrame::NumComponents() {
+  if (uvpitch)
+    return 3;
+  return 1;
+}
+
 int PlanarFrame::GetWidth(int plane)
 {
   if (plane == 0) return ywidth;
