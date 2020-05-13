@@ -1534,4 +1534,16 @@ void compute_sum_16x8_sse2_luma(const uint8_t *srcp, int pitch, int &sum)
   sum = _mm_cvtsi128_si32(tmpsum);
 }
 
+void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi, IScriptEnvironment* env)
+{
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  // bit depth independent
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+  for (int b = 0; b < np; ++b)
+  {
+    const int plane = planes[b];
+    env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane), src->GetReadPtr(plane),
+      src->GetPitch(plane), src->GetRowSize(plane), src->GetHeight(plane));
+  }
+}
 

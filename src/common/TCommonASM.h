@@ -101,4 +101,7 @@ void compute_sum_8xN_sse2(const uint8_t *srcp, int pitch, int &sum);
 
 void compute_sum_16x8_sse2_luma(const uint8_t *srcp, int pitch, int &sum);
 
+// fixme: put non-asm utility functions into different file
+void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi, IScriptEnvironment* env);
+
 #endif // __TCOMMONASM_H__

@@ -26,6 +26,7 @@
 
 #include "TDecimate.h"
 #include "TDecimateASM.h"
+#include "TCommonASM.h"
 #include <inttypes.h>
 
 PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
@@ -1086,7 +1087,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
         else current.match[i] = getHint(nextt, current.filmd2v[i]);
       }
       if (next_numd == w - 1) 
-        copyFrame(prev, next, env, np);
+        copyFrame(prev, next, vit, env);
       else 
         blurFrame(prevt, prev, np, 2, chroma, env, vit, opt);
       
@@ -1232,17 +1233,6 @@ uint64_t calcLumaDiffYUY2_SSD(const uint8_t* prvp, const uint8_t* nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
 {
   return calcLumaDiffYUY2_SADorSSD<false>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, opt, env);
-}
-
-void TDecimate::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np)
-{
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int planes_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
-  for (int b = 0; b < np; ++b)
-  {
-    env->BitBlt(dst->GetWritePtr(planes[b]), dst->GetPitch(planes[b]), src->GetReadPtr(planes[b]),
-      src->GetPitch(planes[b]), src->GetRowSize(planes_aligned[b]), src->GetHeight(planes[b]));
-  }
 }
 
 int TDecimate::getHint(PVideoFrame &src, int &d2vfilm)

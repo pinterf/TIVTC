@@ -153,7 +153,6 @@ private:
   void checkVideoMetrics(Cycle &c, double thresh);
   void checkVideoMatches(Cycle &p, Cycle &c);
   bool checkMatchDup(int mp, int mc);
-  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
   void findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
   int getHint(PVideoFrame &src, int &d2vfilm);
   void restoreHint(PVideoFrame &dst, IScriptEnvironment *env);

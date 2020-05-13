@@ -1465,8 +1465,8 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
   PVideoFrame maskt;
   if (APType > 0)
   {
-    maskt = env->NewVideoFrame(vi_saved);
-    copyFrame(maskt, mask, env);
+    maskt = env->NewVideoFrame(vi_mask); // v1.6 was: vi_saved
+    copyFrame(maskt, mask, vi_mask, env);
   }
   int count = 0;
 
@@ -1698,18 +1698,6 @@ void TDeinterlace::copyForUpsize(PVideoFrame &dst, PVideoFrame &src, const Video
   }
 }
 
-// no hbd involved
-void TDeinterlace::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env)
-{
-  const int stop = vi.IsYUY2() || vi.IsY() ? 1 : 3;
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane), src->GetReadPtr(plane),
-      src->GetPitch(plane), src->GetRowSize(plane), src->GetHeight(plane));
-  }
-}
 
 // for Planar and YUY2 (np=1)
 // mask frame is always 8 bits

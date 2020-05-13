@@ -150,7 +150,7 @@ d2vCJump:
       {
         fmatch = scndT;
         tcombed = 0;
-        copyFrame(dst, tmp, env, np);
+        copyFrame(dst, tmp, vi, env);
         dfrm = fmatch;
       }
       else
@@ -160,7 +160,7 @@ d2vCJump:
         {
           fmatch = thrdT;
           tcombed = 0;
-          copyFrame(dst, tmp, env, np);
+          copyFrame(dst, tmp, vi, env);
           dfrm = fmatch;
         }
         else
@@ -170,7 +170,7 @@ d2vCJump:
           {
             fmatch = frthT;
             tcombed = 0;
-            copyFrame(dst, tmp, env, np);
+            copyFrame(dst, tmp, vi, env);
             dfrm = fmatch;
           }
         }
@@ -256,7 +256,7 @@ d2vCJump:
           {
             fmatch = tmatch;
             tcombed = 0;
-            copyFrame(dst, tmp, env, np);
+            copyFrame(dst, tmp, vi, env);
             dfrm = fmatch;
           }
         }
@@ -277,7 +277,7 @@ d2vCJump:
           {
             fmatch = tmatch;
             tcombed = 0;
-            copyFrame(dst, tmp, env, np);
+            copyFrame(dst, tmp, vi, env);
             dfrm = fmatch;
           }
           else
@@ -758,17 +758,6 @@ bool TFM::checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, 
   else if (np == 3) return checkCombedPlanar(src, n, env, match, blockN, xblocksi, mics, ddebug);
   else env->ThrowError("TFM:  an unknown error occured (unknown colorspace)!");
   return false;
-}
-
-void TFM::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np)
-{
-  int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  int plane_aligned[3] = { PLANAR_Y_ALIGNED, PLANAR_U_ALIGNED, PLANAR_V_ALIGNED };
-  for (int b = 0; b < np; ++b)
-  {
-    env->BitBlt(dst->GetWritePtr(plane[b]), dst->GetPitch(plane[b]), src->GetReadPtr(plane[b]),
-      src->GetPitch(plane[b]), src->GetRowSize(plane_aligned[b]), src->GetHeight(plane[b]));
-  }
 }
 
 int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,

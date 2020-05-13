@@ -97,7 +97,6 @@ private:
   void putHint(PVideoFrame &dst, int field, unsigned int hint);
   bool getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hint);
   void getSetOvr(int n);
-  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, const VideoInfo &vi);
   
   // fixme check: similar (but not same) in TDeInterlace
   void denoiseYUY2(PlanarFrame *mask);

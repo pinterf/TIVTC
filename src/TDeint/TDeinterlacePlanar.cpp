@@ -1058,6 +1058,8 @@ void TDeinterlace::linkUVtoY_Planar(PVideoFrame& mask)
 }
 
 // mask-only no need HBD here
+// Differences
+// TFMPP::denoisePlanar: PlanarFrame, 0xFF, TDeinterlace:PVideoFrame 0x3C
 void TDeinterlace::denoisePlanar(PVideoFrame &mask)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -3125,7 +3127,7 @@ void TDeinterlace::blendDeint(PVideoFrame& dst, PVideoFrame& mask,
       dstp += dst_pitch;
     }
   }
-  copyFrame(dst, tf, env);
+  copyFrame(dst, tf, vi, env);
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
@@ -3246,7 +3248,7 @@ void TDeinterlace::blendDeint2(PVideoFrame& dst, PVideoFrame& mask,
       dstp += dst_pitch;
     }
   }
-  copyFrame(dst, tf, env);
+  copyFrame(dst, tf, vi, env);
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];

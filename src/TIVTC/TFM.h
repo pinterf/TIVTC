@@ -131,7 +131,6 @@ private:
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, IScriptEnvironment *env);
   void fileOut(int match, int combed, bool d2vfilm, int n, int MICount, int mics[5]);
-  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, int np);
   int compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
     int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env);
   int compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,

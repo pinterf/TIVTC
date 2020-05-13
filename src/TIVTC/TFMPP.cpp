@@ -24,6 +24,7 @@
 */
 
 #include "TFMPP.h"
+#include "TCommonASM.h"
 #include "emmintrin.h"
 #include "smmintrin.h"
 
@@ -78,7 +79,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
           }
           else
           {
-            copyFrame(dst, src, env, vi);
+            copyFrame(dst, src, vi, env);
             elaDeint(dst, mmask, src, false, fieldSrc, vi);
           }
         }
@@ -105,7 +106,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
           }
           else
           {
-            copyFrame(dst, src, env, vi);
+            copyFrame(dst, src, vi, env);
             elaDeint(dst, mmask, src, true, fieldSrc, vi);
           }
         }
@@ -134,7 +135,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
         }
         else
         {
-          copyFrame(dst, src, env, vi);
+          copyFrame(dst, src, vi, env);
           elaDeint(dst, mmask, src, true, fieldSrc, vi);
         }
       }
@@ -459,9 +460,13 @@ void TFMPP::linkYUY2(PlanarFrame *mask)
   }
 }
 
+// mask-only no need HBD here
+// Differences
+// TFMPP::denoisePlanar: PlanarFrame, 0xFF, TDeinterlace:PVideoFrame 0x3C
 void TFMPP::denoisePlanar(PlanarFrame *mask)
 {
-  for (int b = 0; b < 3; ++b)
+  const int np = mask->NumComponents();
+  for (int b = 0; b < np; ++b)
   {
     uint8_t *maskpp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
@@ -985,19 +990,6 @@ void TFMPP::getSetOvr(int n)
       if (setArray[x] == 80) PP = setArray[x + 3];
       else if (setArray[x] == 77) mthresh = setArray[x + 3];
     }
-  }
-}
-
-void TFMPP::copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, const VideoInfo &vi)
-{
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  // bit depth independent
-  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
-  for (int b = 0; b < np; ++b)
-  {
-    const int plane = planes[b];
-    env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane), src->GetReadPtr(plane),
-      src->GetPitch(plane), src->GetRowSize(plane), src->GetHeight(plane));
   }
 }
 

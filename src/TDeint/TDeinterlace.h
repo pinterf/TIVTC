@@ -214,7 +214,6 @@ class TDeinterlace : public GenericVideoFilter
   
   void copyForUpsize(PVideoFrame &dst, PVideoFrame &src, const VideoInfo& vi, IScriptEnvironment *env);
   void setMaskForUpsize(PVideoFrame &msk, const VideoInfo& vi_mask);
-  void copyFrame(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env);
 
   // hbd dispatch inside
   void absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos, IScriptEnvironment *env);
