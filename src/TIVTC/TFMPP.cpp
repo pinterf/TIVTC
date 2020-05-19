@@ -150,9 +150,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
 void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   PlanarFrame *mask, int use, int np, IScriptEnvironment *env)
 {
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+  bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
@@ -178,7 +176,7 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     if (use == 1)
     {
       if (use_sse2)
-        buildMotionMask1_SSE2(srcp, prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpu);
+        buildMotionMask1_SSE2(srcp, prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpuFlags);
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -202,7 +200,7 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     else if (use == 2)
     {
       if (use_sse2)
-        buildMotionMask1_SSE2(srcp, nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
+        buildMotionMask1_SSE2(srcp, nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -228,7 +226,7 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       // use not 1 or 2
       if (use_sse2)
       {
-        buildMotionMask2_SSE2(prvp, srcp, nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpu);
+        buildMotionMask2_SSE2(prvp, srcp, nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
         for (int y = 1; y < height; ++y)
         {
           for (int x = 0; x < width; ++x)
@@ -300,7 +298,7 @@ void TFMPP::buildMotionMask1_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
 {
   memset(dstp - dst_pitch, 0xFF, dst_pitch);
   memset(dstp + dst_pitch*height, 0xFF, dst_pitch);
-  __m128i thresh = _mm_set1_epi8((char)(max(min(255 - mthresh - 1, 255), 0)));
+  __m128i thresh = _mm_set1_epi8((char)(std::max(std::min(255 - mthresh - 1, 255), 0)));
   __m128i full_ff = _mm_set1_epi8(-1);
   while (height--) {
     for (int x = 0; x < width; x += 16) {
@@ -339,7 +337,7 @@ void TFMPP::buildMotionMask2_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
   const uint8_t *srcp3, uint8_t *dstp, int s1_pitch, int s2_pitch,
   int s3_pitch, int dst_pitch, int width, int height, long cpu)
 {
-  __m128i thresh = _mm_set1_epi8((char)(max(min(255 - mthresh - 1, 255), 0)));
+  __m128i thresh = _mm_set1_epi8((char)(std::max(std::min(255 - mthresh - 1, 255), 0)));
   __m128i all_ff = _mm_set1_epi8(-1);
   __m128i onesByte = _mm_set1_epi8(0x01);
   __m128i twosByte = _mm_set1_epi8(0x02);
@@ -874,7 +872,8 @@ void cubicDeintMask_SSE2(const uint8_t *srcp, uint8_t *dstp,
     }
     srcp += src_pitch;
     dstp += dst_pitch;
-    maskp += msk_pitch;
+    if constexpr(with_mask)
+      maskp += msk_pitch;
   }
 }
 
@@ -892,17 +891,16 @@ void cubicDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
     {
       if (!with_mask || (with_mask && maskp[x] == 0xFF))
       {
-        const int temp = (19 * (srcpp[x] + srcp[x]) - 3 * (srcppp[x] + srcpn[x]) + 16) >> 5;
-        if (temp > 255) dstp[x] = 255;
-        else if (temp < 0) dstp[x] = 0;
-        else dstp[x] = temp;
+        const int temp = cubicInt<8>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
+        dstp[x] = temp;
       }
       else 
         dstp[x] = srcr[x];
     }
     srcp += src_pitch;
     dstp += dst_pitch;
-    maskp += msk_pitch;
+    if constexpr (with_mask)
+      maskp += msk_pitch;
   }
 }
 
@@ -1002,25 +1000,19 @@ void TFMPP::copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *en
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
+    const int dst_pitch = dst->GetPitch(plane);
+    const int src_pitch = src->GetPitch(plane);
     if (field == 0)
-      env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane), src->GetReadPtr(plane) +
-        src->GetPitch(plane), src->GetPitch(plane), src->GetRowSize(plane), 1);
-    env->BitBlt(dst->GetWritePtr(plane) + dst->GetPitch(plane)*(1 - field),
-      dst->GetPitch(plane) * 2, src->GetReadPtr(plane) + src->GetPitch(plane)*(1 - field),
+      env->BitBlt(dst->GetWritePtr(plane), dst_pitch, src->GetReadPtr(plane) + src_pitch, 
+        src_pitch, src->GetRowSize(plane), 1);
+    env->BitBlt(dst->GetWritePtr(plane) + dst_pitch *(1 - field),
+      dst->GetPitch(plane) * 2, src->GetReadPtr(plane) + src_pitch *(1 - field),
       src->GetPitch(plane) * 2, src->GetRowSize(plane), src->GetHeight(plane) >> 1);
     if (field == 1)
-      env->BitBlt(dst->GetWritePtr(plane) + dst->GetPitch(plane)*(dst->GetHeight(plane) - 1),
-        dst->GetPitch(plane), src->GetReadPtr(plane) + src->GetPitch(plane)*(src->GetHeight(plane) - 2),
+      env->BitBlt(dst->GetWritePtr(plane) + dst_pitch *(dst->GetHeight(plane) - 1),
+        dst->GetPitch(plane), src->GetReadPtr(plane) + src_pitch *(src->GetHeight(plane) - 2),
         src->GetPitch(plane), src->GetRowSize(plane), 1);
   }
-}
-
-unsigned char TFMPP::cubicInt(unsigned char p1, unsigned char p2, unsigned char p3, unsigned char p4)
-{
-  const int temp = (19 * (p2 + p3) - 3 * (p1 + p4) + 16) >> 5;
-  if (temp > 255) return 255;
-  else if (temp < 0) return 0;
-  return (unsigned char)temp;
 }
 
 void TFMPP::writeDisplay(PVideoFrame &dst, int np, int n, int field)
@@ -1182,7 +1174,7 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
                     else
                     {
                       temp1 = temp2 = srcpY[x];
-                      temp = cubicInt(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+                      temp = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
                     }
                   }
                   else
@@ -1232,7 +1224,7 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
                     else
                     {
                       temp1 = temp2 = srcpY[x];
-                      temp = cubicInt(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+                      temp = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
                     }
                   }
                   else
@@ -1263,11 +1255,11 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
               temp = (int)((-dirF)*(srcppY[x - 1] + srcpY[x + 1]) + (0.5f + dirF)*(srcppY[x] + srcpY[x]) + 0.5f);
             }
           }
-          minN = min(srcppY[x], srcpY[x]) - 25;
-          maxN = max(srcppY[x], srcpY[x]) + 25;
+          minN = std::min(srcppY[x], srcpY[x]) - 25;
+          maxN = std::max(srcppY[x], srcpY[x]) + 25;
           if (abs(temp1 - temp2) > 20 || abs(srcppY[x] + srcpY[x] - temp - temp) > 60 || temp < minN || temp > maxN)
           {
-            temp = cubicInt(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+            temp = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
           }
           if (temp > 255) temp = 255;
           else if (temp < 0) temp = 0;
@@ -1276,7 +1268,7 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
         else
         {
           if (y<3 || y>HeightY - 4) dstpY[x] = ((srcpY[x] + srcppY[x] + 1) >> 1);
-          else dstpY[x] = cubicInt(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+          else dstpY[x] = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
         }
       }
     }
@@ -1294,12 +1286,12 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
       if (nomask || maskpV[x] == 0xFF)
       {
         if (y<3 || y>HeightUV - 4) dstpV[x] = ((srcpV[x] + srcppV[x] + 1) >> 1);
-        else dstpV[x] = cubicInt(srcpppV[x], srcppV[x], srcpV[x], srcpnV[x]);
+        else dstpV[x] = cubicInt<8>(srcpppV[x], srcppV[x], srcpV[x], srcpnV[x]);
       }
       if (nomask || maskpU[x] == 0xFF)
       {
         if (y<3 || y>HeightUV - 4) dstpU[x] = ((srcpU[x] + srcppU[x] + 1) >> 1);
-        else dstpU[x] = cubicInt(srcpppU[x], srcppU[x], srcpU[x], srcpnU[x]);
+        else dstpU[x] = cubicInt<8>(srcpppU[x], srcppU[x], srcpU[x], srcpnU[x]);
       }
     }
     srcpppV = srcppV;
@@ -1427,7 +1419,7 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
                     else
                     {
                       temp1 = temp2 = srcp[x];
-                      temp = cubicInt(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
+                      temp = cubicInt<8>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
                     }
                   }
                   else
@@ -1477,7 +1469,7 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
                     else
                     {
                       temp1 = temp2 = srcp[x];
-                      temp = cubicInt(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
+                      temp = cubicInt<8>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
                     }
                   }
                   else
@@ -1508,11 +1500,11 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
               temp = (int)((-dirF)*(srcpp[x - 2] + srcp[x + 2]) + (0.5f + dirF)*(srcpp[x] + srcp[x]) + 0.5f);
             }
           }
-          minN = min(srcpp[x], srcp[x]) - 25;
-          maxN = max(srcpp[x], srcp[x]) + 25;
+          minN = std::min(srcpp[x], srcp[x]) - 25;
+          maxN = std::max(srcpp[x], srcp[x]) + 25;
           if (abs(temp1 - temp2) > 20 || abs(srcpp[x] + srcp[x] - temp - temp) > 60 || temp < minN || temp > maxN)
           {
-            temp = cubicInt(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
+            temp = cubicInt<8>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
           }
           if (temp > 255) temp = 255;
           else if (temp < 0) temp = 0;
@@ -1521,7 +1513,7 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
         else
         {
           if (y<3 || y>Height - 4) dstp[x] = ((srcp[x] + srcpp[x] + 1) >> 1);
-          else dstp[x] = cubicInt(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
+          else dstp[x] = cubicInt<8>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
         }
       }
     chromajump:
@@ -1529,7 +1521,7 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
       if (nomask || maskp[x] == 0xFF)
       {
         if (y<3 || y>Height - 4) dstp[x] = ((srcp[x] + srcpp[x] + 1) >> 1);
-        else dstp[x] = cubicInt(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
+        else dstp[x] = cubicInt<8>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
       }
     }
     srcppp = srcpp;
@@ -1726,10 +1718,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
 
   child->SetCacheHints(CACHE_GENERIC, 3); // fixed to diameter (07/30/2005)
 
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-
-  mmask = new PlanarFrame(vi, true, cpu);
+  mmask = new PlanarFrame(vi, true, cpuFlags);
   nfrms = vi.num_frames - 1;
   PPS = PP;
   mthreshS = mthresh;

@@ -24,6 +24,7 @@
 */
 
 #include "TDecimate.h"
+#include <algorithm>
 
 void TDecimate::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
 {
@@ -45,12 +46,12 @@ void TDecimate::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
   if (xlim > width) xlim = width;
   ylim = cordy + blocky;
   if (ylim > height) ylim = height;
-  for (y = max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
+  for (y = std::max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
   {
     if (cordx >= 0) (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
     if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
   }
-  for (x = max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
+  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
   {
     if (cordy >= 0) (dstp + cordy*pitch)[x] = (dstp + cordy*pitch)[x] <= 128 ? 255 : 0;
     if (temp < height) (dstp + temp*pitch)[x] = (dstp + temp*pitch)[x] <= 128 ? 255 : 0;

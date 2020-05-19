@@ -24,6 +24,8 @@
 */
 
 #include "RequestLinear.h"
+#include <algorithm>
+#include "windows.h" // OutputDebugString
 
 PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
 {
@@ -53,7 +55,7 @@ PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
     }
     else if (elim > 0)
     {
-      for (int i = max(0, n - elim); i < n; ++i)
+      for (int i = std::max(0, n - elim); i < n; ++i)
         requestFrame(i, env);
     }
     last_request = n;
@@ -69,7 +71,7 @@ PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
     else
     {
       clearCache(n, env);
-      for (int i = max(0, n - elim); i <= n; ++i)
+      for (int i = std::max(0, n - elim); i <= n; ++i)
         insertCacheFrame(i, env);
     }
     last_request = n;
@@ -85,7 +87,7 @@ PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
   else
   {
     clearCache(n, env);
-    for (int i = max(0, n - elim); i <= n; ++i)
+    for (int i = std::max(0, n - elim); i <= n; ++i)
       insertCacheFrame(i, env);
   }
   last_request = n;

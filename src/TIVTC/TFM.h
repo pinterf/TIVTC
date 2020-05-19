@@ -23,7 +23,6 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <windows.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <xmmintrin.h>
@@ -61,6 +60,9 @@
 #undef VERSION
 #endif
 #define VERSION "v1.0.4"
+
+template<int planarType>
+void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask);
 
 struct MTRACK {
   int frame, match;
@@ -142,11 +144,11 @@ private:
   bool getMatchOvr(int n, int &match, int &combed, bool &d2vmatch, bool isSC);
   void getSettingOvr(int n);
   bool checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, int match,
-    int *blockN, int &xblocksi, int *mics, bool ddebug);
+    int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh);
   bool checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
-    int *blockN, int &xblocksi, int *mics, bool ddebug);
+    int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh);
   bool checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
-    int *blockN, int &xblocksi, int *mics, bool ddebug);
+    int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma,int cthresh);
   void writeDisplay(PVideoFrame &dst, int np, int n, int fmatch, int combed, bool over,
     int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);

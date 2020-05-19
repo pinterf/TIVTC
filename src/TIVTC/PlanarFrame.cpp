@@ -147,6 +147,7 @@ bool PlanarFrame::allocSpace(int specs[4])
   uvpitch = width + ((width%MIN_ALIGNMENT) == 0 ? 0 : MIN_ALIGNMENT - (width%MIN_ALIGNMENT));
   uvwidth = width;
   uvheight = height;
+
   y = (uint8_t*)_aligned_malloc(ypitch*yheight, MIN_ALIGNMENT);
   if (y == NULL) return false;
   if (uvpitch) {
@@ -519,6 +520,7 @@ void PlanarFrame::conv422toYUY2_SSE2(uint8_t *py, uint8_t *pu, uint8_t *pv,
 // to call it
 
 #include "avisynth.h"
+#include <memory.h>
 
 void PlanarFrame::BitBlt(uint8_t* dstp, int dst_pitch, const uint8_t* srcp,
   int src_pitch, int row_size, int height)

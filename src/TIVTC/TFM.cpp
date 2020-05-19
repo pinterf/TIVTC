@@ -65,7 +65,7 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
     createWeaveFrame(dst, prv, src, nxt, env, fmatch, dfrm, np);
     if (PP > 0 && combed == -1)
     {
-      if (checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false))
+      if (checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false, chroma, cthresh))
       {
         if (d2vmatch)
         {
@@ -86,7 +86,7 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
         if (mics[i] == -20 && (i < 3 || micout > 1))
         {
           createWeaveFrame(tmp, prv, src, nxt, env, i, tfrm, np);
-          checkCombed(tmp, n, env, np, i, blockN, xblocks, mics, true);
+          checkCombed(tmp, n, env, np, i, blockN, xblocks, mics, true, chroma, cthresh);
         }
       }
     }
@@ -141,12 +141,12 @@ d2vCJump:
     if (micmatching > 0)
       checkmm(fmatch, 1, frstT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, np, n, blockN, xblocks, mics);
     createWeaveFrame(dst, prv, src, nxt, env, fmatch, dfrm, np);
-    if (checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false))
+    if (checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false, chroma, cthresh))
     {
       tcombed = 2;
       if (ubsco) isSC = checkSceneChange(prv, src, nxt, env, n);
       if (isSC) createWeaveFrame(tmp, prv, src, nxt, env, scndT, tfrm, np);
-      if (isSC && !checkCombed(tmp, n, env, np, scndT, blockN, xblocks, mics, false))
+      if (isSC && !checkCombed(tmp, n, env, np, scndT, blockN, xblocks, mics, false, chroma, cthresh))
       {
         fmatch = scndT;
         tcombed = 0;
@@ -156,7 +156,7 @@ d2vCJump:
       else
       {
         createWeaveFrame(tmp, prv, src, nxt, env, thrdT, tfrm, np);
-        if (!checkCombed(tmp, n, env, np, thrdT, blockN, xblocks, mics, false))
+        if (!checkCombed(tmp, n, env, np, thrdT, blockN, xblocks, mics, false, chroma, cthresh))
         {
           fmatch = thrdT;
           tcombed = 0;
@@ -166,7 +166,7 @@ d2vCJump:
         else
         {
           if (isSC) createWeaveFrame(tmp, prv, src, nxt, env, frthT, tfrm, np);
-          if (isSC && !checkCombed(tmp, n, env, np, frthT, blockN, xblocks, mics, false))
+          if (isSC && !checkCombed(tmp, n, env, np, frthT, blockN, xblocks, mics, false, chroma, cthresh))
           {
             fmatch = frthT;
             tcombed = 0;
@@ -190,9 +190,9 @@ d2vCJump:
     if (!slow) fmatch = compareFields(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
     else fmatch = compareFieldsSlow(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, np, n, env);
     createWeaveFrame(dst, prv, src, nxt, env, 1, dfrm, np);
-    combed1 = checkCombed(dst, n, env, np, 1, blockN, xblocks, mics, false);
+    combed1 = checkCombed(dst, n, env, np, 1, blockN, xblocks, mics, false, chroma, cthresh);
     createWeaveFrame(dst, prv, src, nxt, env, frstT, dfrm, np);
-    combed2 = checkCombed(dst, n, env, np, frstT, blockN, xblocks, mics, false);
+    combed2 = checkCombed(dst, n, env, np, frstT, blockN, xblocks, mics, false, chroma, cthresh);
     if (!combed1 && !combed2)
     {
       createWeaveFrame(dst, prv, src, nxt, env, fmatch, dfrm, np);
@@ -228,7 +228,7 @@ d2vCJump:
     if (micmatching > 0)
       checkmm(fmatch, 1, frstT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, np, n, blockN, xblocks, mics);
     createWeaveFrame(dst, prv, src, nxt, env, fmatch, dfrm, np);
-    if (mode > 3 || (mode > 0 && checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false)))
+    if (mode > 3 || (mode > 0 && checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false, chroma, cthresh)))
     {
       if (mode < 4) tcombed = 2;
       if (mode != 2)
@@ -252,7 +252,7 @@ d2vCJump:
         else if (mode != 2 || !ubsco || checkSceneChange(prv, src, nxt, env, n))
         {
           createWeaveFrame(tmp, prv, src, nxt, env, tmatch, tfrm, np);
-          if (!checkCombed(tmp, n, env, np, tmatch, blockN, xblocks, mics, false))
+          if (!checkCombed(tmp, n, env, np, tmatch, blockN, xblocks, mics, false, chroma, cthresh))
           {
             fmatch = tmatch;
             tcombed = 0;
@@ -261,7 +261,7 @@ d2vCJump:
           }
         }
       }
-      if ((mode == 3 && tcombed == 2) || (mode == 5 && checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false)))
+      if ((mode == 3 && tcombed == 2) || (mode == 5 && checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false, chroma, cthresh)))
       {
         tcombed = 2;
         if (!ubsco || checkSceneChange(prv, src, nxt, env, n))
@@ -273,7 +273,7 @@ d2vCJump:
           if (micmatching > 0)
             checkmm(tmatch, 3, 4, dst, dfrm, tmp, tfrm, prv, src, nxt, env, np, n, blockN, xblocks, mics);
           createWeaveFrame(tmp, prv, src, nxt, env, tmatch, tfrm, np);
-          if (!checkCombed(tmp, n, env, np, tmatch, blockN, xblocks, mics, false))
+          if (!checkCombed(tmp, n, env, np, tmatch, blockN, xblocks, mics, false, chroma, cthresh))
           {
             fmatch = tmatch;
             tcombed = 0;
@@ -290,7 +290,7 @@ d2vCJump:
     if (combed == -1 && PP > 0) combed = tcombed;
     if (PP > 0 && combed == -1)
     {
-      if (checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false)) combed = 2;
+      if (checkCombed(dst, n, env, np, fmatch, blockN, xblocks, mics, false, chroma, cthresh)) combed = 2;
       else combed = 0;
     }
     if (dfrm != fmatch)
@@ -304,7 +304,7 @@ d2vCJump:
       if (mics[i] == -20 && (i < 3 || micout > 1 || micmatching > 0))
       {
         createWeaveFrame(tmp, prv, src, nxt, env, i, tfrm, np);
-        checkCombed(tmp, n, env, np, i, blockN, xblocks, mics, true);
+        checkCombed(tmp, n, env, np, i, blockN, xblocks, mics, true, chroma, cthresh);
       }
     }
     if (micmatching > 0 && mode != 7 && mics[fmatch] > 15 &&
@@ -356,7 +356,7 @@ d2vCJump:
         if (mode == 1) // p/c + n
         {
           try2 = try1 == 2 ? 0 : 2;
-          minm = min(mics[1], mics[try1]);
+          minm = std::min(mics[1], mics[try1]);
           if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && try2 != fmatch)
             micChange(n, fmatch, try2, dst, prv, src, nxt, env, np,
               fmatch, combed, dfrm);
@@ -364,7 +364,7 @@ d2vCJump:
         else if (mode == 2) // p/c + u
         {
           try2 = try1 == 2 ? 3 : 4;
-          minm = min(mics[1], mics[try1]);
+          minm = std::min(mics[1], mics[try1]);
           if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && try2 != fmatch)
             micChange(n, fmatch, try2, dst, prv, src, nxt, env, np,
               fmatch, combed, dfrm);
@@ -372,8 +372,8 @@ d2vCJump:
         else if (mode == 3) // p/c + n + u/b
         {
           try2 = try1 == 2 ? 0 : 2;
-          minm = min(mics[1], mics[try1]);
-          mint = min(mics[3], mics[4]);
+          minm = std::min(mics[1], mics[try1]);
+          mint = std::min(mics[3], mics[4]);
           try3 = try1 == 2 ? (mint == mics[3] ? 3 : 4) : (mint == mics[4] ? 4 : 3);
           if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && try2 != fmatch &&
             fmatch != 3 && fmatch != 4)
@@ -382,15 +382,15 @@ d2vCJump:
               fmatch, combed, dfrm);
             minm = mics[try2];
           }
-          else if (fmatch == try2) minm = min(mics[try2], minm);
+          else if (fmatch == try2) minm = std::min(mics[try2], minm);
           if (mint * 3 < minm && mint < MI && abs(mint - minm) >= 30 && fmatch != 3 && fmatch != 4)
             micChange(n, fmatch, try3, dst, prv, src, nxt, env, np,
               fmatch, combed, dfrm);
         }
         else if (mode == 5) // p/c/n + u/b
         {
-          minm = min(mics[0], min(mics[1], mics[2]));
-          mint = min(mics[3], mics[4]);
+          minm = std::min(mics[0], std::min(mics[1], mics[2]));
+          mint = std::min(mics[3], mics[4]);
           try3 = try1 == 2 ? (mint == mics[3] ? 3 : 4) : (mint == mics[4] ? 4 : 3);
           if (mint * 3 < minm && mint < MI && abs(mint - minm) >= 30 && fmatch != 3 && fmatch != 4)
             micChange(n, fmatch, try3, dst, prv, src, nxt, env, np,
@@ -401,7 +401,7 @@ d2vCJump:
           try2 = try1 == 2 ? 3 : 4;
           try3 = try1 == 2 ? 0 : 2;
           try4 = try2 == 3 ? 4 : 3;
-          minm = min(mics[1], mics[try1]);
+          minm = std::min(mics[1], mics[try1]);
           if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && fmatch != try2 &&
             fmatch != try3 && fmatch != try4)
           {
@@ -409,7 +409,7 @@ d2vCJump:
               fmatch, combed, dfrm);
             minm = mics[try2];
           }
-          else if (fmatch == try2) minm = min(mics[try2], minm);
+          else if (fmatch == try2) minm = std::min(mics[try2], minm);
           if (mics[try3] * 3 < minm && mics[try3] < MI && abs(mics[try3] - minm) >= 30 && fmatch != try3 &&
             fmatch != try4)
           {
@@ -417,7 +417,7 @@ d2vCJump:
               fmatch, combed, dfrm);
             minm = mics[try3];
           }
-          else if (fmatch == try3) minm = min(mics[try3], minm);
+          else if (fmatch == try3) minm = std::min(mics[try3], minm);
           if (mics[try4] * 3 < minm && mics[try4] < MI && abs(mics[try4] - minm) >= 30 && fmatch != try4)
             micChange(n, fmatch, try4, dst, prv, src, nxt, env, np,
               fmatch, combed, dfrm);
@@ -479,39 +479,39 @@ void TFM::checkmm(int &cmatch, int m1, int m2, PVideoFrame &dst, int &dfrm, PVid
     m2 = tx;
   }
   if (dfrm == m1)
-    checkCombed(dst, n, env, np, m1, blockN, xblocks, mics, false);
+    checkCombed(dst, n, env, np, m1, blockN, xblocks, mics, false, chroma, cthresh);
   else if (tfrm == m1)
-    checkCombed(tmp, n, env, np, m1, blockN, xblocks, mics, false);
+    checkCombed(tmp, n, env, np, m1, blockN, xblocks, mics, false, chroma, cthresh);
   else
   {
     if (tfrm != m2)
     {
       createWeaveFrame(tmp, prv, src, nxt, env, m1, tfrm, np);
-      checkCombed(tmp, n, env, np, m1, blockN, xblocks, mics, false);
+      checkCombed(tmp, n, env, np, m1, blockN, xblocks, mics, false, chroma, cthresh);
     }
     else
     {
       createWeaveFrame(dst, prv, src, nxt, env, m1, dfrm, np);
-      checkCombed(dst, n, env, np, m1, blockN, xblocks, mics, false);
+      checkCombed(dst, n, env, np, m1, blockN, xblocks, mics, false, chroma, cthresh);
     }
   }
   if (mics[m1] < 30)
     return;
   if (dfrm == m2)
-    checkCombed(dst, n, env, np, m2, blockN, xblocks, mics, false);
+    checkCombed(dst, n, env, np, m2, blockN, xblocks, mics, false, chroma, cthresh);
   else if (tfrm == m2)
-    checkCombed(tmp, n, env, np, m2, blockN, xblocks, mics, false);
+    checkCombed(tmp, n, env, np, m2, blockN, xblocks, mics, false, chroma, cthresh);
   else
   {
     if (tfrm != m1)
     {
       createWeaveFrame(tmp, prv, src, nxt, env, m2, tfrm, np);
-      checkCombed(tmp, n, env, np, m2, blockN, xblocks, mics, false);
+      checkCombed(tmp, n, env, np, m2, blockN, xblocks, mics, false, chroma, cthresh);
     }
     else
     {
       createWeaveFrame(dst, prv, src, nxt, env, m2, dfrm, np);
-      checkCombed(dst, n, env, np, m2, blockN, xblocks, mics, false);
+      checkCombed(dst, n, env, np, m2, blockN, xblocks, mics, false, chroma, cthresh);
     }
   }
   if ((mics[m2] * 3 < mics[m1] || (mics[m2] * 2 < mics[m1] && mics[m1] > MI)) &&
@@ -752,10 +752,10 @@ void TFM::fileOut(int match, int combed, bool d2vfilm, int n, int MICount, int m
 }
 
 bool TFM::checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, int match,
-  int *blockN, int &xblocksi, int *mics, bool ddebug)
+  int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh)
 {
-  if (np == 1) return checkCombedYUY2(src, n, env, match, blockN, xblocksi, mics, ddebug);
-  else if (np == 3) return checkCombedPlanar(src, n, env, match, blockN, xblocksi, mics, ddebug);
+  if (np == 1) return checkCombedYUY2(src, n, env, match, blockN, xblocksi, mics, ddebug, chroma, cthresh);
+  else if (np == 3) return checkCombedPlanar(src, n, env, match, blockN, xblocksi, mics, ddebug, chroma, cthresh);
   else env->ThrowError("TFM:  an unknown error occured (unknown colorspace)!");
   return false;
 }
@@ -1038,9 +1038,9 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
   //        the normal metrics.  mtn metrics give better recognition of
   //        small areas ("mouths")... the hard part is telling when they
   //        are reliable enough to use.
-  float c1 = float(max(norm1, norm2)) / float(max(min(norm1, norm2), 1));
-  float c2 = float(max(mtn1, mtn2)) / float(max(min(mtn1, mtn2), 1));
-  float mr = float(max(mtn1, mtn2)) / float(max(max(norm1, norm2), 1));
+  float c1 = float(std::max(norm1, norm2)) / float(std::max(std::min(norm1, norm2), 1));
+  float c2 = float(std::max(mtn1, mtn2)) / float(std::max(std::min(mtn1, mtn2), 1));
+  float mr = float(std::max(mtn1, mtn2)) / float(std::max(std::max(norm1, norm2), 1));
   if (((mtn1 >= 500 || mtn2 >= 500) && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1)) ||
     ((mtn1 >= 1000 || mtn2 >= 1000) && (mtn1 * 3 < mtn2 * 2 || mtn2 * 3 < mtn1 * 2)) ||
     ((mtn1 >= 2000 || mtn2 >= 2000) && (mtn1 * 5 < mtn2 * 4 || mtn2 * 5 < mtn1 * 4)) ||
@@ -1049,7 +1049,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     if (mtn1 > mtn2) ret = match2;
     else ret = match1;
   }
-  else if (mr > 0.005 && max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
+  else if (mr > 0.005 && std::max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
   {
     if (mtn1 > mtn2) ret = match2;
     else ret = match1;
@@ -1381,7 +1381,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 #endif
   }
   if (accumPm < 500 && accumNm < 500 && (accumPml >= 500 || accumNml >= 500) &&
-    max(accumPml, accumNml) > 3 * min(accumPml, accumNml))
+    std::max(accumPml, accumNml) > 3 * std::min(accumPml, accumNml))
   {
     accumPm = accumPml;
     accumNm = accumNml;
@@ -1390,9 +1390,9 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   norm2 = (int)((accumNc / 6.0) + 0.5);
   mtn1 = (int)((accumPm / 6.0) + 0.5);
   mtn2 = (int)((accumNm / 6.0) + 0.5);
-  float c1 = float(max(norm1, norm2)) / float(max(min(norm1, norm2), 1));
-  float c2 = float(max(mtn1, mtn2)) / float(max(min(mtn1, mtn2), 1));
-  float mr = float(max(mtn1, mtn2)) / float(max(max(norm1, norm2), 1));
+  float c1 = float(std::max(norm1, norm2)) / float(std::max(std::min(norm1, norm2), 1));
+  float c2 = float(std::max(mtn1, mtn2)) / float(std::max(std::min(mtn1, mtn2), 1));
+  float mr = float(std::max(mtn1, mtn2)) / float(std::max(std::max(norm1, norm2), 1));
   if (((mtn1 >= 375 || mtn2 >= 375) && (mtn1 * 3 < mtn2 * 1 || mtn2 * 3 < mtn1 * 1)) ||
     ((mtn1 >= 500 || mtn2 >= 500) && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1)) ||
     ((mtn1 >= 1000 || mtn2 >= 1000) && (mtn1 * 3 < mtn2 * 2 || mtn2 * 3 < mtn1 * 2)) ||
@@ -1402,7 +1402,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     if (mtn1 > mtn2) ret = match2;
     else ret = match1;
   }
-  else if (mr > 0.005 && max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
+  else if (mr > 0.005 && std::max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
   {
     if (mtn1 > mtn2) ret = match2;
     else ret = match1;
@@ -2145,7 +2145,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
 #endif // todo
   }
   if (accumPm < 500 && accumNm < 500 && (accumPml >= 500 || accumNml >= 500) &&
-    max(accumPml, accumNml) > 3 * min(accumPml, accumNml))
+    std::max(accumPml, accumNml) > 3 * std::min(accumPml, accumNml))
   {
     accumPm = accumPml;
     accumNm = accumNml;
@@ -2154,9 +2154,9 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   norm2 = (int)((accumNc / 6.0) + 0.5);
   mtn1 = (int)((accumPm / 6.0) + 0.5);
   mtn2 = (int)((accumNm / 6.0) + 0.5);
-  float c1 = float(max(norm1, norm2)) / float(max(min(norm1, norm2), 1));
-  float c2 = float(max(mtn1, mtn2)) / float(max(min(mtn1, mtn2), 1));
-  float mr = float(max(mtn1, mtn2)) / float(max(max(norm1, norm2), 1));
+  float c1 = float(std::max(norm1, norm2)) / float(std::max(std::min(norm1, norm2), 1));
+  float c2 = float(std::max(mtn1, mtn2)) / float(std::max(std::min(mtn1, mtn2), 1));
+  float mr = float(std::max(mtn1, mtn2)) / float(std::max(std::max(norm1, norm2), 1));
   if (((mtn1 >= 250 || mtn2 >= 250) && (mtn1 * 4 < mtn2 * 1 || mtn2 * 4 < mtn1 * 1)) ||
     ((mtn1 >= 375 || mtn2 >= 375) && (mtn1 * 3 < mtn2 * 1 || mtn2 * 3 < mtn1 * 1)) ||
     ((mtn1 >= 500 || mtn2 >= 500) && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1)) ||
@@ -2167,7 +2167,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     if (mtn1 > mtn2) ret = match2;
     else ret = match1;
   }
-  else if (mr > 0.005 && max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
+  else if (mr > 0.005 && std::max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
   {
     if (mtn1 > mtn2) ret = match2;
     else ret = match1;
@@ -2210,9 +2210,7 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   srcp += (1 - field)*(src_pitch >> 1);
   nxtp += (1 - field)*(nxt_pitch >> 1);
 
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+  bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   if (use_sse2)
   {
@@ -2569,18 +2567,15 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   sclast.frame = -20;
   sclast.sc = true;
 
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-
   if (mode == 1 || mode == 2 || mode == 3 || mode == 5 || mode == 6 || mode == 7 ||
     PP > 0 || micout > 0 || micmatching > 0)
   {
     cArray = (int *)_aligned_malloc((((vi.width + xhalf) >> xshift) + 1)*(((vi.height + yhalf) >> yshift) + 1) * 4 * sizeof(int), 16);
     if (!cArray) env->ThrowError("TFM:  malloc failure (cArray)!");
-    cmask = new PlanarFrame(vi, true, cpu);
+    cmask = new PlanarFrame(vi, true, cpuFlags);
   }
   
-  map = new PlanarFrame(vi, true, cpu);
+  map = new PlanarFrame(vi, true, cpuFlags);
 
   if (vi.IsYUY2())
   {
@@ -3477,7 +3472,7 @@ void TFM::generateOvrHelpOutput(FILE *f)
   else if (mcount)
   {
     int maxcp = int(MI*0.85), count = 0;
-    int mt = max(int(MI*0.1875), 5);
+    int mt = std::max(int(MI*0.1875), 5);
     for (int i = 0; i < vi.num_frames; ++i)
     {
       if ((outArray[i] & 0x30) == 0x30)

@@ -24,6 +24,8 @@
 */
 
 #include "MergeHints.h"
+#include "avisynth.h"
+#include "windows.h"
 
 MergeHints::MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnvironment *env) :
   GenericVideoFilter(_child), hintClip(_hintClip), debug(_debug)

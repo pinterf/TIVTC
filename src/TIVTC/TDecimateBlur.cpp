@@ -26,28 +26,27 @@
 #include "TDecimate.h"
 #include "TDecimateASM.h"
 
-void blurFrame(PVideoFrame &src, PVideoFrame &dst, int np, int iterations,
-  bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int opti)
+void blurFrame(PVideoFrame &src, PVideoFrame &dst, int iterations,
+  bool bchroma, IScriptEnvironment *env, VideoInfo& vi_t, int cpuFlags)
 {
   PVideoFrame tmp = env->NewVideoFrame(vi_t);
-  HorizontalBlur(src, tmp, np, bchroma, env, vi_t, opti);
-  VerticalBlur(tmp, dst, np, bchroma, env, vi_t, opti);
+  HorizontalBlur(src, tmp, bchroma, env, vi_t, cpuFlags);
+  VerticalBlur(tmp, dst, bchroma, env, vi_t, cpuFlags);
   for (int i = 1; i < iterations; ++i)
   {
-    HorizontalBlur(dst, tmp, np, bchroma, env, vi_t, opti);
-    VerticalBlur(tmp, dst, np, bchroma, env, vi_t, opti);
+    HorizontalBlur(dst, tmp, bchroma, env, vi_t, cpuFlags);
+    VerticalBlur(tmp, dst, bchroma, env, vi_t, cpuFlags);
   }
 }
 
-void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
-  IScriptEnvironment *env, VideoInfo& vi_t, int opti)
+void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, bool bchroma,
+  IScriptEnvironment *env, VideoInfo& vi_t, int cpuFlags)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  if (vi_t.IsPlanar() && !bchroma) np = 1; // luma only
 
-  long cpu = env->GetCPUFlags();
-  if (opti == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+  const int np = (vi_t.IsYUY2() || vi_t.IsY() || !bchroma) ? 1 : 3; // luma only (!chroma) only 1 planar planes
+
+  const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   for (int b = 0; b < np; ++b)
   {
@@ -179,15 +178,14 @@ void HorizontalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
   }
 }
 
-void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, int np, bool bchroma,
-  IScriptEnvironment *env, VideoInfo& vi_t, int opti)
+void VerticalBlur(PVideoFrame &src, PVideoFrame &dst, bool bchroma,
+  IScriptEnvironment *env, VideoInfo& vi_t, int cpuFlags)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  if (vi_t.IsPlanar() && !bchroma) np = 1; // luma only
 
-  long cpu = env->GetCPUFlags();
-  if (opti == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+  const int np = (vi_t.IsYUY2() || vi_t.IsY() || !bchroma) ? 1 : 3; // luma only (!chroma) only 1 planar planes
+
+  const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   for (int b = 0; b < np; ++b)
   {

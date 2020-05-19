@@ -24,6 +24,7 @@
 */
 
 #include "TDecimate.h"
+#include <algorithm>
 
 void TDecimate::debugOutput1(int n, bool film, int blend)
 {
@@ -179,19 +180,19 @@ void TDecimate::addMetricCycle(Cycle &j)
 }
 
 void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
-  int ret, bool film, double amount1, double amount2, int f1, int f2, int np)
+  int ret, bool film, double amount1, double amount2, int f1, int f2, const VideoInfo &vi_disp)
 {
   int i = 0;
   char tempBuf[40];
   sprintf(buf, "TDecimate %s by tritical", VERSION);
-  Draw(dst, 0, i++, buf, np);
+  Draw(dst, 0, i++, buf, vi_disp);
   sprintf(buf, "Mode: %d  Cycle: %d  CycleR: %d  Hybrid: %d", mode, cycle, cycleR, hybrid);
-  Draw(dst, 0, i++, buf, np);
+  Draw(dst, 0, i++, buf, vi_disp);
   if (amount1 == 0.0 && amount2 == 0.0)
     sprintf(buf, "inframe: %d  useframe: %d", n, ret);
   else sprintf(buf, "inframe: %d  useframe: blend %d-%d (%3.2f,%3.2f)", n, f1, f2,
     amount1*100.0, amount2*100.0);
-  Draw(dst, 0, i++, buf, np);
+  Draw(dst, 0, i++, buf, vi_disp);
   int i_saved = i, retd, side = 0, strack = 0;
   if (mode == 0 || (mode == 3 && vfrDec == 0))
   {
@@ -216,15 +217,15 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
           strcat(buf, tempBuf);
         }
       }
-      retd = Draw(dst, side, i++, buf, np);
+      retd = Draw(dst, side, i++, buf, vi_disp);
       if (retd == -1)
       {
         side += strack + 2;
         strack = 0;
         i = i_saved;
-        Draw(dst, side, i++, buf, np);
+        Draw(dst, side, i++, buf, vi_disp);
       }
-      else strack = max(strack, retd);
+      else strack = std::max(strack, retd);
       mp = mc;
       if (x < curr.cycleE - 1) mc = curr.match[x + 1];
     }
@@ -257,15 +258,15 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
           strcat(buf, tempBuf);
         }
       }
-      retd = Draw(dst, side, i++, buf, np);
+      retd = Draw(dst, side, i++, buf, vi_disp);
       if (retd == -1)
       {
         side += strack + 2;
         strack = 0;
         i = i_saved;
-        Draw(dst, side, i++, buf, np);
+        Draw(dst, side, i++, buf, vi_disp);
       }
-      else strack = max(strack, retd);
+      else strack = std::max(strack, retd);
       mp = mc;
       if (x < curr.cycleE - 1) mc = curr.match[x + 1];
     }
@@ -276,15 +277,15 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
     formatDecs(curr);
   }
   else sprintf(buf, "VIDEO");
-  retd = Draw(dst, side, i++, buf, np);
+  retd = Draw(dst, side, i++, buf, vi_disp);
   if (retd == -1)
   {
     i = i_saved;
     side += strack + 2;
-    retd = Draw(dst, side, i++, buf, np);
+    retd = Draw(dst, side, i++, buf, vi_disp);
   }
   while (retd < -1)
   {
-    retd = Draw(dst, side, i++, buf, np, -retd - 2);
+    retd = Draw(dst, side, i++, buf, vi_disp, -retd - 2);
   }
 }

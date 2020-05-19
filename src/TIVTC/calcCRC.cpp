@@ -23,7 +23,6 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <windows.h>
 #include "internal.h"
 
 static const unsigned int Crc32Table[256] =

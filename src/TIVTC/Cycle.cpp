@@ -27,6 +27,8 @@
 #include "avisynth.h"
 #include "stdint.h"
 #include <inttypes.h>
+#include <windows.h> // OutputDebugString
+#include <algorithm>
 
 void Cycle::setFrame(int frameIn)
 {
@@ -58,7 +60,7 @@ void Cycle::setDecimateLow(int num, IScriptEnvironment *env)
     if (decimate[i] != 1) decimate[i] = decimate2[i] = 0;
     else ++ovrDec;
   }
-  for (int i = max(cycleE, 0); i < length; ++i) decimate[i] = decimate2[i] = -20;
+  for (int i = std::max(cycleE, 0); i < length; ++i) decimate[i] = decimate2[i] = -20;
   const int istop = cycleE - cycleS;
   int asd = abs(sdlim);
   if (sdlim < 0)
@@ -71,7 +73,7 @@ mrestart:
   for (int i = 0; v < num - ovrDec && i < istop; ++i)
   {
     bool update = true;
-    for (int c = max(cycleS, lowest[i] - asd); c <= min(cycleE - 1, lowest[i] + asd); ++c)
+    for (int c = std::max(cycleS, lowest[i] - asd); c <= std::min(cycleE - 1, lowest[i] + asd); ++c)
     {
       if (decimate[c] == 1)
       {
@@ -133,7 +135,7 @@ mrestart:
   for (int i = 0; v < num && i < istop; ++i)
   {
     bool update = true;
-    for (int c = max(cycleS, lowest[i] - asd); c <= min(cycleE - 1, lowest[i] + asd); ++c)
+    for (int c = std::max(cycleS, lowest[i] - asd); c <= std::min(cycleE - 1, lowest[i] + asd); ++c)
     {
       if (decimate[c] == 1)
       {
@@ -188,13 +190,13 @@ void Cycle::setLowest(bool excludeD)
   if (frame == 0) ++f;
   for (i = 0; i < length; ++i) lowest[i] = i;
   for (i = 0; i < length; ++i) tArray[i] = diffMetricsU[i];
-  for (i = 0; i < f; ++i) tArray[i] = ULLONG_MAX;
-  for (i = max(cycleE, 0); i < length; ++i) tArray[i] = ULLONG_MAX;
+  for (i = 0; i < f; ++i) tArray[i] = UINT64_MAX;
+  for (i = std::max(cycleE, 0); i < length; ++i) tArray[i] = UINT64_MAX;
   if ((excludeD && decSet) || !decSet)
   {
     for (i = cycleS; i < cycleE; ++i)
     {
-      if (decimate[i] == 1) tArray[i] = ULLONG_MAX;
+      if (decimate[i] == 1) tArray[i] = UINT64_MAX;
     }
   }
   for (i = 1; i < length; ++i)
@@ -235,7 +237,7 @@ void Cycle::setDups(double thresh)
     }
     else dupArray[i] = 0;
   }
-  for (i = max(cycleE, 0); i < length; ++i) dupArray[i] = -20;
+  for (i = std::max(cycleE, 0); i < length; ++i) dupArray[i] = -20;
   if (frame == 0 && dupArray[cycleS] == 1)
   {
     --dupCount;
@@ -244,14 +246,14 @@ void Cycle::setDups(double thresh)
   dupsSet = true;
 }
 
-#define ISP 0x00000000 // p
-#define ISC 0x00000001 // c
-#define ISN 0x00000002 // n
-#define ISB 0x00000003 // b
-#define ISU 0x00000004 // u
-#define ISDB 0x00000005 // l = (deinterlaced c bottom field)
-#define ISDT 0x00000006 // h = (deinterlaced c top field)
-#define ISMATCH 0x00000070 // ovr array - bits 5-7
+constexpr int ISP = 0x00000000; // p
+constexpr int ISC = 0x00000001; // c
+constexpr int ISN = 0x00000002; // n
+constexpr int ISB = 0x00000003; // b
+constexpr int ISU = 0x00000004; // u
+constexpr int ISDB = 0x00000005; // l = (deinterlaced c bottom field)
+constexpr int ISDT = 0x00000006; // h = (deinterlaced c top field)
+constexpr int ISMATCH = 0x00000070; // ovr array - bits 5-7
 
 void Cycle::setDupsMatches(Cycle &p, uint8_t *marray)
 {
@@ -302,7 +304,7 @@ void Cycle::setDupsMatches(Cycle &p, uint8_t *marray)
     mp = mc;
     if (i < cycleE - 1) mc = match[i + 1];
   }
-  for (i = max(cycleE, 0); i < length; ++i) dupArray[i] = -20;
+  for (i = std::max(cycleE, 0); i < length; ++i) dupArray[i] = -20;
   dupsSet = true;
 }
 
@@ -353,7 +355,7 @@ void Cycle::clearAll()
   for (int x = 0; x < length; ++x)
   {
     dupArray[x] = lowest[x] = decimate[x] = match[x] = decimate2[x] = filmd2v[x] = -20;
-    diffMetricsU[x] = diffMetricsUF[x] = ULLONG_MAX;
+    diffMetricsU[x] = diffMetricsUF[x] = UINT64_MAX;
     diffMetricsN[x] = -20.0;
   }
 }
@@ -450,13 +452,13 @@ Cycle::Cycle(int _size, int _sdlim)
   dect = dect2 = NULL;
   diffMetricsU = diffMetricsUF = tArray = NULL;
   diffMetricsN = NULL;
-  cycleSize = max(0, _size);
+  cycleSize = std::max(0, _size);
   sdlim = _sdlim;
   allocSpace();
   for (int x = 0; x < cycleSize; ++x)
   {
     dupArray[x] = lowest[x] = decimate[x] = match[x] = decimate2[x] = filmd2v[x] = -20;
-    diffMetricsU[x] = diffMetricsUF[x] = tArray[x] = ULLONG_MAX;
+    diffMetricsU[x] = diffMetricsUF[x] = tArray[x] = UINT64_MAX;
     diffMetricsN[x] = -20.0;
   }
 }
@@ -512,12 +514,12 @@ bool Cycle::allocSpace()
 
 void Cycle::setSize(int _size)
 {
-  cycleSize = max(0, _size);
+  cycleSize = std::max(0, _size);
   allocSpace();
   for (int x = 0; x < cycleSize; ++x)
   {
     dupArray[x] = lowest[x] = decimate[x] = match[x] = decimate2[x] = filmd2v[x] = -20;
-    diffMetricsU[x] = diffMetricsUF[x] = tArray[x] = ULLONG_MAX;
+    diffMetricsU[x] = diffMetricsUF[x] = tArray[x] = UINT64_MAX;
     diffMetricsN[x] = -20.0;
   }
 }
@@ -541,7 +543,7 @@ Cycle& Cycle::operator=(Cycle& ob2)
   dupCount = ob2.dupCount;
   blend = ob2.blend;
   isfilmd2v = ob2.isfilmd2v;
-  cycleSize = min(cycleSize, ob2.cycleSize);
+  cycleSize = std::min(cycleSize, ob2.cycleSize);
   if (length > cycleSize) length = cycleSize;
   memcpy(dupArray, ob2.dupArray, cycleSize * sizeof(int));
   memcpy(lowest, ob2.lowest, cycleSize * sizeof(int));

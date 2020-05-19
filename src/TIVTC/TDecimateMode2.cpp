@@ -24,8 +24,9 @@
 */
 
 #include "TDecimate.h"
+#include <algorithm>
 
-PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, int np)
+PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, const VideoInfo& vi)
 {
   int ret = -20;
   if (mode2_numCycles >= 0)
@@ -46,7 +47,7 @@ PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, int np)
       {
         prev.setFrame(aLUT[(cycleF - 1) * 5]);
         getOvrCycle(prev, true);
-        calcMetricCycle(prev, env, np, true, false);
+        calcMetricCycle(prev, env, vi, true, false);
         addMetricCycle(prev);
       }
     }
@@ -58,7 +59,7 @@ PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, int np)
       {
         curr.setFrame(aLUT[cycleF * 5]);
         getOvrCycle(curr, true);
-        calcMetricCycle(curr, env, np, true, false);
+        calcMetricCycle(curr, env, vi, true, false);
         addMetricCycle(curr);
       }
     }
@@ -66,7 +67,7 @@ PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, int np)
     {
       next.setFrame(aLUT[(cycleF + 1) * 5]);
       getOvrCycle(next, true);
-      calcMetricCycle(next, env, np, true, false);
+      calcMetricCycle(next, env, vi, true, false);
       addMetricCycle(next);
     }
     else if (cycleF >= mode2_numCycles - 1) next.setFrame(-next.length);
@@ -82,22 +83,22 @@ PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, int np)
     sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  rate = %3.6f\n", n, ret, rate);
     OutputDebugString(buf);
   }
+
+  const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
   if (display)
   {
     PVideoFrame dst;
     if (!useclip2) dst = child->GetFrame(ret, env);
-    else
-    {
-      dst = clip2->GetFrame(ret, env);
-      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
-    }
+    else dst = clip2->GetFrame(ret, env);
     env->MakeWritable(&dst);
+
     sprintf(buf, "TDecimate %s by tritical", VERSION);
-    Draw(dst, 0, 0, buf, np);
+    Draw(dst, 0, 0, buf, vi2);
     sprintf(buf, "Mode: 2  Rate = %3.6f", rate);
-    Draw(dst, 0, 1, buf, np);
+    Draw(dst, 0, 1, buf, vi2);
     sprintf(buf, "inframe = %d  useframe = %d", n, ret);
-    Draw(dst, 0, 2, buf, np);
+    Draw(dst, 0, 2, buf, vi2);
     return dst;
   }
   if (!useclip2) return child->GetFrame(ret, env);
@@ -194,7 +195,7 @@ void TDecimate::removeMinN(int m, int n, int start, int stop)
         if (pM >= 3.0 && nM >= 3.0 && cM < 3.0 && pM*0.5 > cM && nM*0.5 > cM)
         {
           mode2_order[t] = i;
-          mode2_metrics[t] = (int)(min(pM - cM, nM - cM)*10000.0 + 0.5);
+          mode2_metrics[t] = (int)(std::min(pM - cM, nM - cM)*10000.0 + 0.5);
           ++t;
         }
       }
@@ -286,7 +287,7 @@ void TDecimate::removeMinN(int m, int n, uint64_t *metricsT, int *orderT, int &o
         if (pM >= 3.0 && nM >= 3.0 && cM < 3.0 && pM*0.5 > cM && nM*0.5 > cM)
         {
           orderT[t] = i;
-          metricsT[t] = (int)(min(pM - cM, nM - cM)*10000.0 + 0.5);
+          metricsT[t] = (int)(std::min(pM - cM, nM - cM)*10000.0 + 0.5);
           ++t;
         }
       }
@@ -441,7 +442,7 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
   {
     for (int h = 0; h < vi.num_frames * 2; h += 2)
     {
-      if (metricsArray[h] == ULLONG_MAX) { allMetrics = false; break; }
+      if (metricsArray[h] == UINT64_MAX) { allMetrics = false; break; }
     }
   }
   else allMetrics = false;

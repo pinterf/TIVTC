@@ -109,7 +109,6 @@ private:
   void destroyHint(PVideoFrame &dst, unsigned int hint);
   void CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
     int field, const VideoInfo &vi, IScriptEnvironment *env);
-  unsigned char cubicInt(unsigned char p1, unsigned char p2, unsigned char p3, unsigned char p4);
   void writeDisplay(PVideoFrame &dst, int np, int n, int field);
   void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);
 

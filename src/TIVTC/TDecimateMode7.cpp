@@ -25,8 +25,9 @@
 
 #include "TDecimate.h"
 #include <inttypes.h>
+#include <algorithm>
 
-PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
+PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, const VideoInfo &vi)
 {
   double ratio = fps / rate;
   int prev_f = int(double(n - 1)*ratio + 1.0);
@@ -43,11 +44,11 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
     int prev_real = n == 0 ? -20 : mode2_decA[n - 1];
     if (prev_real != -20) prev_f = prev_real;
     bool rup = double(n) * ratio - double(curr1_f) >= 0.5 ? true : false;
-    for (int i = max(prev_f - 3, 1); i <= min(next_f + 2, nfrms); ++i)
+    for (int i = std::max(prev_f - 3, 1); i <= std::min(next_f + 2, nfrms); ++i)
     {
-      if (metricsOutArray[i << 1] == ULLONG_MAX)
+      if (metricsOutArray[i << 1] == UINT64_MAX)
       {
-        if (metricsArray != NULL && metricsArray[i << 1] != ULLONG_MAX)
+        if (metricsArray != NULL && metricsArray[i << 1] != UINT64_MAX)
           metricsOutArray[i << 1] = metricsArray[i << 1];
         else
         {
@@ -57,7 +58,7 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
           PVideoFrame frame2 = child->GetFrame(i, env);
           metricsOutArray[i << 1] =
             calcMetric(frame1, frame2,
-              np, blockNI, blocksI, metricF, env, false);
+              vi, blockNI, blocksI, metricF, env, false);
         }
       }
     }
@@ -109,7 +110,7 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
     sprintf(buf, "TDecimate:  prev = %d  curr1 = %d  curr2 = %d  next = %d\n", prev_f,
       curr1_f, curr2_f, next_f);
     OutputDebugString(buf);
-    for (int i = max(0, ret - 3); i <= min(ret + 3, nfrms); ++i)
+    for (int i = std::max(0, ret - 3); i <= std::min(ret + 3, nfrms); ++i)
     {
       sprintf(buf, "TDecimate:  %d:  %3.2f  %" PRIu64 "%s%s\n", i, double(metricsOutArray[i << 1])*100.0 / double(MAX_DIFF),
         metricsOutArray[i << 1], metricsOutArray[i << 1] < same_thresh ? "  (D)" :
@@ -119,37 +120,37 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
       OutputDebugString(buf);
     }
   }
+
+  const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
   if (display)
   {
     PVideoFrame dst;
     if (!useclip2) dst = child->GetFrame(ret, env);
-    else
-    {
-      dst = clip2->GetFrame(ret, env);
-      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
-    }
+    else dst = clip2->GetFrame(ret, env);
     env->MakeWritable(&dst);
+
     sprintf(buf, "TDecimate %s by tritical", VERSION);
-    Draw(dst, 0, 0, buf, np);
+    Draw(dst, 0, 0, buf, vi2);
     sprintf(buf, "Mode: 7  Rate = %3.6f", rate);
-    Draw(dst, 0, 1, buf, np);
+    Draw(dst, 0, 1, buf, vi2);
     sprintf(buf, "inframe = %d  useframe = %d  chosen = %d", n, ret, chosen);
-    Draw(dst, 0, 2, buf, np);
+    Draw(dst, 0, 2, buf, vi2);
     sprintf(buf, "p = %d  c1 = %d  c2 = %d  n = %d", prev_f,
       curr1_f, curr2_f, next_f);
-    Draw(dst, 0, 3, buf, np);
+    Draw(dst, 0, 3, buf, vi2);
     sprintf(buf, "dt = %3.2f  %" PRIu64 "  vt = %3.2f  %" PRIu64 "", dupThresh, same_thresh,
       vidThresh, diff_thresh);
-    Draw(dst, 0, 4, buf, np);
+    Draw(dst, 0, 4, buf, vi2);
     int pt = 5;
-    for (int i = max(0, ret - 3); i <= min(ret + 3, nfrms); ++i)
+    for (int i = std::max(0, ret - 3); i <= std::min(ret + 3, nfrms); ++i)
     {
       sprintf(buf, "%d:  %3.2f  %" PRIu64 "%s%s", i, double(metricsOutArray[i << 1])*100.0 / double(MAX_DIFF),
         metricsOutArray[i << 1], metricsOutArray[i << 1] < same_thresh ? "  (D)" :
         metricsOutArray[i << 1] > diff_thresh ? "  (N)" :
         aLUT[i] == 2 ? "  (N)" : aLUT[i] == 1 ? "  (S)" :
         aLUT[i] == 0 ? "  (D)" : "", wasChosen(i, n) ? "  *" : "");
-      Draw(dst, 0, pt++, buf, np);
+      Draw(dst, 0, pt++, buf, vi2);
     }
     return dst;
   }
@@ -159,7 +160,7 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, int np)
 
 bool TDecimate::wasChosen(int i, int n)
 {
-  for (int p = max(n - 5, 0); p < min(n + 5, nfrmsN); ++p)
+  for (int p = std::max(n - 5, 0); p < std::min(n + 5, nfrmsN); ++p)
   {
     if (mode2_decA[p] == i) return true;
   }
@@ -197,40 +198,40 @@ int TDecimate::diff_f(int f1, int f2, IScriptEnvironment *env)
   for (int i = f1 + 1; i <= f2; ++i)
   {
     if (aLUT[i] == -20) aLUT[i] = mode7_analysis(i, env);
-    mx = max(mx, aLUT[i]);
+    mx = std::max(mx, aLUT[i]);
   }
   return mx;
 }
 
 int TDecimate::mode7_analysis(int n, IScriptEnvironment *env)
 {
-  uint64_t vals[3] = { ULLONG_MAX, ULLONG_MAX, ULLONG_MAX };
+  uint64_t vals[3] = { UINT64_MAX, UINT64_MAX, UINT64_MAX };
   if (n == 0) return 2;
   vals[0] = metricsOutArray[(n - 1) << 1];
   vals[1] = metricsOutArray[n << 1];
   if (n != nfrms) vals[2] = metricsOutArray[(n + 1) << 1];
   if (n == nfrms)
   {
-    if (vals[0] == ULLONG_MAX || vals[1] == ULLONG_MAX)
+    if (vals[0] == UINT64_MAX || vals[1] == UINT64_MAX)
       env->ThrowError("TDecimate:  mode 7 internal error (uncalculated metrics)!");
     if (vals[1] > diff_thresh || vals[1] * 2 > vals[0] * 3) return 2;
     else if (vals[1] < same_thresh || vals[1] * 4 < vals[0] ||
       (vals[1] * 2 < vals[0] && vals[0] > diff_thresh)) return 0;
     return 1;
   }
-  if (vals[0] == ULLONG_MAX || vals[1] == ULLONG_MAX || vals[2] == ULLONG_MAX)
+  if (vals[0] == UINT64_MAX || vals[1] == UINT64_MAX || vals[2] == UINT64_MAX)
     env->ThrowError("TDecimate:  mode 7 internal error (uncalculated metrics)!");
   if (vals[1] > diff_thresh) return 2; // definitely different
   else if (vals[1] < same_thresh) return 0; // definitely the same
   else if (vals[1] < vals[0] && vals[1] < vals[2]) // local minimum difference
   {
-    uint64_t minn = min(vals[0], vals[2]);
+    uint64_t minn = std::min(vals[0], vals[2]);
     if (vals[1] * 2 < minn && vals[0] > diff_thresh && vals[2] > diff_thresh) return 0;
     else if (vals[1] * 4 < minn) return 0;
   }
   else if (vals[1] > vals[0] && vals[1] > vals[2]) // local maximum difference
   {
-    uint64_t maxn = max(vals[0], vals[2]);
+    uint64_t maxn = std::max(vals[0], vals[2]);
     if (vals[1] * 2 > maxn * 3) return 2;
   }
   return 1;

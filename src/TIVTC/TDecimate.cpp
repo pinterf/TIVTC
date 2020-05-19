@@ -28,20 +28,22 @@
 #include "TDecimateASM.h"
 #include "TCommonASM.h"
 #include <inttypes.h>
+#include <algorithm>
 
 PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 {
   if (n < 0) n = 0;
   else if (n > nfrmsN) n = nfrmsN;
-  int np = child->GetVideoInfo().IsPlanar() ? 3 : 1;
+  const VideoInfo& vi2 = child->GetVideoInfo();
+  // fixme: can it be different from vi?
   PVideoFrame dst;
-  if (mode < 2) dst = GetFrameMode01(n, env, np);     // most similar/longest string
-  else if (mode == 2) dst = GetFrameMode2(n, env, np); // arbitrary framerate
-  else if (mode == 3) dst = GetFrameMode3(n, env, np); // single pass mkv-vfr
-  else if (mode == 4) dst = GetFrameMode4(n, env, np); // metrics output
-  else if (mode == 5) dst = GetFrameMode5(n, env, np); // second pass of two pass hybrid
-  else if (mode == 6) dst = GetFrameMode6(n, env, np); // second pass for 120fps to vfr
-  else if (mode == 7) dst = GetFrameMode7(n, env, np); // arbitrary framerate v2
+  if (mode < 2) dst = GetFrameMode01(n, env, vi2);     // most similar/longest string
+  else if (mode == 2) dst = GetFrameMode2(n, env, vi2); // arbitrary framerate
+  else if (mode == 3) dst = GetFrameMode3(n, env, vi2); // single pass mkv-vfr
+  else if (mode == 4) dst = GetFrameMode4(n, env, vi2); // metrics output
+  else if (mode == 5) dst = GetFrameMode5(n, env, vi2); // second pass of two pass hybrid
+  else if (mode == 6) dst = GetFrameMode6(n, env, vi2); // second pass for 120fps to vfr
+  else if (mode == 7) dst = GetFrameMode7(n, env, vi2); // arbitrary framerate v2
   else env->ThrowError("TDecimate:  unknown error (no such mode)!");
   if (usehints) restoreHint(dst, env);
   return dst;
@@ -85,14 +87,14 @@ void TDecimate::restoreHint(PVideoFrame &dst, IScriptEnvironment *env)
 }
 
 // PF 180131 uses usehints! but no problem, its runtime
-PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
+PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const VideoInfo &vi)
 {
   int EvalGroup;
   if (hybrid != 3) EvalGroup = ((int)(n / (cycle - cycleR))) * cycle;
   else EvalGroup = ((int)(n / cycle)) * cycle;
   if (n != lastn + 1 && EvalGroup >= cycle && fullInfo && (EvalGroup != curr.frame ||
     EvalGroup - cycle != prev.frame || EvalGroup + cycle != next.frame))
-    rerunFromStart(EvalGroup, np, env);
+    rerunFromStart(EvalGroup, vi, env);
   lastn = n;
   if (ecf) child->SetCacheHints(EvalGroup, -20);
   if (curr.frame != EvalGroup)
@@ -102,7 +104,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
     {
       prev.setFrame(EvalGroup - cycle);
       getOvrCycle(prev, false);
-      calcMetricCycle(prev, env, np, true, true);
+      calcMetricCycle(prev, env, vi, true, true);
       if (hybrid > 0)
       {
         checkVideoMatches(prev, prev);
@@ -115,7 +117,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
     {
       curr.setFrame(EvalGroup);
       getOvrCycle(curr, false);
-      calcMetricCycle(curr, env, np, true, true);
+      calcMetricCycle(curr, env, vi, true, true);
       if (hybrid > 0)
       {
         checkVideoMatches(prev, curr);
@@ -127,7 +129,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
     if (next.frame != EvalGroup + cycle)
       next.setFrame(EvalGroup + cycle);
     getOvrCycle(next, false);
-    calcMetricCycle(next, env, np, true, true);
+    calcMetricCycle(next, env, vi, true, true);
     if (hybrid > 0)
     {
       checkVideoMatches(curr, next);
@@ -191,13 +193,14 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
   }
   for (int j = nbuf.cycleS; j < nbuf.cycleE; ++j)
   {
-    if (nbuf.diffMetricsU[j] == ULLONG_MAX || nbuf.diffMetricsUF[j] == ULLONG_MAX ||
+    if (nbuf.diffMetricsU[j] == UINT64_MAX || nbuf.diffMetricsUF[j] == UINT64_MAX ||
       nbuf.match[j] == -20)
     {
-      calcMetricPreBuf(next.frameEO - 1 + j, next.frameEO + j, j, np, true, true, env);
+      calcMetricPreBuf(next.frameEO - 1 + j, next.frameEO + j, j, vi, true, true, env);
       break;
     }
   }
+  
   if (curr.blend == 3)  // 2 dups detected
   {
     if (hybrid == 3)  // blend up-convert (hybrid=3 leaves video untouched)
@@ -217,24 +220,29 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
         else tscene = -20;
       }
       else if (tscene == 0 && curr.diffMetricsUF[curr.cycleS] > sceneThreshU) tsc = true;
-      double a1, a2;
+      double a1, a2; // a2 = 1.0 - a1
       int f1, f2;
       calcBlendRatios2(a1, a2, f1, f2, n, prev, curr, next, 2);
+
+      const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
       if (a1 >= 1.0)
       {
+        // #1 is 100%
         if (!useclip2) dst = child->GetFrame(f1, env);
         else dst = clip2->GetFrame(f1, env);
         if (display) env->MakeWritable(&dst);
       }
       else if (a2 >= 1.0)
       {
+        // #2 is 100%
         if (!useclip2) dst = child->GetFrame(f2, env);
         else dst = clip2->GetFrame(f2, env);
         if (display) env->MakeWritable(&dst);
       }
       else if (tscene >= 0 &&
         ((!tsc && (f1 == curr.frame + tscene || f2 == curr.frame + tscene + 1)) ||
-        (tsc && (f1 == curr.frame + tscene - 1 || f2 == curr.frame + tscene))))
+          (tsc && (f1 == curr.frame + tscene - 1 || f2 == curr.frame + tscene))))
       {
         if (!tsc)
         {
@@ -246,7 +254,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
           f1 = curr.frame + tscene - 1;
           f2 = curr.frame + tscene;
         }
-        a1 = 1.0;
+        a1 = 1.0; // make #1 as 100%
         a2 = 0.0;
         if (!useclip2) dst = child->GetFrame(f1, env);
         else dst = clip2->GetFrame(f1, env);
@@ -254,24 +262,21 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       }
       else
       {
-        if (!useclip2) dst = env->NewVideoFrame(child->GetVideoInfo());
-        else dst = env->NewVideoFrame(clip2->GetVideoInfo());
-        
+        dst = env->NewVideoFrame(vi2);
+
         if (!useclip2) {
           PVideoFrame frame1 = child->GetFrame(f1, env);
           PVideoFrame frame2 = child->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, a2, np, env);
+          blendFrames(frame1, frame2, dst, a1, vi2, env);
         }
         else {
           PVideoFrame frame1 = clip2->GetFrame(f1, env);
           PVideoFrame frame2 = clip2->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, a2,
-            clip2->GetVideoInfo().IsPlanar() ? 3 : 1, env);
+          blendFrames(frame1, frame2, dst, a1, vi2, env);
         }
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
-      if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2,
-        useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
+      if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, vi2);
       return dst;
     }
     // drop one dup and replace the other with a blend of its neighbors
@@ -310,7 +315,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
           {
             f1 = curr.frameSO + y - 1;
             f2 = curr.frameSO + y + 1;
-            a1 = a2 = 0.5;
+            a1 = a2 = 0.5; // 50-50%
           }
           else ret = y;
           break;
@@ -318,25 +323,25 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
         if (y != d1) ++jk;
       }
     }
+
+    const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
     if (f1 != 0)
     {
-      PVideoFrame dst;
+      PVideoFrame dst = env->NewVideoFrame(vi2);
       if (!useclip2)
       {
-        dst = env->NewVideoFrame(child->GetVideoInfo());
         PVideoFrame frame1 = child->GetFrame(f1, env);
         PVideoFrame frame2 = child->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, a2, np, env);
+        blendFrames(frame1, frame2, dst, a1, vi2, env);
       }
       else
       {
-        dst = env->NewVideoFrame(clip2->GetVideoInfo());
-        np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
         PVideoFrame frame1 = clip2->GetFrame(f1, env);
         PVideoFrame frame2 = clip2->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, a2, np, env);
+        blendFrames(frame1, frame2, dst, a1, vi, env);
       }
-      if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, np);
+      if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, vi2);
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       return dst;
     }
@@ -348,17 +353,19 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       else
       {
         dst = clip2->GetFrame(curr.frame + ret, env);
-        np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
       }
       env->MakeWritable(&dst);
-      displayOutput(env, dst, n, curr.frame + ret, true, a1, a2, f1, f2, np);
+      displayOutput(env, dst, n, curr.frame + ret, true, a1, a2, f1, f2, vi2);
       return dst;
     }
     if (!useclip2) return child->GetFrame(curr.frame + ret, env);
     return clip2->GetFrame(curr.frame + ret, env);
+    // end of curr_blend == 3
   }
   else if (curr.blend != 1)  // normal film (1 dup)
   {
+    const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
     if (hybrid == 3)  // blend up-convert (hybrid=3 leaves video untouched)
     {
       bool tsc = false;
@@ -379,6 +386,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       double a1, a2;
       int f1, f2;
       calcBlendRatios2(a1, a2, f1, f2, n, prev, curr, next, 1);
+
       if (a1 >= 1.0)
       {
         if (!useclip2) dst = child->GetFrame(f1, env);
@@ -405,7 +413,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
           f1 = curr.frame + tscene - 1;
           f2 = curr.frame + tscene;
         }
-        a1 = 1.0;
+        a1 = 1.0; // make #1 as 100%
         a2 = 0.0;
         if (!useclip2) dst = child->GetFrame(f1, env);
         else dst = clip2->GetFrame(f1, env);
@@ -413,23 +421,21 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       }
       else
       {
-        if (!useclip2) dst = env->NewVideoFrame(child->GetVideoInfo());
-        else dst = env->NewVideoFrame(clip2->GetVideoInfo());
+        dst = env->NewVideoFrame(vi2);
+
         if (!useclip2) {
           PVideoFrame frame1 = child->GetFrame(f1, env);
           PVideoFrame frame2 = child->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, a2, np, env);
+          blendFrames(frame1, frame2, dst, a1, vi2, env);
         }
         else {
           PVideoFrame frame1 = clip2->GetFrame(f1, env);
           PVideoFrame frame2 = clip2->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, a2,
-            useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np, env);
+          blendFrames(frame1, frame2, dst, a1, vi2, env);
         }
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
-      if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2,
-        useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
+      if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, vi2);
       return dst;
     }
     // normal drop operation
@@ -445,13 +451,9 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
     {
       PVideoFrame dst;
       if (!useclip2) dst = child->GetFrame(curr.frame + ret, env);
-      else
-      {
-        dst = clip2->GetFrame(curr.frame + ret, env);
-        np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
-      }
+      else dst = clip2->GetFrame(curr.frame + ret, env);
       env->MakeWritable(&dst);
-      displayOutput(env, dst, n, curr.frame + ret, curr.blend == 2 ? false : true, 0.0, 0.0, 0, 0, np);
+      displayOutput(env, dst, n, curr.frame + ret, curr.blend == 2 ? false : true, 0.0, 0.0, 0, 0, vi2);
       return dst;
     }
     if (!useclip2) return child->GetFrame(curr.frame + ret, env);
@@ -459,6 +461,8 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
   }
   else  // video (no dups)
   {
+    const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
     if (hybrid == 3) // return source frame (hybrid=3 leaves video untouched)
     {
       if (debug) debugOutput2(n, n, false, 0, 0, 0.0, 0.0);
@@ -466,13 +470,9 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
       {
         PVideoFrame dst;
         if (!useclip2) dst = child->GetFrame(n, env);
-        else
-        {
-          dst = clip2->GetFrame(n, env);
-          np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
-        }
+        else dst = clip2->GetFrame(n, env);
         env->MakeWritable(&dst);
-        displayOutput(env, dst, n, n, false, 0.0, 0.0, 0, 0, np);
+        displayOutput(env, dst, n, n, false, 0.0, 0.0, 0, 0, vi2);
         return dst;
       }
       if (!useclip2) return child->GetFrame(n, env);
@@ -483,6 +483,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
     double a1, a2;
     int f1, f2;
     calcBlendRatios(a1, a2, f1, f2, n, curr.frame, curr.cycleE - curr.cycleS);
+
     if (a1 >= 1.0)
     {
       if (!useclip2) dst = child->GetFrame(f1, env);
@@ -497,28 +498,26 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, int np)
     }
     else
     {
-      if (!useclip2) dst = env->NewVideoFrame(child->GetVideoInfo());
-      else dst = env->NewVideoFrame(clip2->GetVideoInfo());
+      dst = env->NewVideoFrame(vi2);
       if (!useclip2) {
         PVideoFrame frame1 = child->GetFrame(f1, env);
         PVideoFrame frame2 = child->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, a2, np, env);
+        blendFrames(frame1, frame2, dst, a1, vi2, env);
       }
       else {
         PVideoFrame frame1 = clip2->GetFrame(f1, env);
         PVideoFrame frame2 = clip2->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, a2,
-          clip2->GetVideoInfo().IsPlanar() ? 3 : 1, env);
+        blendFrames(frame1, frame2, dst, a1, vi2, env);
       }
     }
+
     if (debug) debugOutput2(n, 0, false, f1, f2, a1, a2);
-    if (display) displayOutput(env, dst, n, 0, false, a1, a2, f1, f2,
-      useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
+    if (display) displayOutput(env, dst, n, 0, false, a1, a2, f1, f2, vi2);
     return dst;
   }
 }
 
-PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
+PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const VideoInfo &vi)
 {
   static int vidC = 0;
   static int filmC = 0;
@@ -543,7 +542,7 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
     {
       prev.setFrame(lastCycle - cycle);
       getOvrCycle(prev, false);
-      calcMetricCycle(prev, env, np, true, true);
+      calcMetricCycle(prev, env, vi, true, true);
       checkVideoMatches(prev, prev);
       checkVideoMetrics(prev, vidThresh);
       if (*output) addMetricCycle(prev);
@@ -553,7 +552,7 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
     {
       curr.setFrame(lastCycle);
       getOvrCycle(curr, false);
-      calcMetricCycle(curr, env, np, true, true);
+      calcMetricCycle(curr, env, vi, true, true);
       checkVideoMatches(prev, curr);
       checkVideoMetrics(curr, vidThresh);
       if (*output) addMetricCycle(curr);
@@ -562,7 +561,7 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
     if (next.frame != lastCycle + cycle)
       next.setFrame(lastCycle + cycle);
     getOvrCycle(next, false);
-    calcMetricCycle(next, env, np, true, true);
+    calcMetricCycle(next, env, vi, true, true);
     checkVideoMatches(curr, next);
     checkVideoMetrics(next, vidThresh);
     if (*output) addMetricCycle(next);
@@ -651,10 +650,10 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
   }
   for (int j = nbuf.cycleS; j < nbuf.cycleE; ++j)
   {
-    if (nbuf.diffMetricsU[j] == ULLONG_MAX || nbuf.diffMetricsUF[j] == ULLONG_MAX ||
+    if (nbuf.diffMetricsU[j] == UINT64_MAX || nbuf.diffMetricsUF[j] == UINT64_MAX ||
       nbuf.match[j] == -20)
     {
-      calcMetricPreBuf(next.frameEO - 1 + j, next.frameEO + j, j, np, true, true, env);
+      calcMetricPreBuf(next.frameEO - 1 + j, next.frameEO + j, j, vi, true, true, env);
       break;
     }
   }
@@ -672,15 +671,18 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
       if (display)
       {
         PVideoFrame dst;
-        if (!useclip2) dst = child->GetFrame(lastCycle + (n - lastGroup), env);
+        VideoInfo vi_disp;
+        if (!useclip2) {
+          dst = child->GetFrame(lastCycle + (n - lastGroup), env);
+          vi_disp = vi;
+        }
         else
         {
           dst = clip2->GetFrame(lastCycle + (n - lastGroup), env);
-          np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
+          vi_disp = clip2->GetVideoInfo();
         }
         env->MakeWritable(&dst);
-        displayOutput(env, dst, n, lastCycle + (n - lastGroup), false, 0.0, 0.0, 0, 0,
-          useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
+        displayOutput(env, dst, n, lastCycle + (n - lastGroup), false, 0.0, 0.0, 0, 0, vi_disp);
         return dst;
       }
       if (!useclip2) return child->GetFrame(lastCycle + (n - lastGroup), env);
@@ -707,15 +709,18 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
       if (display)
       {
         PVideoFrame dst;
-        if (!useclip2) dst = child->GetFrame(curr.frame + ret, env);
+        VideoInfo vi_disp;
+        if (!useclip2) {
+          dst = child->GetFrame(curr.frame + ret, env);
+          vi_disp = vi;
+        }
         else
         {
           dst = clip2->GetFrame(curr.frame + ret, env);
-          np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
+          vi_disp = clip2->GetVideoInfo();
         }
         env->MakeWritable(&dst);
-        displayOutput(env, dst, n, curr.frame + ret, true, 0.0, 0.0, curr.blend == 3 ? 5 : 0, 0,
-          useclip2 ? (clip2->GetVideoInfo().IsPlanar() ? 3 : 1) : np);
+        displayOutput(env, dst, n, curr.frame + ret, true, 0.0, 0.0, curr.blend == 3 ? 5 : 0, 0, vi_disp);
         return dst;
       }
       if (!useclip2) return child->GetFrame(curr.frame + ret, env);
@@ -734,27 +739,27 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, int np)
     mkvOutF = NULL;
   }
   PVideoFrame dst = env->NewVideoFrame(vi);
-  setBlack(dst, vi.IsPlanar() ? 3 : 1);
+  setBlack(dst, vi);
   if (retFrames <= -305)
   {
     if (retFrames <= -306 && se)
       env->ThrowError("TDecimate:  mode 3 finished (early termination)!");
     sprintf(buf, "Mode 3:  Last Actual Frame = %d", lastFrame);
-    Draw(dst, 2, 1, buf, vi.IsPlanar() ? 3 : 1);
+    Draw(dst, 2, 1, buf, vi);
   }
   --retFrames;
   return dst;
 }
 
-PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, int np)
+PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, const VideoInfo &vi)
 {
   PVideoFrame prv = child->GetFrame(n > 0 ? n - 1 : 0, env);
   PVideoFrame src = child->GetFrame(n, env);
   int blockN = -20, xblocks;
-  uint64_t metricU = ULLONG_MAX, metricF = ULLONG_MAX;
+  uint64_t metricU = UINT64_MAX, metricF = UINT64_MAX;
   getOvrFrame(n, metricU, metricF);
-  if (metricU == ULLONG_MAX || metricF == ULLONG_MAX || display)
-    metricU = calcMetric(prv, src, np, blockN, xblocks, metricF, env, true);
+  if (metricU == UINT64_MAX || metricF == UINT64_MAX || display)
+    metricU = calcMetric(prv, src, vi, blockN, xblocks, metricF, env, true);
   double metricN = (metricU*100.0) / MAX_DIFF;
   if (debug)
   {
@@ -767,31 +772,33 @@ PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, int np)
     metricsOutArray[n << 1] = metricU;
     metricsOutArray[(n << 1) + 1] = metricF;
   }
+
+  const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
   if (display)
   {
     if (useclip2)
     {
       src = clip2->GetFrame(n, env);
-      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
     }
     env->MakeWritable(&src);
-    if (blockN != -20) drawBox(src, blockN, xblocks, np);
+    if (blockN != -20) drawBox(src, blockN, xblocks, vi2);
     sprintf(buf, "TDecimate %s by tritical", VERSION);
-    Draw(src, 0, 0, buf, np);
+    Draw(src, 0, 0, buf, vi2);
     sprintf(buf, "Mode: 4 (metrics output)");
-    Draw(src, 0, 1, buf, np);
+    Draw(src, 0, 1, buf, vi2);
     sprintf(buf, "chroma = %s  denoise = %s", chroma ? "true" : "false",
       predenoise ? "true" : "false");
-    Draw(src, 0, 2, buf, np);
+    Draw(src, 0, 2, buf, vi2);
     sprintf(buf, "Frame %d:  %3.2f  %3.2f", n, metricN, (double)metricF*100.0 / (double)sceneDivU);
-    Draw(src, 0, 3, buf, np);
+    Draw(src, 0, 3, buf, vi2);
     return src;
   }
   if (!useclip2) return src;
   return clip2->GetFrame(n, env);
 }
 
-PVideoFrame TDecimate::GetFrameMode5(int n, IScriptEnvironment *env, int np)
+PVideoFrame TDecimate::GetFrameMode5(int n, IScriptEnvironment *env, const VideoInfo &vi)
 {
   int frame = aLUT[n];
   if (debug)
@@ -799,29 +806,29 @@ PVideoFrame TDecimate::GetFrameMode5(int n, IScriptEnvironment *env, int np)
     sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  (mode = %d)", n, frame, mode);
     OutputDebugString(buf);
   }
+
+  const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
   if (display)
   {
     PVideoFrame dst;
     if (!useclip2) dst = child->GetFrame(frame, env);
-    else
-    {
-      dst = clip2->GetFrame(frame, env);
-      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
-    }
+    else dst = clip2->GetFrame(frame, env);
     env->MakeWritable(&dst);
+
     sprintf(buf, "TDecimate %s by tritical", VERSION);
-    Draw(dst, 0, 0, buf, np);
+    Draw(dst, 0, 0, buf, vi2);
     sprintf(buf, "Mode: %d (vfr)  Hybrid = %d", mode, hybrid);
-    Draw(dst, 0, 1, buf, np);
+    Draw(dst, 0, 1, buf, vi2);
     sprintf(buf, "inframe = %d  useframe = %d", n, frame);
-    Draw(dst, 0, 2, buf, np);
+    Draw(dst, 0, 2, buf, vi2);
     return dst;
   }
   if (!useclip2) return child->GetFrame(frame, env);
   return clip2->GetFrame(frame, env);
 }
 
-PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, int np)
+PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, const VideoInfo &vi)
 {
   int frame = aLUT[n];
   if (debug)
@@ -829,22 +836,22 @@ PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, int np)
     sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  (mode = %d)", n, frame, mode);
     OutputDebugString(buf);
   }
+
+  const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
+
   if (display)
   {
     PVideoFrame dst;
     if (!useclip2) dst = child->GetFrame(frame, env);
-    else
-    {
-      dst = clip2->GetFrame(frame, env);
-      np = clip2->GetVideoInfo().IsPlanar() ? 3 : 1;
-    }
+    else dst = clip2->GetFrame(frame, env);
     env->MakeWritable(&dst);
+
     sprintf(buf, "TDecimate %s by tritical", VERSION);
-    Draw(dst, 0, 0, buf, np);
+    Draw(dst, 0, 0, buf, vi2);
     sprintf(buf, "Mode: %d (120fps -> vfr)", mode);
-    Draw(dst, 0, 1, buf, np);
+    Draw(dst, 0, 1, buf, vi2);
     sprintf(buf, "inframe = %d  useframe = %d", n, frame);
-    Draw(dst, 0, 2, buf, np);
+    Draw(dst, 0, 2, buf, vi2);
     return dst;
   }
   if (!useclip2) return child->GetFrame(frame, env);
@@ -852,7 +859,7 @@ PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, int np)
 }
 
 // PF 180131 uses usehints! but its runtime alreadz, no problem
-void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env)
+void TDecimate::rerunFromStart(int s, const VideoInfo &vi, IScriptEnvironment *env)
 {
   int EvalGroup = 0;
   while (EvalGroup < s)
@@ -862,7 +869,7 @@ void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env)
     {
       prev.setFrame(EvalGroup - cycle);
       getOvrCycle(prev, false);
-      calcMetricCycle(prev, env, np, true, true);
+      calcMetricCycle(prev, env, vi, true, true);
       if (hybrid > 0)
       {
         checkVideoMatches(prev, prev);
@@ -874,7 +881,7 @@ void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env)
     {
       curr.setFrame(EvalGroup);
       getOvrCycle(curr, false);
-      calcMetricCycle(curr, env, np, true, true);
+      calcMetricCycle(curr, env, vi, true, true);
       if (hybrid > 0)
       {
         checkVideoMatches(prev, curr);
@@ -883,7 +890,7 @@ void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env)
     }
     next.setFrame(EvalGroup + cycle);
     getOvrCycle(next, false);
-    calcMetricCycle(next, env, np, true, true);
+    calcMetricCycle(next, env, vi, true, true);
     if (hybrid > 0)
     {
       checkVideoMatches(curr, next);
@@ -941,7 +948,7 @@ void TDecimate::rerunFromStart(int s, int np, IScriptEnvironment *env)
   }
 }
 
-void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene,
+void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, const VideoInfo &vit, bool scene,
   bool gethint, IScriptEnvironment *env)
 {
   if (n2 > nbuf.maxFrame || n2 < 0) return;
@@ -953,13 +960,12 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene,
   int blockNI, xblocksI;
   uint64_t metricF;
   PVideoFrame src = NULL;
-  if (nbuf.diffMetricsU[pos] == ULLONG_MAX ||
-    (nbuf.diffMetricsUF[pos] == ULLONG_MAX && scene))
+  if (nbuf.diffMetricsU[pos] == UINT64_MAX ||
+    (nbuf.diffMetricsUF[pos] == UINT64_MAX && scene))
   {
     src = child->GetFrame(n2, env);
     PVideoFrame frame = child->GetFrame(n1, env);
-    nbuf.diffMetricsU[pos] = calcMetric(frame, src,
-      np, blockNI, xblocksI, metricF, env, scene);
+    nbuf.diffMetricsU[pos] = calcMetric(frame, src, vit, blockNI, xblocksI, metricF, env, scene);
     nbuf.diffMetricsN[pos] = (nbuf.diffMetricsU[pos] * 100.0) / MAX_DIFF;
     if (scene) nbuf.diffMetricsUF[pos] = metricF;
   }
@@ -979,17 +985,17 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, int np, bool scene,
   }
 }
 
-uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, int &blockNI,
+uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const VideoInfo &vit, int &blockNI,
   int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene)
 {
   uint64_t highestDiff = 0;
 
   struct CalcMetricData d;
-  d.np = np;
+  //d.np = np;
   d.predenoise = predenoise;
-  d.vi = child->GetVideoInfo();
+  d.vi = vit;
   d.chroma = chroma;
-  d.opt = opt;
+  d.cpuFlags = cpuFlags;
   d.blockx_half = blockx;
   d.blockx_half = blockx_half;
   d.blockx_shift = blockx_shift;
@@ -1033,7 +1039,7 @@ uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, i
 }
 
 // PF 180131 uses usehints!
-void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
+void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const VideoInfo& vi,
   bool scene, bool hnt)
 {
   if (current.mSet || current.cycleS == current.cycleE) 
@@ -1054,12 +1060,12 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
 
   for (w = current.frameSO, i = current.cycleS; i < current.cycleE; ++i, ++w)
   {
-    if ((current.match[i] != -20 || !hnt) && current.diffMetricsU[i] != ULLONG_MAX &&
-      (current.diffMetricsUF[i] != ULLONG_MAX || !scene)) continue;
+    if ((current.match[i] != -20 || !hnt) && current.diffMetricsU[i] != UINT64_MAX &&
+      (current.diffMetricsUF[i] != UINT64_MAX || !scene)) continue;
     if (predenoise)
     {
-      if (current.diffMetricsU[i] != ULLONG_MAX &&
-        (current.diffMetricsUF[i] != ULLONG_MAX || !scene))
+      if (current.diffMetricsU[i] != UINT64_MAX &&
+        (current.diffMetricsUF[i] != UINT64_MAX || !scene))
       {
         if (current.match[i] == -20 && hnt)
         {
@@ -1089,15 +1095,15 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
       if (next_numd == w - 1) 
         copyFrame(prev, next, vit, env);
       else 
-        blurFrame(prevt, prev, np, 2, chroma, env, vit, opt);
+        blurFrame(prevt, prev, 2, chroma, env, vit, opt);
       
-      blurFrame(nextt, next, np, 2, chroma, env, vit, opt);
+      blurFrame(nextt, next, 2, chroma, env, vit, opt);
       next_numd = w;
     }
     else
     {
-      if (current.diffMetricsU[i] != ULLONG_MAX &&
-        (current.diffMetricsUF[i] != ULLONG_MAX || !scene))
+      if (current.diffMetricsU[i] != UINT64_MAX &&
+        (current.diffMetricsUF[i] != UINT64_MAX || !scene))
       {
         if (current.match[i] == -20 && hnt)
         {
@@ -1125,11 +1131,11 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, int np,
     }
 
     struct CalcMetricData d;
-    d.np = np;
+    //d.np = np;
     d.predenoise = false; // done earlier
     d.vi = vit;
     d.chroma = chroma;
-    d.opt = opt;
+    d.cpuFlags = cpuFlags;
     d.blockx_half = blockx;
     d.blockx_half = blockx_half;
     d.blockx_shift = blockx_shift;
@@ -1196,13 +1202,11 @@ void calcLumaDiffYUY2_SADorSSD_c(const uint8_t* prvp, const uint8_t* nxtp,
 
 template<bool SAD>
 uint64_t calcLumaDiffYUY2_SADorSSD(const uint8_t* prvp, const uint8_t* nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, int cpuFlags)
 {
   uint64_t diff = 0;
 
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+  const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   int widtha;
 
@@ -1224,15 +1228,15 @@ uint64_t calcLumaDiffYUY2_SADorSSD(const uint8_t* prvp, const uint8_t* nxtp,
 }
 
 uint64_t calcLumaDiffYUY2_SAD(const uint8_t* prvp, const uint8_t* nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, int cpuFlags)
 {
-  return calcLumaDiffYUY2_SADorSSD<true>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, opt, env);
+  return calcLumaDiffYUY2_SADorSSD<true>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, cpuFlags);
 }
 
 uint64_t calcLumaDiffYUY2_SSD(const uint8_t* prvp, const uint8_t* nxtp,
-  int width, int height, int prv_pitch, int nxt_pitch, int nt, int opt, IScriptEnvironment* env)
+  int width, int height, int prv_pitch, int nxt_pitch, int nt, int cpuFlags)
 {
-  return calcLumaDiffYUY2_SADorSSD<false>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, opt, env);
+  return calcLumaDiffYUY2_SADorSSD<false>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, cpuFlags);
 }
 
 int TDecimate::getHint(PVideoFrame &src, int &d2vfilm)
@@ -1285,7 +1289,7 @@ int TDecimate::getHint(PVideoFrame &src, int &d2vfilm)
 bool TDecimate::checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n)
 {
   int i, v, dups = 0, mc, mp, saved = -20, saved2 = -20;
-  uint64_t lowest_metric = ULLONG_MAX;
+  uint64_t lowest_metric = UINT64_MAX;
   for (i = c.cycleS; i < c.cycleE; ++i)
   {
     mp = i == c.cycleS ? (p.cycleE > 0 ? p.match[p.cycleE - 1] : -20) : mc;
@@ -1301,7 +1305,7 @@ bool TDecimate::checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n)
   }
   if (dups != 1) return false;
   if (saved != saved2 || saved2 == -20) return false;
-  lowest_metric = ULLONG_MAX;
+  lowest_metric = UINT64_MAX;
   int cp = -20, cn = -20;
   for (dups = 0, v = -1, i = p.cycleS; i < p.cycleE; ++i)
   {
@@ -1314,7 +1318,7 @@ bool TDecimate::checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n)
   if (dups != 1 || cp != v) cp = -20;
   if (cp == -20)
   {
-    lowest_metric = ULLONG_MAX;
+    lowest_metric = UINT64_MAX;
     for (dups = 0, v = -1, i = n.cycleS; i < n.cycleE; ++i)
     {
       mp = i == n.cycleS ? c.match[c.cycleE - 1] : mc;
@@ -1347,7 +1351,7 @@ bool TDecimate::checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n)
 int TDecimate::checkForD2VDecFrame(Cycle &p, Cycle &c, Cycle &n)
 {
   int i, v = 0, mp, savedV = -20, savedL = -20, savedM = -20;
-  uint64_t lowest = ULLONG_MAX;
+  uint64_t lowest = UINT64_MAX;
   for (i = c.cycleS; i < c.cycleE; ++i)
   {
     if (c.filmd2v[i] == 1 && (mode == 0 || (mode > 1 && vfrDec == 0) ||
@@ -1388,7 +1392,7 @@ bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n)
 {
   int dupsP = 0, savedp = -20, dupsN = 0, savedn = -20;
   int c1 = -20, c2 = -20, i, v, mp, mc;
-  uint64_t lowest = ULLONG_MAX;
+  uint64_t lowest = UINT64_MAX;
   for (v = -1, i = p.cycleS; i < p.cycleE; ++i)
   {
     mp = i == p.cycleS ? -20 : mc;
@@ -1398,7 +1402,7 @@ bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n)
   }
   if (dupsP == 0 && v == p.cycleS) { dupsP = 1; savedp = v; }
   if (dupsP != 1 || savedp != v) return false;
-  lowest = ULLONG_MAX;
+  lowest = UINT64_MAX;
   for (v = -1, i = n.cycleS; i < n.cycleE; ++i)
   {
     mp = i == n.cycleS ? c.match[c.cycleE - 1] : mc;
@@ -1407,8 +1411,8 @@ bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n)
     if (n.diffMetricsU[i] < lowest) { lowest = n.diffMetricsU[i]; v = i; }
   }
   if (dupsN != 1 || savedn != v || savedn == savedp) return false;
-  uint64_t lowest1 = ULLONG_MAX;
-  uint64_t lowest2 = ULLONG_MAX;
+  uint64_t lowest1 = UINT64_MAX;
+  uint64_t lowest2 = UINT64_MAX;
   int cl1 = -20, cl2 = -20;
   for (v = 0, c1 = -1, c2 = -1, i = c.cycleS; i < c.cycleE; ++i)
   {
@@ -1476,7 +1480,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
   if (cycleR != 1)
   {
     c.setDecimateLow(c.frameEO - c.frameSO == cycle ? cycleR :
-      max(int(cycleR*(c.frameEO - c.frameSO) / double(cycle)), 1), env);
+      std::max(int(cycleR*(c.frameEO - c.frameSO) / double(cycle)), 1), env);
     return;
   }
   if (!p.dupsSet) p.setDupsMatches(p, ovrArray);
@@ -1509,7 +1513,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
   }
   if (c.dupCount == 1)
   {
-    uint64_t lowest = ULLONG_MAX, lowest2 = ULLONG_MAX;
+    uint64_t lowest = UINT64_MAX, lowest2 = UINT64_MAX;
     int savedc, savedp, savedn, v;
     for (v = -1, i = c.cycleS; i < c.cycleE; ++i)
     {
@@ -1525,7 +1529,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
     }
     if (p.dupCount == 1 && n.dupCount == 1)
     {
-      for (lowest2 = ULLONG_MAX, i = p.cycleS; i < p.cycleE; ++i)
+      for (lowest2 = UINT64_MAX, i = p.cycleS; i < p.cycleE; ++i)
       {
         if (p.dupArray[i] == 1) savedp = i;
         if (p.diffMetricsU[i] < lowest2) { v = i; lowest2 = p.diffMetricsU[i]; }
@@ -1535,7 +1539,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
         c.setDecimateLow(cycleR, env);
         return;
       }
-      for (lowest2 = ULLONG_MAX, i = n.cycleS; i < n.cycleE; ++i)
+      for (lowest2 = UINT64_MAX, i = n.cycleS; i < n.cycleE; ++i)
       {
         if (n.dupArray[i] == 1) savedn = i;
         if (n.diffMetricsU[i] < lowest2) { v = i; lowest2 = n.diffMetricsU[i]; }
@@ -1554,7 +1558,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
   }
   else
   {
-    uint64_t lowestp = ULLONG_MAX, lowestn = ULLONG_MAX;
+    uint64_t lowestp = UINT64_MAX, lowestn = UINT64_MAX;
     int savedp, savedn, savedc1, savedc2, v;
     if (c.dupCount == 2 && p.dupCount == 1 && n.dupCount == 1)
     {
@@ -1660,7 +1664,7 @@ void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment 
   {
     if (!c.lowSet) c.setLowest(false);
     c.setDecimateLow(c.frameEO - c.frameSO == cycle ? cycleR :
-      max(int(cycleR*(c.frameEO - c.frameSO) / double(cycle)), 1), env);
+      std::max(int(cycleR*(c.frameEO - c.frameSO) / double(cycle)), 1), env);
     return;
   }
   for (ovrdups = 0, i = c.cycleS; i < c.cycleE; ++i)
@@ -1671,7 +1675,7 @@ void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment 
   for (i = 0; i < c.cycleS; ++i) c.decimate[i] = c.decimate2[i] = -20;
   for (i = c.cycleE; i < c.length; ++i) c.decimate[i] = c.decimate2[i] = -20;
   int cycleRt = c.frameEO - c.frameSO == cycle ? cycleR :
-    max(int(cycleR*(c.frameEO - c.frameSO) / double(cycle)), 1);
+    std::max(int(cycleR*(c.frameEO - c.frameSO) / double(cycle)), 1);
   if (ovrdups >= cycleRt) { c.decSet = true; return; }
   if (cycleR == 1 && checkForObviousDecFrame(p, c, n)) return;
   if (cycleR == 1 && checkForTwoDropLongestString(p, c, n)) return;
@@ -1855,7 +1859,7 @@ void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment 
   for (v = 0; v < c.dupCount && v < cycleRt - ovrdups; ++v)
   {
     if (dupStrings[0][0] < 1) break;
-    lowest = ULLONG_MAX;
+    lowest = UINT64_MAX;
     f = dupStrings[0][1];
     for (dups = 0, i = dupStrings[0][1]; i < dupStrings[0][2]; ++i)
     {
@@ -1973,7 +1977,7 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
   if (ovrArray == NULL && metricsArray == NULL && metricsOutArray == NULL) return;
   int b = current.cycleS, v = 0, i, p = 0, d = 0, value;
   int numr = current.frameEO - current.frameSO == cycle ? cycleR :
-    max(int(cycleR*(current.frameEO - current.frameSO) / double(cycle)), 1);
+    std::max(int(cycleR*(current.frameEO - current.frameSO) / double(cycle)), 1);
   for (i = current.frameSO; i < current.frameEO; ++i, ++b)
   {
     if (ovrArray != NULL)
@@ -2014,23 +2018,23 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
     bool foundM = false;
     if (metricsArray != NULL)
     {
-      if (metricsArray[i << 1] != ULLONG_MAX)
+      if (metricsArray[i << 1] != UINT64_MAX)
       {
         current.diffMetricsU[b] = metricsArray[i << 1];
         current.diffMetricsN[b] = (metricsArray[i << 1] * 100.0) / MAX_DIFF;
         foundM = true;
       }
-      if (metricsArray[(i << 1) + 1] != ULLONG_MAX)
+      if (metricsArray[(i << 1) + 1] != UINT64_MAX)
         current.diffMetricsUF[b] = metricsArray[(i << 1) + 1];
     }
     if (metricsOutArray != NULL && !foundM)
     {
-      if (metricsOutArray[i << 1] != ULLONG_MAX)
+      if (metricsOutArray[i << 1] != UINT64_MAX)
       {
         current.diffMetricsU[b] = metricsOutArray[i << 1];
         current.diffMetricsN[b] = (metricsOutArray[i << 1] * 100.0) / MAX_DIFF;
       }
-      if (metricsOutArray[(i << 1) + 1] != ULLONG_MAX)
+      if (metricsOutArray[(i << 1) + 1] != UINT64_MAX)
         current.diffMetricsUF[b] = metricsOutArray[(i << 1) + 1];
     }
   }
@@ -2043,23 +2047,23 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
 
 void TDecimate::getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF)
 {
-  metricU = metricF = ULLONG_MAX;
+  metricU = metricF = UINT64_MAX;
   if (metricsArray != NULL)
   {
-    if (metricsArray[n << 1] != ULLONG_MAX)
+    if (metricsArray[n << 1] != UINT64_MAX)
       metricU = metricsArray[n << 1];
-    if (metricsArray[(n << 1) + 1] != ULLONG_MAX)
+    if (metricsArray[(n << 1) + 1] != UINT64_MAX)
       metricF = metricsArray[(n << 1) + 1];
   }
   
-  if (metricU != ULLONG_MAX && metricF != ULLONG_MAX)
+  if (metricU != UINT64_MAX && metricF != UINT64_MAX)
     return;
 
   if (metricsOutArray != NULL)
   {
-    if (metricU == ULLONG_MAX && metricsOutArray[n << 1] != ULLONG_MAX) 
+    if (metricU == UINT64_MAX && metricsOutArray[n << 1] != UINT64_MAX) 
       metricU = metricsOutArray[n << 1];
-    if (metricF == ULLONG_MAX && metricsOutArray[(n << 1) + 1] != ULLONG_MAX)
+    if (metricF == UINT64_MAX && metricsOutArray[(n << 1) + 1] != UINT64_MAX)
       metricF = metricsOutArray[(n << 1) + 1];
   }
 }
@@ -2123,20 +2127,38 @@ void TDecimate::calcBlendRatios2(double &amount1, double &amount2, int &frame1, 
   frame2 = lutf[(int)(pos + 1.0)];
   amount1 = 1.0 - posf;
   amount2 = posf;
+  // amount 1 and 2 sum is always 1.0, some routines know this and use only amount1
   free(lutf);
 }
 
+// used in GetFrameMode01
+// hbd ready
 void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst,
-  double amount1, double amount2, int np, IScriptEnvironment *env)
+  double amount1, const VideoInfo &vi, IScriptEnvironment *env)
 {
   const uint8_t *srcp1, *srcp2;
   uint8_t *dstp;
-  int x, y, width, height;
-  int s1_pitch, dst_pitch, s2_pitch, widthM;
+  int width, height;
+  int s1_pitch, dst_pitch, s2_pitch;
 
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+  const float weight_f = (float)amount1;
+
+  // 15 bit arithmetic (used as 16 bi at 8 bit case)
+  const int weight_i = (int)(weight_f * 32768.0f + 0.5f);
+
+  if (weight_i >= 32768)
+  {
+    copyFrame(dst, src1, vi, env); // 1000% src1
+    return;
+  }
+  if (weight_i <= 0)
+  {
+    copyFrame(dst, src2, vi, env); // 100% src2
+    return;
+  }
+
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+  const int bits_per_pixel = vi.BitsPerComponent();
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
@@ -2150,68 +2172,56 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
     s2_pitch = src2->GetPitch(plane);
     dstp = dst->GetWritePtr(plane);
     dst_pitch = dst->GetPitch(plane);
-    if (use_sse2 && amount1 == 0.5 && amount2 == 0.5)
-    {
-      widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
-      blend_SSE2_5050(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch); // quick special average
-    }
-    else if (use_sse2)
-    {
-      widthM = width + ((width % 16) == 0 ? 0 : 16 - (width % 16));
-      blend_SSE2_16(dstp, srcp1, srcp2, widthM, height, dst_pitch, s1_pitch, s2_pitch, amount1, amount2);
-    }
-    else
-    {
-      for (y = 0; y < height; ++y)
-      {
-        for (x = 0; x < width; ++x)
-        {
-          dstp[x] = (int)(amount1*srcp1[x] + amount2*srcp2[x] + 0.5);
-        }
-        srcp1 += s1_pitch;
-        srcp2 += s2_pitch;
-        dstp += dst_pitch;
-      }
-    }
+
+    dispatch_blend(dstp, srcp1, srcp2, width, height, dst_pitch, s1_pitch, s2_pitch, weight_i, bits_per_pixel, cpuFlags);
   }
 }
 
-void TDecimate::drawBox(PVideoFrame &dst, int blockN, int xblocks, int np)
+void TDecimate::drawBox(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo& vi)
 {
-  if (np == 3) drawBoxYV12(dst, blockN, xblocks);
+  // fixme: not only yv12
+  if (vi.IsPlanar()) drawBoxYV12(dst, blockN, xblocks);
   else drawBoxYUY2(dst, blockN, xblocks);
 }
 
-int TDecimate::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np, int start)
+int TDecimate::Draw(PVideoFrame &dst, int x1, int y1, const char *s, const VideoInfo& vi, int start)
 {
-  if (np == 3) return DrawYV12(dst, x1, y1, s, start);
+  // fixme: not only yv12
+  if (vi.IsPlanar()) return DrawYV12(dst, x1, y1, s, start);
   else return DrawYUY2(dst, x1, y1, s, start);
 }
 
-void TDecimate::setBlack(PVideoFrame &dst, int np)
+void TDecimate::setBlack(PVideoFrame& dst, const VideoInfo& vi)
 {
-  uint8_t *dstp;
-  int x, y, pitch, width, height;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    dstp = dst->GetWritePtr(plane);
-    pitch = dst->GetPitch(plane);
-    height = dst->GetHeight(plane);
-    if (np == 3)
+    uint8_t* dstp = dst->GetWritePtr(plane);
+    const int pitch = dst->GetPitch(plane);
+    const size_t height = dst->GetHeight(plane);
+    if (!vi.IsYUY2())
     {
-      if (b == 0) 
-        memset(dstp, 0, pitch*height);
-      else 
-        memset(dstp, 128, pitch*height);
+      if (b == 0)
+        memset(dstp, 0, pitch * height); // luma
+      else {
+        // chroma
+        const int bits_per_pixel = vi.BitsPerComponent();
+        if (bits_per_pixel == 8)
+          memset(dstp, 128, pitch * height);
+        else
+          std::fill_n((uint16_t*)dstp, pitch * height / sizeof(uint16_t), 128 << (bits_per_pixel - 8));
+      }
     }
     else
     {
-      width = dst->GetRowSize(plane) >> 1;
-      for (y = 0; y < height; ++y)
+      const int width = dst->GetRowSize(plane) >> 1;
+      for (int y = 0; y < height; ++y)
       {
-        for (x = 0; x < width; ++x) ((unsigned short *)dstp)[x] = 0x8000;
+        for (int x = 0; x < width; ++x)
+          ((uint16_t*)dstp)[x] = 0x8000;
         dstp += pitch;
       }
     }
@@ -2369,7 +2379,7 @@ void TDecimate::init_mode_5(IScriptEnvironment* env) {
   prevM.maxFrame = currM.maxFrame = nextM.maxFrame = nfrms;
   bool vid, prevVid;
   int i, h, w, firstkv, countprev, filmC, videoC, longestT, longestV, countVT;
-  int count, b, np = vi.IsPlanar() ? 3 : 1, passThrough = 0;
+  int count, b, np = vi.IsYUY2() || vi.IsY() ? 1 : 3, passThrough = 0;
 twopassrun:
   ++passThrough;
   if ((f = fopen("debug.txt", "a")) != NULL) {
@@ -2385,7 +2395,7 @@ twopassrun:
     {
       currM.setFrame(0);
       getOvrCycle(currM, false); // PF 180131 uses usehints!
-      calcMetricCycle(currM, env, np, true, true);
+      calcMetricCycle(currM, env, vi, true, true);
       checkVideoMatches(currM, currM);
       checkVideoMetrics(currM, vidThresh);
     }
@@ -2396,7 +2406,7 @@ twopassrun:
     }
     nextM.setFrame(b + cycle);
     getOvrCycle(nextM, false); // PF 180131 uses usehints!
-    calcMetricCycle(nextM, env, np, true, true); // PF 180131 uses usehints!
+    calcMetricCycle(nextM, env, vi, true, true); // PF 180131 uses usehints!
     checkVideoMatches(currM, nextM);
     checkVideoMetrics(nextM, vidThresh);
     if (passThrough == 1)
@@ -2478,7 +2488,7 @@ twopassrun:
     {
       if (w > 0 && w < conCycleTP)
       {
-        for (i = max(0, h - w * cycle); i < h && i <= nfrms; i += cycle)
+        for (i = std::max(0, h - w * cycle); i < h && i <= nfrms; i += cycle)
         {
           if (input[i] != 8) input[i] = 2;
         }
@@ -2699,6 +2709,9 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   has_at_least_v8 = true;
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
+
+  cpuFlags = env->GetCPUFlags();
+  if (opt == 0) cpuFlags = 0;
 
   if (vi.BitsPerComponent() > 8)
     env->ThrowError("TDecimate:  only 8 bit formats supported!");
@@ -2928,7 +2941,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       metricsOutArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
       if (metricsOutArray == NULL)
         env->ThrowError("TDecimate:  malloc failure (metricsOutArray)!");
-      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = ULLONG_MAX;
+      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = UINT64_MAX;
     }
     else env->ThrowError("TDecimate:  output error (cannot create output file)!");
   }
@@ -2938,7 +2951,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     if (metricsArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsArray)!");
     for (int h = 0; h < vi.num_frames * 2; ++h)
     {
-      if (!batch || (mode != 5 && mode != 6)) metricsArray[h] = ULLONG_MAX;
+      if (!batch || (mode != 5 && mode != 6)) metricsArray[h] = UINT64_MAX;
       else metricsArray[h] = 0;
     }
     if ((f = fopen(input, "r")) != NULL)
@@ -3055,7 +3068,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       metricsFullInfo = true;
       for (int h = 0; h < vi.num_frames * 2; h += 2)
       {
-        if (metricsArray[h] == ULLONG_MAX)
+        if (metricsArray[h] == UINT64_MAX)
         {
           metricsFullInfo = false;
           if ((mode == 5 || mode == 6) && !batch)
@@ -3080,7 +3093,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     if (metricsArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsArray)!");
     for (int h = 0; h < vi.num_frames * 2; h += 2)
     {
-      metricsArray[h + 0] = ULLONG_MAX - 1;
+      metricsArray[h + 0] = UINT64_MAX - 1;
       metricsArray[h + 1] = 0;
     }
   }
@@ -3449,7 +3462,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     {
       metricsOutArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
       if (metricsOutArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsOutArray)!");
-      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = ULLONG_MAX;
+      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = UINT64_MAX;
     }
     mode2_decA = (int *)malloc(vi.num_frames * sizeof(int));
     if (mode2_decA == NULL) env->ThrowError("TDecimate:  malloc failure (mode2_decA)!");
@@ -3463,8 +3476,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         child->SetCacheHints(CACHE_GENERIC, (curr.length * 2) + 1);
       else 
         child->SetCacheHints(CACHE_GENERIC, 100);
-      mode2_order = (int*)malloc(max(curr.length + 10, 100) * sizeof(int));
-      mode2_metrics = (uint64_t*)malloc(max(curr.length + 10, 100) * sizeof(uint64_t));
+      mode2_order = (int*)malloc(std::max(curr.length + 10, 100) * sizeof(int));
+      mode2_metrics = (uint64_t*)malloc(std::max(curr.length + 10, 100) * sizeof(uint64_t));
     }
     else {
       child->SetCacheHints(CACHE_GENERIC, 3);  // fixed to diameter (07/30/2005)
@@ -3481,7 +3494,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     {
       metricsOutArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
       if (metricsOutArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsOutArray)!");
-      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = ULLONG_MAX;
+      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = UINT64_MAX;
       metricsOutArray[0] = 0;
     }
     if (aLUT) free(aLUT);
@@ -3733,10 +3746,10 @@ TDecimate::~TDecimate()
           chroma ? 'T' : 'F');
         for (int h = 0; h < (nfrms + 1) * 2; h += 2)
         {
-          metricU = metricF = ULLONG_MAX;
-          if (metricsOutArray[h] != ULLONG_MAX) metricU = metricsOutArray[h];
-          if (metricsOutArray[h + 1] != ULLONG_MAX) metricF = metricsOutArray[h + 1];
-          if (metricU != ULLONG_MAX || metricF != ULLONG_MAX)
+          metricU = metricF = UINT64_MAX;
+          if (metricsOutArray[h] != UINT64_MAX) metricU = metricsOutArray[h];
+          if (metricsOutArray[h + 1] != UINT64_MAX) metricF = metricsOutArray[h + 1];
+          if (metricU != UINT64_MAX || metricF != UINT64_MAX)
             fprintf(f, "%d %" PRIu64 " %" PRIu64 "\n", h >> 1, metricU, metricF);
         }
         fclose(f);

@@ -29,7 +29,7 @@
 
 
 bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
-  int *blockN, int &xblocksi, int *mics, bool ddebug)
+  int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh)
 {
   if (mics[match] != -20)
   {
@@ -51,9 +51,8 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     }
     return false;
   }
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+
+  const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
@@ -503,12 +502,12 @@ void TFM::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
   if (xlim > width) xlim = width;
   ylim = cordy + blocky;
   if (ylim > height) ylim = height;
-  for (y = max(cordy, 0), temp = cordx + 2 * (blockx - 1); y < ylim; ++y)
+  for (y = std::max(cordy, 0), temp = cordx + 2 * (blockx - 1); y < ylim; ++y)
   {
     (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
     if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
   }
-  for (x = max(cordx, 0), temp = cordy + blocky - 1; x < xlim; x += 4)
+  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; x += 4)
   {
     (dstp + cordy*pitch)[x] = (dstp + cordy*pitch)[x] <= 128 ? 255 : 0;
     (dstp + cordy*pitch)[x + 1] = 128;
