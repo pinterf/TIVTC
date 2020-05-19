@@ -126,7 +126,7 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
   if (mode == 0 && !full && !found)
   {
     int MIC;
-    if (!dispatch_checkCombedPlanar(src, MIC, vi_saved, env))
+    if (!dispatch_checkCombedPlanar(src, MIC, vi_saved, chroma, cthresh, env))
     {
       if (debug)
       {
@@ -196,7 +196,7 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
   {
     createWeaveFrame(dst, prv, src, nxt, env); // no spc hbd
     int MIC;
-    if (!dispatch_checkCombedPlanar(dst, MIC, vi_saved, env))
+    if (!dispatch_checkCombedPlanar(dst, MIC, vi_saved, chroma, cthresh, env))
     {
       if (debug)
       {
@@ -1169,21 +1169,21 @@ static void HandleChromaCombing(PVideoFrame& cmask) {
   }
 }
 
-bool TDeinterlace::dispatch_checkCombedPlanar(PVideoFrame& src, int& MIC, const VideoInfo &vi, IScriptEnvironment* env)
+bool TDeinterlace::dispatch_checkCombedPlanar(PVideoFrame& src, int& MIC, const VideoInfo &vi, bool chroma, int cthresh, IScriptEnvironment* env)
 {
   const int bits_per_pixel = vi.BitsPerComponent();
     switch (bits_per_pixel) {
-    case 8: return checkCombedPlanar<uint8_t>(src, MIC, bits_per_pixel, env); break;
+    case 8: return checkCombedPlanar<uint8_t>(src, MIC, bits_per_pixel, chroma, cthresh, env); break;
     case 10:
     case 12:
     case 14:
-    case 16: return checkCombedPlanar<uint16_t>(src, MIC, bits_per_pixel, env); break;
+    case 16: return checkCombedPlanar<uint16_t>(src, MIC, bits_per_pixel, chroma, cthresh, env); break;
     default: return false; // n/a
     }
 }
 
 template<typename pixel_t>
-bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pixel, IScriptEnvironment *env)
+bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pixel, bool chroma, int cthresh, IScriptEnvironment *env)
 {
   PVideoFrame cmask = env->NewVideoFrame(vi_mask);
   

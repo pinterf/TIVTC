@@ -25,6 +25,7 @@
 
 #include "TSwitch.h"
 #include "internal.h"
+#include <Windows.h> // OutputDebugString
 
 TSwitch::TSwitch(PClip _child, PClip _c1, PClip _c2, bool _debug,
   IScriptEnvironment *env) : GenericVideoFilter(_child), c1(_c1), c2(_c2),

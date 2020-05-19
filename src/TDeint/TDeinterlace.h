@@ -191,9 +191,9 @@ class TDeinterlace : public GenericVideoFilter
   void ELADeintYUY2(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
 
   template<typename pixel_t>
-  bool checkCombedPlanar(PVideoFrame& src, int& MIC, int bits_per_pixel, IScriptEnvironment* env);
-  bool dispatch_checkCombedPlanar(PVideoFrame& src, int& MIC, const VideoInfo& vi, IScriptEnvironment* env);
-  bool checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironment *env);
+  bool checkCombedPlanar(PVideoFrame& src, int& MIC, int bits_per_pixel, bool chroma, int cthresh, IScriptEnvironment* env);
+  bool dispatch_checkCombedPlanar(PVideoFrame& src, int& MIC, const VideoInfo& vi, bool chroma, int cthresh, IScriptEnvironment* env);
+  bool checkCombedYUY2(PVideoFrame &src, int &MIC, bool chroma, int cthresh, IScriptEnvironment *env);
   
   void createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
 

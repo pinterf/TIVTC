@@ -116,7 +116,7 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
   if (mode == 0 && !full && !found)
   {
     int MIC;
-    if (!checkCombedYUY2(src, MIC, env))
+    if (!checkCombedYUY2(src, MIC, chroma, cthresh, env))
     {
       if (debug)
       {
@@ -184,7 +184,7 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
   {
     createWeaveFrame(dst, prv, src, nxt, env);
     int MIC;
-    if (!checkCombedYUY2(dst, MIC, env))
+    if (!checkCombedYUY2(dst, MIC, chroma, cthresh, env))
     {
       if (debug)
       {
@@ -476,7 +476,7 @@ void TDeinterlace::denoiseYUY2(PVideoFrame &mask)
   }
 }
 
-bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironment *env)
+bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, bool chroma, int cthresh, IScriptEnvironment *env)
 {
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
@@ -488,7 +488,9 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironmen
   const uint8_t *srcppp = srcpp - src_pitch;
   const uint8_t *srcpn = srcp + src_pitch;
   const uint8_t *srcpnn = srcpn + src_pitch;
+  
   PVideoFrame cmask = env->NewVideoFrame(vi_saved);
+
   uint8_t *cmkw = cmask->GetWritePtr();
   const int cmk_pitch = cmask->GetPitch();
   const int inc = chroma ? 1 : 2;
