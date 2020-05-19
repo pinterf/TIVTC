@@ -26,9 +26,105 @@
 #include "TFM.h"
 #include "TFMasm.h"
 #include "TCommonASM.h"
+#include <algorithm>
 
+// used by isCombedTIVTC as well
+// mask only, no hbd needed
+template<int planarType>
+void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask)
+{
+  uint8_t* cmkp = cmask->GetPtr(0);
+  uint8_t* cmkpU = cmask->GetPtr(1);
+  uint8_t* cmkpV = cmask->GetPtr(2);
+  const int Width = cmask->GetWidth(2);
+  const int Height = cmask->GetHeight(2);
+  const int cmk_pitch = cmask->GetPitch(0);
+  const int cmk_pitchUV = cmask->GetPitch(2);
+
+  // 420 only
+  uint8_t* cmkpn = cmkp + cmk_pitch;
+  uint8_t* cmkpp = cmkp - cmk_pitch;
+  uint8_t* cmkpnn = cmkpn + cmk_pitch;
+
+  uint8_t* cmkppU = cmkpU - cmk_pitchUV;
+  uint8_t* cmkpnU = cmkpU + cmk_pitchUV;
+
+  uint8_t* cmkppV = cmkpV - cmk_pitchUV;
+  uint8_t* cmkpnV = cmkpV + cmk_pitchUV;
+  for (int y = 1; y < Height - 1; ++y)
+  {
+    if (planarType == 420) {
+      cmkp += cmk_pitch * 2;
+      cmkpn += cmk_pitch * 2;
+      cmkpp += cmk_pitch * 2;
+      cmkpnn += cmk_pitch * 2;
+    }
+    else {
+      cmkp += cmk_pitch;
+    }
+    cmkppV += cmk_pitchUV;
+    cmkpV += cmk_pitchUV;
+    cmkpnV += cmk_pitchUV;
+    cmkppU += cmk_pitchUV;
+    cmkpU += cmk_pitchUV;
+    cmkpnU += cmk_pitchUV;
+    for (int x = 1; x < Width - 1; ++x)
+    {
+      if (
+        (cmkpV[x] == 0xFF &&
+          (cmkpV[x - 1] == 0xFF || cmkpV[x + 1] == 0xFF ||
+            cmkppV[x - 1] == 0xFF || cmkppV[x] == 0xFF || cmkppV[x + 1] == 0xFF ||
+            cmkpnV[x - 1] == 0xFF || cmkpnV[x] == 0xFF || cmkpnV[x + 1] == 0xFF
+            )
+          ) ||
+        (cmkpU[x] == 0xFF &&
+          (cmkpU[x - 1] == 0xFF || cmkpU[x + 1] == 0xFF ||
+            cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
+            cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF
+            )
+          )
+        )
+      {
+        if (planarType == 420) {
+          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
+          ((uint16_t*)cmkpn)[x] = (uint16_t)0xFFFF;
+          if (y & 1)
+            ((uint16_t*)cmkpp)[x] = (uint16_t)0xFFFF;
+          else
+            ((uint16_t*)cmkpnn)[x] = (uint16_t)0xFFFF;
+        }
+        else if (planarType == 422) {
+          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
+        }
+        else if (planarType == 444) {
+          cmkp[x] = 0xFF;
+        }
+        else if (planarType == 411) {
+          ((uint32_t*)cmkp)[x] = (uint32_t)0xFFFFFFFF;
+        }
+      }
+    }
+  }
+}
+// templatize
+template void FillCombedPlanarUpdateCmaskByUV<411>(PlanarFrame* cmask);
+template void FillCombedPlanarUpdateCmaskByUV<420>(PlanarFrame* cmask);
+template void FillCombedPlanarUpdateCmaskByUV<422>(PlanarFrame* cmask);
+template void FillCombedPlanarUpdateCmaskByUV<444>(PlanarFrame* cmask);
+
+
+/*
+//FIXME: see similar
+// template<int planarType>
+// void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask);
+// very similar core to
+template<typename pixel_t>
+void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame& src, int& MICount,
+  int& b_over, int& c_over, IScriptEnvironment* env)
+  and TDeInterlace CheckedCombedPlanar
+*/
 bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
-  int *blockN, int &xblocksi, int *mics, bool ddebug)
+  int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh)
 {
   if (mics[match] != -20)
   {
@@ -51,9 +147,7 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     return false;
   }
 
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-  bool use_sse2 = (cpu & CPUF_SSE2) ? true : false;
+  bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const int cthresh6 = cthresh * 6;
 
@@ -200,51 +294,19 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     }
   }
 
+  // next block is for mask, no hbd needed
   if (chroma)
   {
-    uint8_t *cmkp = cmask->GetPtr(0);
-    uint8_t *cmkpU = cmask->GetPtr(1);
-    uint8_t *cmkpV = cmask->GetPtr(2);
-    const int Width = cmask->GetWidth(2);
-    const int Height = cmask->GetHeight(2);
-    const int cmk_pitch = cmask->GetPitch(0) << 1;
-    const int cmk_pitchUV = cmask->GetPitch(2);
-    uint8_t *cmkpp = cmkp - (cmk_pitch >> 1);
-    uint8_t *cmkpn = cmkp + (cmk_pitch >> 1);
-    uint8_t *cmkpnn = cmkpn + (cmk_pitch >> 1);
-    uint8_t *cmkppU = cmkpU - cmk_pitchUV;
-    uint8_t *cmkpnU = cmkpU + cmk_pitchUV;
-    uint8_t *cmkppV = cmkpV - cmk_pitchUV;
-    uint8_t *cmkpnV = cmkpV + cmk_pitchUV;
-    for (int y = 1; y < Height - 1; ++y)
-    {
-      cmkpp += cmk_pitch;
-      cmkp += cmk_pitch;
-      cmkpn += cmk_pitch;
-      cmkpnn += cmk_pitch;
-      cmkppV += cmk_pitchUV;
-      cmkpV += cmk_pitchUV;
-      cmkpnV += cmk_pitchUV;
-      cmkppU += cmk_pitchUV;
-      cmkpU += cmk_pitchUV;
-      cmkpnU += cmk_pitchUV;
-      for (int x = 1; x < Width - 1; ++x)
-      {
-        if ((cmkpV[x] == 0xFF && (cmkpV[x - 1] == 0xFF || cmkpV[x + 1] == 0xFF ||
-          cmkppV[x - 1] == 0xFF || cmkppV[x] == 0xFF || cmkppV[x + 1] == 0xFF ||
-          cmkpnV[x - 1] == 0xFF || cmkpnV[x] == 0xFF || cmkpnV[x + 1] == 0xFF)) ||
-          (cmkpU[x] == 0xFF && (cmkpU[x - 1] == 0xFF || cmkpU[x + 1] == 0xFF ||
-            cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
-            cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF)))
-        {
-          ((unsigned short*)cmkp)[x] = (unsigned short)0xFFFF;
-          ((unsigned short*)cmkpn)[x] = (unsigned short)0xFFFF;
-          if (y & 1) ((unsigned short*)cmkpp)[x] = (unsigned short)0xFFFF;
-          else ((unsigned short*)cmkpnn)[x] = (unsigned short)0xFFFF;
-        }
-      }
-    }
+    if (vi.Is420())
+      FillCombedPlanarUpdateCmaskByUV<420>(cmask);
+    else if (vi.Is422())
+      FillCombedPlanarUpdateCmaskByUV<422>(cmask);
+    else if (vi.Is444())
+      FillCombedPlanarUpdateCmaskByUV<444>(cmask);
+    else if (vi.IsYV411())
+      FillCombedPlanarUpdateCmaskByUV<411>(cmask);
   }
+
   const int cmk_pitch = cmask->GetPitch(0);
   const uint8_t *cmkp = cmask->GetPtr(0) + cmk_pitch;
   const uint8_t *cmkpp = cmkp - cmk_pitch;
@@ -479,12 +541,12 @@ void TFM::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
   if (xlim > width) xlim = width;
   ylim = cordy + blocky;
   if (ylim > height) ylim = height;
-  for (y = max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
+  for (y = std::max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
   {
     (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
     if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
   }
-  for (x = max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
+  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
   {
     (dstp + cordy*pitch)[x] = (dstp + cordy*pitch)[x] <= 128 ? 255 : 0;
     if (temp < height) (dstp + temp*pitch)[x] = (dstp + temp*pitch)[x] <= 128 ? 255 : 0;
