@@ -23,7 +23,6 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <windows.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <limits.h>
@@ -40,6 +39,8 @@
 class FrameDiff : public GenericVideoFilter
 {
 private:
+  int cpuFlags;
+
   char buf[512];
   bool predenoise, ssd, rpos;
   int nt, nfrms, blockx, blocky, mode, display;
@@ -48,19 +49,19 @@ private:
   bool chroma, debug, prevf, norm;
   int blocky_shift, blockx_shift, blocky_half, blockx_half;
   uint64_t *diff, MAX_DIFF, threshU;
-  void calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env);
+  void calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const VideoInfo &vi, IScriptEnvironment *env);
   void fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool dot);
   void fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot);
-  void Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np);
+  void Draw(PVideoFrame &dst, int x1, int y1, const char *s, const VideoInfo& vi);
   void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
   void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-  void drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
+  void drawBox(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo& vi);
   void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
   void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
   int mapn(int n);
   bool checkOnImage(int x, int xblocks4);
-  void setBlack(PVideoFrame &d);
+  void setBlack(PVideoFrame& dst, const VideoInfo& vi);
   int getCoord(int blockN, int xblocks);
 
 public:

@@ -25,6 +25,7 @@
 
 #include "FrameDiff.h"
 #include <inttypes.h>
+#include <algorithm>
 
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
   bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise, bool _ssd,
@@ -35,6 +36,10 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
   opt(_opt), chroma(_chroma), debug(_debug), prevf(_prevf), norm(_norm)
 {
   diff = NULL;
+
+  cpuFlags = env->GetCPUFlags();
+  if (opt == 0) cpuFlags = 0;
+
   if (vi.BitsPerComponent() != 8)
     env->ThrowError("FrameDiff:  Only 8 bit clip data supported!");
   if (vi.IsRGB())
@@ -55,14 +60,15 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
     env->ThrowError("FrameDiff:  illegal blocky size!");
   if (opt < 0 || opt > 4)
     env->ThrowError("FrameDiff:  opt must be set to 0, 1, 2, 3, or 4!");
+
   blockx_shift = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
     blockx == 64 ? 6 : blockx == 128 ? 7 : blockx == 256 ? 8 : blockx == 512 ? 9 :
     blockx == 1024 ? 10 : 11; // log2 blockx
   blocky_shift = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
     blocky == 64 ? 6 : blocky == 128 ? 7 : blocky == 256 ? 8 : blocky == 512 ? 9 :
     blocky == 1024 ? 10 : 11; // log2 blocky
-  // not chroma block sizes, really blockx / 2
-  blocky_half = blocky >> 1; // not yv12 specific, really half
+
+  blocky_half = blocky >> 1;
   blockx_half = blockx >> 1;
 
   /*
@@ -138,25 +144,24 @@ AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
-  int np = vi.IsYUY2() ? 1 : 3;
   int xblocks = ((vi.width + blockx_half) >> blockx_shift) + 1;
   int yblocks = ((vi.height + blocky_half) >> blocky_shift) + 1;
   int arraysize = (xblocks*yblocks) << 2;
   bool lset = false, hset = false;
-  uint64_t lowestDiff = ULLONG_MAX, highestDiff = 0;
+  uint64_t lowestDiff = UINT64_MAX, highestDiff = 0;
   int lpos, hpos;
   PVideoFrame src;
   if (prevf && n >= 1)
   {
     PVideoFrame prv = child->GetFrame(n - 1, env);
     src = child->GetFrame(n, env);
-    calcMetric(prv, src, np, env);
+    calcMetric(prv, src, vi, env);
   }
   else if (!prevf && n < nfrms)
   {
     src = child->GetFrame(n, env);
     PVideoFrame nxt = child->GetFrame(n + 1, env);
-    calcMetric(src, nxt, np, env);
+    calcMetric(src, nxt, vi, env);
   }
   else
   {
@@ -224,7 +229,6 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
-  int np = vi.IsYUY2() ? 1 : 3;
   int xblocks = ((vi.width + blockx_half) >> blockx_shift) + 1; // same as in constructor
   int xblocks4 = xblocks << 2;
   int yblocks = ((vi.height + blocky_half) >> blocky_shift) + 1; // same as in constructor
@@ -234,13 +238,13 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
   {
     PVideoFrame prv = child->GetFrame(n - 1, env);
     src = child->GetFrame(n, env);
-    calcMetric(prv, src, np, env);
+    calcMetric(prv, src, vi, env);
   }
   else if (!prevf && n < nfrms)
   {
     src = child->GetFrame(n, env);
     PVideoFrame nxt = child->GetFrame(n + 1, env);
-    calcMetric(src, nxt, np, env);
+    calcMetric(src, nxt, vi, env);
   }
   else
   {
@@ -250,9 +254,13 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
   env->MakeWritable(&src);
   int hpos, lpos;
   int blockH = -20, blockL = -20;
-  uint64_t lowestDiff = ULLONG_MAX, highestDiff = 0, difft;
+  uint64_t lowestDiff = UINT64_MAX;
+  uint64_t highestDiff = 0;
+  uint64_t difft;
+
   if (display > 2)
-    setBlack(src);
+    setBlack(src, vi);
+
   for (int x = 0; x < arraysize; ++x)
   {
     difft = diff[x];
@@ -274,37 +282,38 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
     else if ((display == 2 || display == 4) && mode == 1 && difft >= threshU)
       fillBox(src, x, xblocks4, display == 2 ? true : false);
   }
+
   if (display > 0 && display < 3)
   {
     sprintf(buf, "FrameDiff %s by tritical", VERSION);
-    Draw(src, 0, 0, buf, np);
+    Draw(src, 0, 0, buf, vi);
     sprintf(buf, "chroma = %c  denoise = %c  ssd = %c", chroma ? 'T' : 'F',
       predenoise ? 'T' : 'F', ssd ? 'T' : 'F');
-    Draw(src, 0, 1, buf, np);
+    Draw(src, 0, 1, buf, vi);
     sprintf(buf, "blockx = %d  blocky = %d", blockx, blocky);
-    Draw(src, 0, 2, buf, np);
+    Draw(src, 0, 2, buf, vi);
     sprintf(buf, "hpos = %d  lpos = %d", hpos, lpos);
-    Draw(src, 0, 3, buf, np);
+    Draw(src, 0, 3, buf, vi);
     if (norm)
     {
       sprintf(buf, "Frame %d to %d:  thresh = %3.2f", n, prevf ? mapn(n - 1) : mapn(n + 1), thresh);
-      Draw(src, 0, 4, buf, np);
+      Draw(src, 0, 4, buf, vi);
       sprintf(buf, "H = %3.2f  L = %3.2f", double(highestDiff)*100.0 / double(MAX_DIFF),
         double(lowestDiff)*100.0 / double(MAX_DIFF));
-      Draw(src, 0, 5, buf, np);
+      Draw(src, 0, 5, buf, vi);
     }
     else
     {
       sprintf(buf, "Frame %d to %d:  thresh = %" PRIu64 "", n, prevf ? mapn(n - 1) : mapn(n + 1), threshU);
-      Draw(src, 0, 4, buf, np);
+      Draw(src, 0, 4, buf, vi);
       sprintf(buf, "H = %" PRIu64 "  L = %" PRIu64 "", highestDiff, lowestDiff);
-      Draw(src, 0, 5, buf, np);
+      Draw(src, 0, 5, buf, vi);
     }
   }
   if (display == 1)
   {
-    if (mode == 0) drawBox(src, blockL, xblocks4, np);
-    else drawBox(src, blockH, xblocks4, np);
+    if (mode == 0) drawBox(src, blockL, xblocks4, vi);
+    else drawBox(src, blockH, xblocks4, vi);
   }
   else if (display == 3)
   {
@@ -321,14 +330,40 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
   return src;
 }
 
-void FrameDiff::setBlack(PVideoFrame &d)
+void FrameDiff::setBlack(PVideoFrame &dst, const VideoInfo& vi)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = vi.IsYUY2() ? 1 : 3;
-  for (int i = 0; i < stop; ++i) { // PF 20200412 was: 3 even for YUY2?
-    const int plane = planes[i];
-    memset(d->GetWritePtr(plane), 0,
-      d->GetPitch(plane) * d->GetHeight(plane));
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+
+  for (int b = 0; b < np; ++b)
+  {
+    const int plane = planes[b];
+    uint8_t* dstp = dst->GetWritePtr(plane);
+    const int pitch = dst->GetPitch(plane);
+    const size_t height = dst->GetHeight(plane);
+    if (!vi.IsYUY2())
+    {
+      if (b == 0)
+        memset(dstp, 0, pitch * height); // luma
+      else {
+        // chroma
+        const int bits_per_pixel = vi.BitsPerComponent();
+        if (bits_per_pixel == 8)
+          memset(dstp, 128, pitch * height);
+        else
+          std::fill_n((uint16_t*)dstp, pitch * height / sizeof(uint16_t), 128 << (bits_per_pixel - 8));
+      }
+    }
+    else
+    {
+      const int width = dst->GetRowSize(plane) >> 1;
+      for (int y = 0; y < height; ++y)
+      {
+        for (int x = 0; x < width; ++x)
+          ((uint16_t*)dstp)[x] = 0x8000;
+        dstp += pitch;
+      }
+    }
   }
 }
 
@@ -358,14 +393,14 @@ int FrameDiff::mapn(int n)
   return n;
 }
 
-void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, int np, IScriptEnvironment *env)
+void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const VideoInfo& vi, IScriptEnvironment *env)
 {
   struct CalcMetricData d;
-  d.np = np;
+//  d.np = np;
   d.predenoise = predenoise;
   d.vi = vi;
   d.chroma = chroma;
-  d.opt = opt;
+  d.cpuFlags = cpuFlags;
   d.blockx_half = blockx;
   d.blockx_half = blockx_half;
   d.blockx_shift = blockx_shift;
@@ -394,8 +429,8 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
   {
     prev = env->NewVideoFrame(d.vi);
     curr = env->NewVideoFrame(d.vi);
-    blurFrame(prevt, prev, d.np, 2, d.chroma, env, d.vi, d.opt);
-    blurFrame(currt, curr, d.np, 2, d.chroma, env, d.vi, d.opt);
+    blurFrame(prevt, prev, 2, d.chroma, env, d.vi, d.cpuFlags);
+    blurFrame(currt, curr, 2, d.chroma, env, d.vi, d.cpuFlags);
   }
   else
   {
@@ -413,13 +448,12 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
   int yblocks = ((d.vi.height + d.blocky_half) >> d.blocky_shift) + 1;
   int arraysize = (xblocks * yblocks) << 2;
 
-  long cpu = env->GetCPUFlags();
-  if (d.opt == 0) cpu = 0;
+  const bool use_sse2 = d.cpuFlags & CPUF_SSE2;
 
   memset(d.diff, 0, arraysize * sizeof(uint64_t));
 
   const bool IsYUY2 = d.vi.IsYUY2();
-  const int stop = d.chroma ? d.np : 1; // chroma: full 3 planes at planar, 1 at YUY2 or planar luma-only
+  const int stop = (d.vi.IsYUY2() || d.vi.IsY() || !d.chroma) ? 1 : 3; // luma only (!chroma) only 1 planar planes
   const int inc = IsYUY2 ? (d.chroma ? 1 : 2) : 1; // 2 is YUY2 luma only, otherwise 1
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -440,19 +474,19 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 
     if (d.blockx == 32 && d.blocky == 32 && d.nt <= 0)
     {
-      if (d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.vi);
-      else if (!d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.vi);
+      if (d.ssd && use_sse2)
+        calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.vi);
+      else if (!d.ssd && use_sse2)
+        calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.vi);
       else { goto use_c; }
     }
     else if (((!IsYUY2 && d.blockx >= 16 && d.blocky >= 16) || (IsYUY2 && d.blockx >= 8 && d.blocky >= 8)) && d.nt <= 0)
     {
       // YUY2 block size 8 is really 16 in width because luma + chroma
-      if (d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.vi);
-      else if (!d.ssd && (cpu & CPUF_SSE2))
-        calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.vi);
+      if (d.ssd && use_sse2)
+        calcDiffSSD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.vi);
+      else if (!d.ssd && use_sse2)
+        calcDiffSAD_Generic_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.vi);
       else { goto use_c; }
     }
     else
@@ -461,16 +495,16 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
       if (!d.ssd) {
         // SAD
         if (inc == 2) // YUY2 luma only
-          calcDiff_SADorSSD_Generic_c<true, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+          calcDiff_SADorSSD_Generic_c<true, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
         else
-          calcDiff_SADorSSD_Generic_c<true, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+          calcDiff_SADorSSD_Generic_c<true, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
       }
       else {
         // SSD
         if (inc == 2) // YUY2 luma only
-          calcDiff_SADorSSD_Generic_c<false, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+          calcDiff_SADorSSD_Generic_c<false, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
         else
-          calcDiff_SADorSSD_Generic_c<false, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.np, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+          calcDiff_SADorSSD_Generic_c<false, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
       }
     }
 
@@ -480,20 +514,24 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
         *d.metricF = 0;
         if (d.scene)
         {
-          if (d.np == 3 || !d.chroma) // planar or YUY2 luma+chroma
+          // planar or YUY2 luma+chroma
+          if (!d.vi.IsYUY2() || (d.vi.IsYUY2() && d.chroma))
+          // fix in v18: v17 was: !d.chroma instead of d.chroma
           {
             for (int x = 0; x < arraysize; x += 4)
-              *d.metricF += d.diff[x];
+              *d.metricF += d.diff[x]; 
+            // fixme: future hbd, if diff is for 10+ bit source, does it overflow? 
+            // or have to normalize here, to be decided
           }
           else
           {
             // YUY2 only, luma only chroma skip
             if (d.ssd)
               *d.metricF = calcLumaDiffYUY2_SSD(prev->GetReadPtr(), curr->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.opt, env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.cpuFlags);
             else
               *d.metricF = calcLumaDiffYUY2_SAD(prev->GetReadPtr(), curr->GetReadPtr(),
-                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.opt, env);
+                prev->GetRowSize(), prev->GetHeight(), prev->GetPitch(), curr->GetPitch(), d.nt, d.cpuFlags);
           }
         }
       }
@@ -525,12 +563,12 @@ void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot)
   else if (temp == 3) { cordx -= blockx; cordy -= (blocky >> 1); }
   xlim = cordx + 2 * blockx;
   ylim = cordy + blocky;
-  int ymid = max(min(cordy + ((ylim - cordy) >> 1), height - 1), 0);
-  int xmid = max(min(cordx + ((xlim - cordx) >> 1), width - 2), 0);
+  int ymid = std::max(std::min(cordy + ((ylim - cordy) >> 1), height - 1), 0);
+  int xmid = std::max(std::min(cordx + ((xlim - cordx) >> 1), width - 2), 0);
   if (xlim > width) xlim = width;
   if (ylim > height) ylim = height;
-  cordy = max(cordy, 0);
-  cordx = max(cordx, 0);
+  cordy = std::max(cordy, 0);
+  cordx = std::max(cordx, 0);
   dstp = dstp + cordy*pitch;
   for (y = cordy; y < ylim; ++y)
   {
@@ -573,12 +611,12 @@ void FrameDiff::fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool do
   else if (temp == 3) { cordx -= (blockx >> 1); cordy -= (blocky >> 1); }
   xlim = cordx + blockx;
   ylim = cordy + blocky;
-  int ymid = max(min(cordy + ((ylim - cordy) >> 1), height - 1), 0);
-  int xmid = max(min(cordx + ((xlim - cordx) >> 1), width - 1), 0);
+  int ymid = std::max(std::min(cordy + ((ylim - cordy) >> 1), height - 1), 0);
+  int xmid = std::max(std::min(cordx + ((xlim - cordx) >> 1), width - 1), 0);
   if (xlim > width) xlim = width;
   if (ylim > height) ylim = height;
-  cordy = max(cordy, 0);
-  cordx = max(cordx, 0);
+  cordy = std::max(cordy, 0);
+  cordx = std::max(cordx, 0);
   dstp = dstp + cordy*pitch;
   for (y = cordy; y < ylim; ++y)
   {
@@ -595,15 +633,15 @@ void FrameDiff::fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool do
   }
 }
 
-void FrameDiff::drawBox(PVideoFrame &dst, int blockN, int xblocks, int np)
+void FrameDiff::drawBox(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo &vi)
 {
-  if (np == 3) drawBoxYV12(dst, blockN, xblocks);
+  if (vi.IsPlanar()) drawBoxYV12(dst, blockN, xblocks);
   else drawBoxYUY2(dst, blockN, xblocks);
 }
 
-void FrameDiff::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np)
+void FrameDiff::Draw(PVideoFrame &dst, int x1, int y1, const char *s, const VideoInfo& vi)
 {
-  if (np == 3) DrawYV12(dst, x1, y1, s);
+  if (vi.IsPlanar()) DrawYV12(dst, x1, y1, s);
   else DrawYUY2(dst, x1, y1, s);
 }
 
@@ -627,12 +665,12 @@ void FrameDiff::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
   if (xlim > width) xlim = width;
   ylim = cordy + blocky;
   if (ylim > height) ylim = height;
-  for (y = max(cordy, 0), temp = cordx + 2 * (blockx - 1); y < ylim; ++y)
+  for (y = std::max(cordy, 0), temp = cordx + 2 * (blockx - 1); y < ylim; ++y)
   {
     if (cordx >= 0) (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
     if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
   }
-  for (x = max(cordx, 0), temp = cordy + blocky - 1; x < xlim; x += 4)
+  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; x += 4)
   {
     if (cordy >= 0)
     {
@@ -723,12 +761,12 @@ void FrameDiff::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
   if (xlim > width) xlim = width;
   ylim = cordy + blocky;
   if (ylim > height) ylim = height;
-  for (y = max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
+  for (y = std::max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
   {
     if (cordx >= 0) (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
     if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
   }
-  for (x = max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
+  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
   {
     if (cordy >= 0) (dstp + cordy*pitch)[x] = (dstp + cordy*pitch)[x] <= 128 ? 255 : 0;
     if (temp < height) (dstp + temp*pitch)[x] = (dstp + temp*pitch)[x] <= 128 ? 255 : 0;
