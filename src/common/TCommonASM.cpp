@@ -297,12 +297,137 @@ template void do_buildABSDiffMask2<uint8_t>(const uint8_t* prvp, const uint8_t* 
 template void do_buildABSDiffMask2<uint16_t>(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* dstp,
   int prv_pitch, int nxt_pitch, int dst_pitch, int width, int height, bool YUY2_LumaOnly, int cpuFlags, int bits_per_pixel);
 
+// Finally this is common for TFM and TDeint, planar and YUY2 (luma, luma+chroma))
+// This C code replaces some thousand line of copy pasted original inline asm lines
+// (plus handles 10+bits)
 
+// distance of neighboring pixels:
+// 1 for planar any
+// 2 for YUY2 luma
+// 4 for YUY2 chroma
+template<typename pixel_t, int bits_per_pixel, int DIST>
+static AVS_FORCEINLINE void AnalyzeOnePixel(uint8_t* dstp,
+  const pixel_t* dppp, const pixel_t* dpp,
+  const pixel_t* dp,
+  const pixel_t* dpn, const pixel_t* dpnn,
+  int& x, int& y, int& Width, int& Height)
+{
+  constexpr int Const3 = 3 << (bits_per_pixel - 8);
+  constexpr int Const19 = 19 << (bits_per_pixel - 8);
 
-// TDeint and TFM version
-// fixme: AnalyzeDiffMask_Planar compare with AnalyzeDiffMask_YUY2
-template<typename pixel_t>
-void AnalyzeDiffMask_Planar(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height, int bits_per_pixel)
+  if (dp[x] <= Const3)
+    return;
+
+  if (dp[x - DIST] <= Const3 && dp[x + DIST] <= Const3 &&
+    dpp[x - DIST] <= Const3 && dpp[x] <= Const3 && dpp[x + DIST] <= Const3 &&
+    dpn[x - DIST] <= Const3 && dpn[x] <= Const3 && dpn[x + DIST] <= Const3)
+    return;
+
+  dstp[x]++;
+
+  if (dp[x] <= Const19)
+    return;
+
+  int edi = 0;
+  int lower = 0;
+  int upper = 0;
+
+  if (dpp[x - DIST] > Const19) edi++;
+  if (dpp[x] > Const19) edi++;
+  if (dpp[x + DIST] > Const19) edi++;
+
+  if (edi != 0) upper = 1;
+
+  if (dp[x - DIST] > Const19) edi++;
+  if (dp[x + DIST] > Const19) edi++;
+
+  int esi = edi;
+
+  if (dpn[x - DIST] > Const19) edi++;
+  if (dpn[x] > Const19) edi++;
+  if (dpn[x + DIST] > Const19) edi++;
+
+  if (edi <= 2)
+    return;
+
+  int count = edi;
+  if (count != esi) {
+    lower = 1;
+    if (upper != 0) {
+      dstp[x] += 2;
+      return;
+    }
+  }
+
+  int lower2 = 0;
+  int upper2 = 0;
+
+  int startx, stopx;
+
+  constexpr bool YUY2_chroma = (DIST == 4);
+
+  if (YUY2_chroma) {
+    const int firstchroma = (x & 2) + 1;
+    startx = x - 4 * 4 < firstchroma ? firstchroma : x - 4 * 4;
+    stopx = x + 4 * 4 + 2 > Width ? Width : x + 4 * 4 + 2;
+  }
+  else {
+    startx = x < 4 * DIST ? 0 : x - 4 * DIST;
+    stopx = x + 4 * DIST + DIST > Width ? Width : x + 4 * DIST + DIST;
+  }
+
+  if (y != 2) {
+    for (int esi = startx; esi < stopx; esi += DIST) {
+      if (dppp[esi] > Const19) {
+        upper2 = 1;
+        break;
+      }
+    }
+  }
+
+  for (int esi = startx; esi < stopx; esi += DIST)
+  {
+    if (dpp[esi] > Const19)
+      upper = 1;
+    if (dpn[esi] > Const19)
+      lower = 1;
+    if (upper != 0 && lower != 0)
+      break;
+  }
+
+  if (y != Height - 4) {
+    for (int esi = startx; esi < stopx; esi += DIST)
+    {
+      if (dpnn[esi] > Const19) {
+        lower2 = 1;
+        break;
+      }
+    }
+  }
+
+  if (upper == 0) {
+    if (lower == 0 || lower2 == 0) {
+      if (count > 4)
+        dstp[x] += 4;
+    }
+    else {
+      dstp[x] += 2;
+    }
+  }
+  else {
+    if (lower != 0 || upper2 != 0) {
+      dstp[x] += 2;
+    }
+    else {
+      if (count > 4)
+        dstp[x] += 4;
+    }
+  }
+}
+
+// Common TDeint and TFM version
+template<typename pixel_t, int bits_per_pixel>
+void AnalyzeDiffMask_Planar(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height)
 {
   tpitch /= sizeof(pixel_t);
   const pixel_t* tbuffer = reinterpret_cast<const pixel_t*>(tbuffer8);
@@ -311,107 +436,13 @@ void AnalyzeDiffMask_Planar(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int
   const pixel_t* dp = tbuffer + tpitch;
   const pixel_t* dpn = tbuffer + tpitch * 2;
   const pixel_t* dpnn = tbuffer + tpitch * 3;
-  int count;
-  bool upper, lower, upper2, lower2;
 
   const int Const3 = 3 << (bits_per_pixel - 8);
   const int Const19 = 19 << (bits_per_pixel - 8);
 
   for (int y = 2; y < Height - 2; y += 2) {
     for (int x = 1; x < Width - 1; x++) {
-      int esi, edi;
-
-      if (dp[x] <= Const3) continue;
-      if (dp[x - 1] <= Const3 && dp[x + 1] <= Const3 &&
-        dpp[x - 1] <= Const3 && dpp[x] <= Const3 && dpp[x + 1] <= Const3 &&
-        dpn[x - 1] <= Const3 && dpn[x] <= Const3 && dpn[x + 1] <= Const3) continue;
-      dstp[x]++;
-      if (dp[x] <= Const19) continue; 
-
-      edi = 0;
-      lower = 0;
-      upper = 0;
-
-      if (dpp[x - 1] > Const19) edi++;
-      if (dpp[x] > Const19) edi++;
-      if (dpp[x + 1] > Const19) edi++;
-
-      if (edi != 0) upper = 1;
-
-      if (dp[x - 1] > Const19) edi++;
-      if (dp[x + 1] > Const19) edi++;
-
-      esi = edi;
-
-      if (dpn[x - 1] > Const19) edi++;
-      if (dpn[x] > Const19) edi++;
-      if (dpn[x + 1] > Const19) edi++;
-
-      if (edi <= 2) continue;
-
-      count = edi;
-      if (count != esi) {
-        lower = 1;
-        if (upper != 0) {
-          dstp[x] += 2;
-          continue;
-        }
-      }
-
-      lower2 = 0;
-      upper2 = 0;
-
-      int startx = x < 4 ? 0 : x - 4;
-      int stopx = x + 5 > Width ? Width : x + 5;
-      
-      if (y != 2) {
-        for (int esi = startx; esi < stopx; esi++) {
-          if (dppp[esi] > Const19) {
-            upper2 = 1;
-            // ??? check others copied from here! todo change upper to upper2 if not upper 2 like in YUY2 part
-            break;
-          }
-        }
-      }
-
-      for (int esi = startx; esi < stopx; esi++)
-      {
-        if (dpp[esi] > Const19)
-          upper = 1;
-        if (dpn[esi] > Const19)
-          lower = 1;
-        if (upper != 0 && lower != 0)
-          break;
-      }
-
-      if (y != Height - 4) {
-        for (int esi = startx; esi < stopx; esi++)
-        {
-          if (dpnn[esi] > Const19) {
-            lower2 = 1;
-            break;
-          }
-        }
-      }
-
-      if (upper == 0) {
-        if (lower == 0 || lower2 == 0) {
-          if (count > 4)
-            dstp[x] += 4;
-        }
-        else {
-          dstp[x] += 2;
-        }
-      }
-      else {
-        if (lower != 0 || upper2 != 0) {
-          dstp[x] += 2;
-        }
-        else {
-          if (count > 4)
-            dstp[x] += 4;
-        }
-      }
+      AnalyzeOnePixel<pixel_t, bits_per_pixel, 1>(dstp, dppp, dpp, dp, dpn, dpnn, x, y, Width, Height);
     }
     dppp += tpitch;
     dpp += tpitch;
@@ -422,11 +453,13 @@ void AnalyzeDiffMask_Planar(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int
   }
 }
 // instantiate
-template void AnalyzeDiffMask_Planar<uint8_t>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height, int bits_per_pixel);
-template void AnalyzeDiffMask_Planar<uint16_t>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height, int bits_per_pixel);
+template void AnalyzeDiffMask_Planar<uint8_t,8>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height);
+template void AnalyzeDiffMask_Planar<uint16_t, 10>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height);
+template void AnalyzeDiffMask_Planar<uint16_t, 12>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height);
+template void AnalyzeDiffMask_Planar<uint16_t, 14>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height);
+template void AnalyzeDiffMask_Planar<uint16_t, 16>(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int tpitch, int Width, int Height);
 
 // TDeint and TFM version
-// fixme: compare with AnalyzeDiffMask_Planar + Compare chroma and non-chroma parts
 void AnalyzeDiffMask_YUY2(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer, int tpitch, int Width, int Height, bool mChroma)
 {
   // YUY2 we won't touch it if it works. No hbd here
@@ -436,235 +469,19 @@ void AnalyzeDiffMask_YUY2(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer, int tp
   const uint8_t* dpn = tbuffer + tpitch * 2;
   const uint8_t* dpnn = tbuffer + tpitch * 3;
   int count;
-  bool upper, lower, upper2, lower2;
-
-  // fixme: make if common with TFM
   // reconstructed from inline 700+ lines asm by pinterf
 
   if (mChroma) // TFM YUY2's mChroma bool parameter
   {
     for (int y = 2; y < Height - 2; y += 2) {
-      for (int x = 4; x < Width - 4; x += 1) // the first ebx++ is in the code. later in TFMYUY2 1051: ebx += 2
+      // small difference from planar: x starts from 2 instead of 1; ends at width-2 instead of width-1
+      // [YUYV]YUYVYUYVYUYV...YUYV[YUYV]
+      for (int x = 4; x < Width - 4; x += 1)
       {
-        int eax, esi, edi;
-
-        if (dp[x] < 3) {
-          goto chroma_sec;
-        }
-
-        if (dp[x - 2] < 3 && dp[x + 2] < 3 &&
-          dpp[x - 2] < 3 && dpp[x] < 3 && dpp[x + 2] < 3 &&
-          dpn[x - 2] < 3 && dpn[x] < 3 && dpn[x + 2] < 3)
-        {
-          goto chroma_sec;
-        }
-
-        dstp[x]++;
-        if (dp[x] <= 19) {
-          goto chroma_sec;
-        }
-
-        edi = 0;
-        lower = 0;
-        upper = 0;
-
-        if (dpp[x - 2] > 19) edi++;
-        if (dpp[x] > 19) edi++;
-        if (dpp[x + 2] > 19) edi++;
-
-        if (edi != 0) upper = 1;
-
-        if (dp[x - 2] > 19) edi++;
-        if (dp[x + 2] > 19) edi++;
-
-        esi = edi;
-
-        if (dpn[x - 2] > 19) edi++;
-        if (dpn[x] > 19) edi++;
-        if (dpn[x + 2] > 19) edi++;
-
-        if (edi <= 2) {
-          goto chroma_sec;
-        }
-
-        count = edi;
-        if (count != esi) {
-          lower = 1;
-          if (upper != 0) {
-            dstp[x] += 2;
-            goto chroma_sec;
-          }
-        }
-
-        eax = x - 2 * 4;
-        if (eax < 0) eax = 0;
-
-        lower2 = 0;
-        upper2 = 0;
-        { // blocked for local vars
-          int edx = x + 2 * 5;
-          if (edx > Width) edx = Width;
-    //-----------
-          if (y != 2) {
-            int esi = eax;
-            do {
-              if (dppp[esi] > 19) {
-                upper2 = 1;
-                break;
-              }
-              esi += 2; // YUY2 inc
-            } while (esi < edx);
-          }
-
-          int esi = eax;
-          do {
-            if (dpp[esi] > 19)
-              upper = 1;
-            if (dpn[esi] > 19)
-              lower = 1;
-            if (upper != 0 && lower != 0)
-              break;
-            esi += 2; // YUY2 inc
-          } while (esi < edx);
-          //---------
-          if (y != Height - 4) {
-            int esi = eax;
-            do {
-              if (dpnn[esi] > 19) {
-                lower2 = 1;
-                break;
-              }
-              esi += 2; // YUY2 inc
-            } while (esi < edx);
-          }
-        }
-
-        if (upper == 0) {
-          if (lower == 0 || lower2 == 0) {
-            if (count > 4)
-              dstp[x] += 4;
-          }
-          else {
-            dstp[x] += 2;
-          }
-        }
-        else {
-          if (lower != 0 || upper2 != 0) {
-            dstp[x] += 2;
-          }
-          else {
-            if (count > 4)
-              dstp[x] += 4;
-          }
-        }
-        //-------------- the other one ends here, with a x+=2
-
-      chroma_sec:
+        AnalyzeOnePixel<uint8_t, 8, 2>(dstp, dppp, dpp, dp, dpn, dpnn, x, y, Width, Height);
         // skip to chroma
         x++;
-
-        if (dp[x] < 3) {
-          continue;
-        }
-        if (dp[x - 4] < 3 && dp[x + 4] < 3 &&
-          dpp[x - 4] < 3 && dpp[x] < 3 && dpp[x + 4] < 3 &&
-          dpn[x - 4] < 3 && dpn[x] < 3 && dpn[x + 4] < 3)
-        {
-          continue;
-        }
-        dstp[x]++;
-        if (dp[x] <= 19) {
-          continue;
-        }
-        edi = 0;
-        lower = 0;
-        upper = 0;
-        if (dpp[x - 4] > 19) edi++;
-        if (dpp[x] > 19) edi++;
-        if (dpp[x + 4] > 19) edi++;
-        if (edi != 0) upper = 1;
-        if (dp[x - 4] > 19) edi++;
-        if (dp[x + 4] > 19) edi++;
-        esi = edi;
-        if (dpn[x - 4] > 19) edi++;
-        if (dpn[x] > 19) edi++;
-        if (dpn[x + 4] > 19) edi++;
-        if (edi <= 2) {
-          continue;
-        }
-        count = edi;
-        if (esi != edi) {
-          lower = 1;
-          if (upper != 0) {
-            dstp[x] += 2;
-            continue;
-          }
-        }
-
-        eax = x - 8 - 8; // was: -8 in the first chroma part
-        int edx_tmp = (x & 2) + 1; // diff from 1st part, comparison is with 0 there
-        if (eax < edx_tmp) eax = edx_tmp; // diff from 1st part
-
-        lower2 = 0;
-        upper2 = 0;
-        int edx = x + 10 + 8; // was: +10 in the first chroma part
-        if (edx > Width) edx = Width;
-
-        //-----------
-        if (y != 2) {
-          int esi = eax;
-          do {
-            if (dppp[esi] > 19) {
-              upper2 = 1;
-              break;
-            }
-            esi += 4; // was: += 2 in the first chroma part
-          } while (esi < edx);
-        }
-
-        { // blocked for local vars
-          int esi = eax;
-          do {
-            if (dpp[esi] > 19)
-              upper = 1;
-            if (dpn[esi] > 19)
-              lower = 1;
-            if (upper != 0 && lower != 0)
-              break;
-            esi += 4;  // was: += 2 in the first chroma part
-          } while (esi < edx);
-        }
-        //---------
-        if (y != Height - 4) {
-
-          int esi = eax;
-          do {
-            if (dpnn[esi] > 19) {
-              lower2 = 1;
-              break;
-            }
-            esi += 4;  // was: += 2 in the first chroma part
-          } while (esi < edx);
-        }
-
-        if (upper == 0) {
-          if (lower == 0 || lower2 == 0) {
-            if (count > 4)
-              dstp[x] += 4;
-          }
-          else {
-            dstp[x] += 2;
-          }
-        }
-        else {
-          if (lower != 0 || upper2 != 0) {
-            dstp[x] += 2;
-          }
-          else {
-            if (count > 4)
-              dstp[x] += 4;
-          }
-        }
+        AnalyzeOnePixel<uint8_t, 8, 4>(dstp, dppp, dpp, dp, dpn, dpnn, x, y, Width, Height);
 
       }
       dppp += tpitch;
@@ -680,105 +497,7 @@ void AnalyzeDiffMask_YUY2(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer, int tp
     for (int y = 2; y < Height - 2; y += 2) {
       for (int x = 4; x < Width - 4; x += 2)
       {
-        if (dp[x] < 3) {
-          continue; // goto chroma_sec;
-        }
-        if (dp[x - 2] < 3 && dp[x + 2] < 3 &&
-          dpp[x - 2] < 3 && dpp[x] < 3 && dpp[x + 2] < 3 &&
-          dpn[x - 2] < 3 && dpn[x] < 3 && dpn[x + 2] < 3)
-        {
-          continue; // goto chroma_sec;
-        }
-        dstp[x]++;
-        if (dp[x] <= 19) {
-          continue; //  goto chroma_sec;
-        }
-
-        int edi = 0;
-        lower = 0;
-        upper = 0;
-        if (dpp[x - 2] > 19) edi++;
-        if (dpp[x] > 19) edi++;
-        if (dpp[x + 2] > 19) edi++;
-        if (edi != 0) upper = 1;
-        if (dp[x - 2] > 19) edi++;
-        if (dp[x + 2] > 19) edi++;
-        int esi = edi;
-        if (dpn[x - 2] > 19) edi++;
-        if (dpn[x] > 19) edi++;
-        if (dpn[x + 2] > 19) edi++;
-        if (edi <= 2) {
-          continue; //  goto chroma_sec;
-        }
-        count = edi;
-        if (esi != edi) {
-          lower = 1;
-          if (upper != 0) {
-            dstp[x] += 2;
-            continue; // goto chroma_sec;
-          }
-        }
-        int eax = x - 2 * 4;
-        if (eax < 0) eax = 0;
-
-        lower2 = 0;
-        upper2 = 0;
-        int edx = x + 2 * 5;
-        if (edx > Width) edx = Width;
-        //-----------
-        if (y != 2) {
-          int esi = eax;
-          do {
-            if (dppp[esi] > 19) {
-              upper2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
-        }
-        { // blocked for local vars
-          int esi = eax;
-          do {
-            if (dpp[esi] > 19)
-              upper = 1;
-            if (dpn[esi] > 19)
-              lower = 1;
-            if (upper != 0 && lower != 0)
-              break;
-            esi += 2;
-          } while (esi < edx);
-        }
-        //---------
-        if (y != Height - 4) {
-
-          int esi = eax;
-          do {
-            if (dpnn[esi] > 19) {
-              lower2 = 1;
-              break;
-            }
-            esi += 2;
-          } while (esi < edx);
-        }
-        
-        if (upper == 0) {
-          if (lower == 0 || lower2 == 0) {
-            if (count > 4)
-              dstp[x] += 4;
-          }
-          else {
-            dstp[x] += 2;
-          }
-        }
-        else {
-          if (lower != 0 || upper2 != 0) {
-            dstp[x] += 2;
-          }
-          else {
-            if (count > 4)
-              dstp[x] += 4;
-          }
-        }
+        AnalyzeOnePixel<uint8_t, 8, 2>(dstp, dppp, dpp, dp, dpn, dpnn, x, y, Width, Height);
       }
       dppp += tpitch;
       dpp += tpitch;

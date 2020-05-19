@@ -475,7 +475,7 @@ void TFM::buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
   int Width, int tpitch, IScriptEnvironment *env)
 {
   buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
-  AnalyzeDiffMask_Planar<uint8_t>(dstp, dst_pitch, tbuffer, tpitch, Width, Height, 8);
+  AnalyzeDiffMask_Planar<uint8_t, 8>(dstp, dst_pitch, tbuffer, tpitch, Width, Height);
 }
 
 void TFM::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s)

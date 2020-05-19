@@ -1082,6 +1082,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   uint8_t *mapp, *mapn;
   int prv_pitch, src_pitch, Width, Height, nxt_pitch;
   int prvf_pitch, nxtf_pitch, curf_pitch, stopx, map_pitch;
+  // mChroma!
   int incl = np == 3 ? 1 : mChroma ? 1 : 2; // YUY2 lumaonly: step 2
   int stop = np == 3 ? mChroma ? 3 : 1 : 1;
   unsigned long accumPc = 0, accumNc = 0, accumPm = 0;
