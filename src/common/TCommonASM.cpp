@@ -1547,3 +1547,43 @@ void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi, IScriptE
   }
 }
 
+// fast blend routine for 50:50 case
+template<typename pixel_t>
+void blend_5050_SSE2(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch)
+{
+  while (height--) {
+    for (int x = 0; x < width * sizeof(pixel_t); x += 16) {
+      auto src1 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x));
+      auto src2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x));
+      if constexpr (sizeof(pixel_t) == 1)
+        _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), _mm_avg_epu8(src1, src2));
+      else
+        _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), _mm_avg_epu16(src1, src2));
+    }
+    dstp += dst_pitch;
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+  }
+}
+// instantiate
+template void blend_5050_SSE2<uint8_t>(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
+template void blend_5050_SSE2<uint16_t>(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
+
+template<typename pixel_t>
+void blend_5050_c(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch)
+{
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; ++x)
+      reinterpret_cast<pixel_t*>(dstp)[x] = (reinterpret_cast<const pixel_t*>(srcp1)[x] + reinterpret_cast<const pixel_t*>(srcp2)[x] + 1) >> 1;
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+// instantiate
+template void blend_5050_c<uint8_t>(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
+template void blend_5050_c<uint16_t>(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
+
+

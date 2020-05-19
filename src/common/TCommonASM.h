@@ -22,11 +22,18 @@
 #ifndef __TCOMMONASM_H__
 #define __TCOMMONASM_H__
 
+#include "internal.h"
 #include <xmmintrin.h>
 #include <emmintrin.h>
+#include <algorithm>
 
-//#include <windows.h>
-#include "internal.h"
+template<int bits_per_pixel>
+AVS_FORCEINLINE int cubicInt(int p1, int p2, int p3, int p4)
+{
+  const int max_pixel_value = (1 << bits_per_pixel) - 1;
+  const int temp = (19 * (p2 + p3) - 3 * (p1 + p4) + 16) >> 5;
+  return std::min(std::max(temp, 0), max_pixel_value);
+}
 
 void absDiff_SSE2(const uint8_t* srcp1, const uint8_t* srcp2,
   uint8_t* dstp, int src1_pitch, int src2_pitch, int dst_pitch, int width,
@@ -103,5 +110,10 @@ void compute_sum_16x8_sse2_luma(const uint8_t *srcp, int pitch, int &sum);
 
 // fixme: put non-asm utility functions into different file
 void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi, IScriptEnvironment* env);
+
+template<typename pixel_t>
+void blend_5050_SSE2(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
+template<typename pixel_t>
+void blend_5050_c(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
 
 #endif // __TCOMMONASM_H__
