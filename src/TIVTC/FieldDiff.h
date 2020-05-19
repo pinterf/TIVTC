@@ -23,7 +23,6 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <windows.h>
 #include <stdio.h>
 #include "internal.h"
 #include "TFM.h"
@@ -40,37 +39,35 @@ class FieldDiff : public GenericVideoFilter
 private:
 
   bool has_at_least_v8;
+  int cpuFlags;
 
   int nt, nfrms, opt;
   bool chroma, debug, display;
   bool sse; // sum of squared errors instead of sad
   char buf[512];
-  static int64_t getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn,
-    int opti, IScriptEnvironment *env);
-  static int64_t getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn,
-    int opti, IScriptEnvironment *env);
-  static void calcFieldDiff_SSE_SSE2_16(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SSE_SSE2_8(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SSE_SSE2_Luma_16(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SSE_SSE2_Luma_8(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_16(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_8(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
-  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(const uint8_t *src2p, int src_pitch,
-    int width, int height, __m128i nt, int64_t &diff);
+
+  template<typename pixel_t, bool SAD>
+  static int64_t getDiff_SADorSSE(PVideoFrame& src, const VideoInfo& vi, bool chromaIn, int ntIn, int cpuFlags);
+  static void calcFieldDiff_SSE_SSE2(const uint8_t* src2p, ptrdiff_t src_pitch, int width, int height, int nt6, int64_t& diff);
+  static void calcFieldDiff_SSE_SSE2_YUY2_LumaOnly(const uint8_t* src2p, ptrdiff_t src_pitch, int width, int height, int nt6, int64_t& diff);
+  static void calcFieldDiff_SAD_SSE2(const uint8_t* src2p, ptrdiff_t src_pitch, int width, int height, int nt6, int64_t& diff);
+  static void calcFieldDiff_SAD_SSE2_YUY2_LumaOnly(const uint8_t* src2p, ptrdiff_t src_pitch, int width, int height, int nt6, int64_t& diff);
+
+#if defined(GCC) || defined(CLANG)
+  __attribute__((__target__("sse4.1")))
+#endif 
+  static void calcFieldDiff_SSE_uint16_SSE4(const uint8_t* src2p, ptrdiff_t src_pitch, int width, int height, int nt6, int64_t& diff, int bits_per_pixel);
+
+#if defined(GCC) || defined(CLANG)
+  __attribute__((__target__("sse4.1")))
+#endif 
+  static void calcFieldDiff_SAD_uint16_SSE4(const uint8_t* src2p, ptrdiff_t src_pitch, int width, int height, int nt6, int64_t& diff, int bits_per_pixel);
 
 public:
   FieldDiff(PClip _child, int _nt, bool _chroma, bool _display,
-    bool _debug, bool _sse, int _opt, IScriptEnvironment *env);
+    bool _debug, bool _sse, int _opt, IScriptEnvironment* env);
   ~FieldDiff();
-  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
+  PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
   AVSValue ConditionalFieldDiff(int n, IScriptEnvironment* env);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {

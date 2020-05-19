@@ -24,6 +24,7 @@
 */
 #include "FieldDiff.h"
 #include <emmintrin.h>
+#include <smmintrin.h>
 #include <inttypes.h>
 
 FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _debug,
@@ -35,6 +36,9 @@ FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _d
   has_at_least_v8 = true;
   try { env->CheckVersion(8); }
   catch (const AvisynthError&) { has_at_least_v8 = false; }
+
+  cpuFlags = env->GetCPUFlags();
+  if (opt == 0) cpuFlags = 0;
 
   if (vi.BitsPerComponent() > 8)
     env->ThrowError("FieldDiff:  only 8 bit formats supported!");
@@ -69,13 +73,21 @@ AVSValue FieldDiff::ConditionalFieldDiff(int n, IScriptEnvironment* env)
   else if (n > nfrms) n = nfrms;
   int64_t diff = 0;
   PVideoFrame src = child->GetFrame(n, env);
-  const int np = vi.IsPlanar() ? 3 : 1;
-  
-  if (sse) 
-    diff = getDiff_SSE(src, np, chroma, nt, opt, env);
-  else 
-    diff = getDiff_SAD(src, np, chroma, nt, opt, env);
-  
+
+  const int bits_per_pixel = vi.BitsPerComponent();
+
+  if (sse) {
+    diff =
+      bits_per_pixel == 8 ?
+      getDiff_SADorSSE<uint8_t, false>(src, vi, chroma, nt, cpuFlags) :
+      getDiff_SADorSSE<uint16_t, false>(src, vi, chroma, nt, cpuFlags);
+  }
+  else {
+    diff =
+      bits_per_pixel == 8 ?
+      getDiff_SADorSSE<uint8_t, true>(src, vi, chroma, nt, cpuFlags) :
+      getDiff_SADorSSE<uint16_t, true>(src, vi, chroma, nt, cpuFlags);
+  }
   if (debug)
   {
     if (sse) sprintf(buf, "FieldDiff:  Frame = %d  Diff = %" PRId64 " (sse)\n", n, diff);
@@ -94,11 +106,23 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
   else if (n > nfrms) n = nfrms;
   PVideoFrame src = child->GetFrame(n, env);
   int64_t diff = 0;
-  const int np = vi.IsPlanar() ? 3 : 1;
-  if (sse) 
-    diff = getDiff_SSE(src, np, chroma, nt, opt, env);
-  else 
-    diff = getDiff_SAD(src, np, chroma, nt, opt, env);
+
+  const int bits_per_pixel = vi.BitsPerComponent();
+
+  if (sse) {
+    diff =
+      bits_per_pixel == 8 ?
+      getDiff_SADorSSE<uint8_t, false>(src, vi, chroma, nt, cpuFlags) :
+      getDiff_SADorSSE<uint16_t, false>(src, vi, chroma, nt, cpuFlags);
+  }
+  else {
+
+    diff =
+      bits_per_pixel == 8 ?
+      getDiff_SADorSSE<uint8_t, true>(src, vi, chroma, nt, cpuFlags) :
+      getDiff_SADorSSE<uint16_t, true>(src, vi, chroma, nt, cpuFlags);
+  }
+
   if (debug)
   {
     if (sse) sprintf(buf, "FieldDiff:  Frame = %d  Diff = %" PRId64 " (sse)\n", n, diff);
@@ -121,255 +145,183 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
   return src;
 }
 
-int64_t FieldDiff::getDiff_SAD(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
-  IScriptEnvironment *env)
-{
-  int x, y;
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int stop = chromaIn ? np : 1; // YUY2 or Planar Luma-only is 1 plane
-  const int inc = (np == 1 && !chromaIn) ? 2 : 1; // YUY2 lumaonly is 2, planar and YUY2 LumaChroma is 1
-  const uint8_t *srcp, *srcpp, *src2p, *srcpn, *src2n;
-  int src_pitch, width, widtha, widtha1, widtha2, height, temp;
-
-  int64_t diff = 0;
-  if (ntIn > 255) ntIn = 255;
-  else if (ntIn < 0) ntIn = 0;
-  const int nt6 = ntIn * 6;
-  
-  long cpu = env->GetCPUFlags();
-  // if (opt == 0) cpu = 0; // no opt parameter for this conditional function
-
-  __m128i nt6_si128 = _mm_set1_epi16(nt6);
-
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    srcp = src->GetReadPtr(plane);
-    src_pitch = src->GetPitch(plane);
-    width = src->GetRowSize(plane);
-    widtha1 = (width >> 3) << 3; // mod8
-    widtha2 = (width >> 4) << 4; // mod16
-    height = src->GetHeight(plane);
-    // top line
-    src2p = srcp - src_pitch * 2;
-    srcpp = srcp - src_pitch;
-    srcpn = srcp + src_pitch;
-    src2n = srcp + src_pitch * 2;
-    for (x = 0; x < width; x += inc) // YUY2 luma only steps by 2
-    {
-      temp = abs((src2n[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpn[x] + srcpn[x]));
-      if (temp > nt6) diff += temp;
-    }
-    src2p += src_pitch;
-    srcpp += src_pitch;
-    srcp += src_pitch;
-    srcpn += src_pitch;
-    src2n += src_pitch;
-    // 2nd line
-    for (x = 0; x < width; x += inc) // YUY2 luma only steps by 2
-    {
-      temp = abs((src2n[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpp[x] + srcpn[x]));
-      if (temp > nt6) diff += temp;
-    }
-    src2p += src_pitch;
-    srcpp += src_pitch;
-    srcp += src_pitch;
-    srcpn += src_pitch;
-    src2n += src_pitch;
-    // middle lines, top 2 and bottom 2 is handled separately
-    if (cpu&CPUF_SSE2)
-    {
-      if (widtha2 >= 16) // aligned and min width
-      {
-        if (inc == 1) // Planar or YUY2_Luma_chroma
-          calcFieldDiff_SAD_SSE2_16(src2p, src_pitch, widtha2, height - 4, nt6_si128, diff);
-        else
-          calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(src2p, src_pitch, widtha2, height - 4, nt6_si128, diff);
-        widtha = widtha2;
-      }
-      else { // no minimum 16 width
-        if (inc == 1)
-          calcFieldDiff_SAD_SSE2_8(src2p, src_pitch, widtha1, height - 4, nt6_si128, diff);
-        else
-          calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(src2p, src_pitch, widtha1, height - 4, nt6_si128, diff);
-        widtha = widtha1;
-      }
-      // rest on the right side
-      for (y = 2; y < height - 2; ++y)
-      {
-        for (x = widtha; x < width; x += inc) // YUY2 luma only is step by 2
-        {
-          temp = abs((src2p[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpp[x] + srcpn[x]));
-          if (temp > nt6) diff += temp;
-        }
-        src2p += src_pitch;
-        srcpp += src_pitch;
-        srcp += src_pitch;
-        srcpn += src_pitch;
-        src2n += src_pitch;
-      }
-    }
-    else
-    {
-      // full C
-      for (y = 2; y < height - 2; ++y)
-      {
-        for (x = 0; x < width; x += inc)
-        {
-          temp = abs((src2p[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpp[x] + srcpn[x]));
-          if (temp > nt6) diff += temp;
-        }
-        src2p += src_pitch;
-        srcpp += src_pitch;
-        srcp += src_pitch;
-        srcpn += src_pitch;
-        src2n += src_pitch;
-      }
-    }
-    // bottom 2 lines
-    for (x = 0; x < width; x += inc)
-    {
-      temp = abs((src2p[x] + (srcp[x] << 2) + src2p[x]) - 3 * (srcpp[x] + srcpn[x]));
-      if (temp > nt6) diff += temp;
-    }
-    src2p += src_pitch;
-    srcpp += src_pitch;
-    srcp += src_pitch;
-    srcpn += src_pitch;
-    src2n += src_pitch;
-    // bottom line
-    for (x = 0; x < width; x += inc)
-    {
-      temp = abs((src2p[x] + (srcp[x] << 2) + src2p[x]) - 3 * (srcpp[x] + srcpp[x]));
-      if (temp > nt6) diff += temp;
-    }
-  }
-  return (diff / 6);
-}
-
 // SSE= sum of squared errors
-int64_t FieldDiff::getDiff_SSE(PVideoFrame &src, int np, bool chromaIn, int ntIn, int opti,
-  IScriptEnvironment *env)
+// SAD: true
+// SSE: false
+template<typename pixel_t, bool SAD>
+int64_t FieldDiff::getDiff_SADorSSE(PVideoFrame &src, const VideoInfo &vi, bool chromaIn, int ntIn, int cpuFlags)
 {
-  int x, y;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
   const int stop = chromaIn ? np : 1;
-  const int inc = (np == 1 && !chromaIn) ? 2 : 1;
-  const uint8_t *srcp, *srcpp, *src2p, *srcpn, *src2n;
-  int src_pitch, width, widtha, widtha1, widtha2, height, temp;
+  const int inc = (vi.IsYUY2() && !chromaIn) ? 2 : 1;
+  const int bits_per_pixel = vi.BitsPerComponent();
+
+  int widtha;
 
   int64_t diff = 0;
-  if (ntIn > 255) ntIn = 255;
-  else if (ntIn < 0) ntIn = 0;
+
+  // validity check
+  if (ntIn > 255)
+    ntIn = 255;
+  else if (ntIn < 0)
+    ntIn = 0;
+
+  // scale original parameter to actual bit depth
+  ntIn = ntIn << (bits_per_pixel - 8);
+
   const int nt6 = ntIn * 6;
 
-  long cpu = env->GetCPUFlags();
-  // if (opt == 0) cpu = 0; // no opt parameter for this conditional function
+  const bool use_sse2 = cpuFlags & CPUF_SSE2;
+  const bool use_sse4 = cpuFlags & CPUF_SSE4_1;
 
-  __m128i nt6_si128 = _mm_set1_epi16(nt6);
+  // Cumulative values would exceed even int64 at a worst case pixel differences and 20+MPix 4:4:4@16 bit frame
+  // we are normalize results back to 8 bit case
+  int64_t diff_line;
+  // max per pixel: SAD: 6*(255-0) @8 bit   6*(65535-0) @16 bits
+  //                SSE: square of SAD.
+  //                     23 B824            23 FFB8 0024
+  // Enough for                             59.6 mpixel/plane, worst case 20MPix/4:4:4@16bit frame
+  // gather statistics for each line then scale back to 8 bit case
+  // SSE and high bit depth: scale back to 8 bits magnitude after each collected line
+  int bit_shift;
+  if constexpr (SAD)
+    bit_shift = (bits_per_pixel - 8); // SAD
+  else
+    bit_shift = (bits_per_pixel - 8)* (bits_per_pixel - 8); // SSE
+  const int diffline_rounder = 1 << (bit_shift - 1);
+
 
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
-    srcp = src->GetReadPtr(plane);
-    src_pitch = src->GetPitch(plane);
-    width = src->GetRowSize(plane);
-    widtha1 = (width >> 3) << 3; // mod 8
-    widtha2 = (width >> 4) << 4; // mod 16 for sse2 check
-    height = src->GetHeight(plane);
-    src2p = srcp - src_pitch * 2;
-    srcpp = srcp - src_pitch;
-    srcpn = srcp + src_pitch;
-    src2n = srcp + src_pitch * 2;
+    const pixel_t* srcp = reinterpret_cast<const pixel_t*>(src->GetReadPtr(plane));
+    const ptrdiff_t src_pitch = src->GetPitch(plane) / sizeof(pixel_t);
+    const int width = src->GetRowSize(plane) / sizeof(pixel_t);
+    const int widthMod8 = (width >> 3) << 3;
+    const int widthMod16 = (width >> 4) << 4;
+    const int height = src->GetHeight(plane);
+    const pixel_t* srcppp = srcp - src_pitch * 2;
+    const pixel_t* srcpp = srcp - src_pitch;
+    const pixel_t* srcpn = srcp + src_pitch;
+    const pixel_t* srcpnn = srcp + src_pitch * 2;
+
     // top line
-    for (x = 0; x < width; x += inc)
-    {
-      temp = abs((src2n[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpn[x] + srcpn[x]));
-      if (temp > nt6) diff += temp * temp;
+    diff_line = 0;
+    for (int x = 0; x < width; x += inc)
+    { // not prev and prev-prev at the top
+      const int temp = abs((srcpnn[x] + (srcp[x] << 2) + srcpnn[x]) - 3 * (srcpn[x] + srcpn[x]));
+      if (temp > nt6) { if constexpr (SAD) diff_line += temp; else diff_line += (int64_t)temp * temp; }
     }
-    src2p += src_pitch;
+    diff += (diff_line + diffline_rounder) >> bit_shift;
+
+    srcppp += src_pitch;
     srcpp += src_pitch;
     srcp += src_pitch;
     srcpn += src_pitch;
-    src2n += src_pitch;
+    srcpnn += src_pitch;
+
     // 2nd line
-    for (x = 0; x < width; x += inc)
+    diff_line = 0;
+    for (int x = 0; x < width; x += inc)
     {
-      temp = abs((src2n[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpp[x] + srcpn[x]));
-      if (temp > nt6) diff += temp * temp;
+      // not prev at the top+1
+      const int temp = abs((srcpnn[x] + (srcp[x] << 2) + srcpnn[x]) - 3 * (srcpp[x] + srcpn[x]));
+      if (temp > nt6) { if constexpr (SAD) diff_line += temp; else diff_line += (int64_t)temp * temp; }
     }
-    src2p += src_pitch;
+    diff += (diff_line + diffline_rounder) >> bit_shift;
+
+    srcppp += src_pitch;
     srcpp += src_pitch;
     srcp += src_pitch;
     srcpn += src_pitch;
-    src2n += src_pitch;
-    // middle lines, top 2 and bottom 2 is handles separately
-    if (cpu & CPUF_SSE2)
+    srcpnn += src_pitch;
+
+    widtha = 0;
+    
+    // middle lines, top 2 and bottom 2 is handled separately
+    if (use_sse2)
     {
-      if (widtha2 >= 16) // aligned + minimum width
+      if constexpr (sizeof(pixel_t) == 1)
       {
-        if (inc == 1)
-          calcFieldDiff_SSE_SSE2_16(src2p, src_pitch, widtha2, height - 4, nt6_si128, diff);
-        else
-          calcFieldDiff_SSE_SSE2_Luma_16(src2p, src_pitch, widtha2, height - 4, nt6_si128, diff);
-        widtha = widtha2;
-      }
-      else // less than 16, SSE2, 8
-      {
-        if (inc == 1)
-          calcFieldDiff_SSE_SSE2_8(src2p, src_pitch, widtha1, height - 4, nt6_si128, diff);
-        else
-          calcFieldDiff_SSE_SSE2_Luma_8(src2p, src_pitch, widtha1, height - 4, nt6_si128, diff);
-        widtha = widtha1;
-      }
-      // rest on the right: C
-      for (y = 2; y < height - 2; ++y)
-      {
-        for (x = widtha; x < width; x += inc)
+        if (widthMod16 >= 16)
         {
-          temp = abs((src2p[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpp[x] + srcpn[x]));
-          if (temp > nt6) diff += temp * temp;
+          if constexpr (SAD) {
+            // Planar or YUY2_Luma_chroma
+            if (inc == 1) calcFieldDiff_SAD_SSE2(srcppp, src_pitch, widthMod16, height - 4, nt6, diff);
+            else calcFieldDiff_SAD_SSE2_YUY2_LumaOnly(srcppp, src_pitch, widthMod16, height - 4, nt6, diff);
+          }
+          else {
+            // SSE
+            if (inc == 1) calcFieldDiff_SSE_SSE2(srcppp, src_pitch, widthMod16, height - 4, nt6, diff);
+            else calcFieldDiff_SSE_SSE2_YUY2_LumaOnly(srcppp, src_pitch, widthMod16, height - 4, nt6, diff); // YUY2 luma only
+          }
+          widtha = widthMod16;
         }
-        src2p += src_pitch;
-        srcpp += src_pitch;
-        srcp += src_pitch;
-        srcpn += src_pitch;
-        src2n += src_pitch;
+      }
+      else if constexpr (sizeof(pixel_t) == 2)
+      {
+        // 10-16 bits
+        if (widthMod8 >= 8 && use_sse4)
+        {
+          if constexpr (SAD)
+            calcFieldDiff_SAD_uint16_SSE4((const uint8_t*)srcppp, src_pitch * sizeof(uint16_t), widthMod8 * sizeof(uint16_t), height - 4, nt6, diff, bits_per_pixel);
+          else {
+            calcFieldDiff_SSE_uint16_SSE4((const uint8_t*)srcppp, src_pitch * sizeof(uint16_t), widthMod8 * sizeof(uint16_t), height - 4, nt6, diff, bits_per_pixel);
+          }
+          widtha = widthMod8;
+        }
       }
     }
-    else
-    { // pure C
-      for (y = 2; y < height - 2; ++y)
+    if (widtha < width) {
+      // rest from the beginning or on the right: C
+      for (int y = 2; y < height - 2; ++y)
       {
-        for (x = 0; x < width; x += inc)
+        diff_line = 0;
+        for (int x = widtha; x < width; x += inc)
         {
-          temp = abs((src2p[x] + (srcp[x] << 2) + src2n[x]) - 3 * (srcpp[x] + srcpn[x]));
-          if (temp > nt6) diff += temp*temp;
+          const int temp = abs((srcppp[x] + (srcp[x] << 2) + srcpnn[x]) - 3 * (srcpp[x] + srcpn[x]));
+          if (temp > nt6) { if constexpr (SAD) diff_line += temp; else diff_line += (int64_t)temp * temp; }
         }
-        src2p += src_pitch;
+        diff += (diff_line + diffline_rounder) >> bit_shift;
+        srcppp += src_pitch;
         srcpp += src_pitch;
         srcp += src_pitch;
         srcpn += src_pitch;
-        src2n += src_pitch;
+        srcpnn += src_pitch;
       }
+    }
+    else {
+      const auto lines_processed = height - 4;
+      srcppp += src_pitch * lines_processed;
+      srcpp += src_pitch * lines_processed;
+      srcp += src_pitch * lines_processed;
+      srcpn += src_pitch * lines_processed;
+      srcpnn += src_pitch * lines_processed;
     }
     // bottom 2 lines
-    for (x = 0; x < width; x += inc)
-    {
-      temp = abs((src2p[x] + (srcp[x] << 2) + src2p[x]) - 3 * (srcpp[x] + srcpn[x]));
-      if (temp > nt6) diff += temp*temp;
+    diff_line = 0;
+    for (int x = 0; x < width; x += inc)
+    { // no next-next the the bottom-1
+      const int temp = abs((srcppp[x] + (srcp[x] << 2) + srcppp[x]) - 3 * (srcpp[x] + srcpn[x]));
+      if (temp > nt6) { if constexpr (SAD) diff_line += temp; else diff_line += (int64_t)temp * temp; }
     }
-    src2p += src_pitch;
+    diff += (diff_line + diffline_rounder) >> bit_shift;
+
+    srcppp += src_pitch;
     srcpp += src_pitch;
     srcp += src_pitch;
     srcpn += src_pitch;
-    src2n += src_pitch;
+    srcpnn += src_pitch;
+
     // bottom line
-    for (x = 0; x < width; x += inc)
-    {
-      temp = abs((src2p[x] + (srcp[x] << 2) + src2p[x]) - 3 * (srcpp[x] + srcpp[x]));
-      if (temp > nt6) diff += temp*temp;
+    diff_line = 0;
+    for (int x = 0; x < width; x += inc)
+    { // no next and next-next the the bottom
+      const int temp = abs((srcppp[x] + (srcp[x] << 2) + srcppp[x]) - 3 * (srcpp[x] + srcpp[x]));
+      if (temp > nt6) { if constexpr (SAD) diff_line += temp; else diff_line += (int64_t)temp * temp; }
     }
+    diff += (diff_line + diffline_rounder) >> bit_shift;
   }
   return (diff / 6);
 }
@@ -395,108 +347,137 @@ AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnviron
 }
 
 
-// SSE here: sum of squared errors (not the CPU)
-
-template<bool yuy2luma_only, bool ssd_mode>
-static void calcFieldDiff_SSEorSSD_SSE2_simd_8(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
+// SSE: sum of squared errors (not the CPU)
+template<bool ssd_mode>
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("sse4.1")))
+#endif 
+static void calcFieldDiff_SSEorSSD_uint16_SSE4_simd_8(const uint8_t *srcp_pp, ptrdiff_t src_pitch,
+  int rowsize, int height, int nt6, int64_t &diff, int bits_per_pixel)
 {
+  // nt is already scaled to bit depth
+  __m128i nt = _mm_set1_epi32(nt6);
   __m128i zero = _mm_setzero_si128();
-  __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF); // used in YUY2 luma-only mode
 
-  const uint8_t *src2p_odd = src2p + src_pitch;
-  auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(&diff));
+  int bit_shift;
+  if constexpr (!ssd_mode)
+    bit_shift = (bits_per_pixel - 8); // SAD
+  else
+    bit_shift = (bits_per_pixel - 8) * (bits_per_pixel - 8); // SSE
+  const int diffline_rounder = 1 << (bit_shift - 1);
+  const auto rounder = _mm_set1_epi64x(diffline_rounder);
+
+  const uint8_t *src2p_odd = srcp_pp + src_pitch;
+  auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(&diff)); // target
   while (height--) {
-    __m128i sum = _mm_setzero_si128();
-    for (int x = 0; x < width; x += 8) {
-      auto _src2p = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(src2p + x)); // xmm0
-      auto _srcp = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(src2p + src_pitch * 2 + x)); // xmm1
-      auto _src2n = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(src2p + src_pitch * 4 + x)); // xmm2
-      auto _src2p_lo = _mm_unpacklo_epi8(_src2p, zero);
-      auto _srcp_lo = _mm_unpacklo_epi8(_srcp, zero);
-      auto _src2n_lo = _mm_unpacklo_epi8(_src2n, zero);
-      auto sum1_lo = _mm_adds_epu16(_mm_adds_epu16(_src2p_lo, _src2n_lo), _mm_slli_epi16(_srcp_lo, 2)); // 2p + 2*p + 2n
+    auto line_diff = _mm_setzero_si128();
+    for (int x = 0; x < rowsize; x += 8) {
+      auto _src_pp = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp_pp + x));
+      auto _src_curr = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp_pp + src_pitch * 2 + x));
+      auto _src_nn = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(srcp_pp + src_pitch * 4 + x));
 
-      auto _srcpp = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(src2p_odd + x)); // xmm0
-      auto _srcpn = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(src2p_odd + src_pitch * 2 + x)); // xmm1
-      auto _srcpp_lo = _mm_unpacklo_epi8(_srcpp, zero);
-      auto _srcpn_lo = _mm_unpacklo_epi8(_srcpn, zero);
-      auto threeMask = _mm_set1_epi16(3);
-      auto sum2_lo = _mm_mullo_epi16(_mm_adds_epu16(_srcpp_lo, _srcpn_lo), threeMask); // 3*(pp + pn)
+      // lower 4 pixel (8 bytes) to 4 int32 (16 bytes)
+      auto _src_pp_lo = _mm_unpacklo_epi16(_src_pp, zero);
+      auto _src_curr_lo = _mm_unpacklo_epi16(_src_curr, zero);
+      auto _src_nn_lo = _mm_unpacklo_epi16(_src_nn, zero);
+      auto sum1_lo = _mm_add_epi32(_mm_add_epi32(_src_pp_lo, _src_nn_lo), _mm_slli_epi32(_src_curr_lo, 2)); // pp + 4*c + nn
+      // upper 4 pixel
+      auto _src_pp_hi = _mm_unpackhi_epi16(_src_pp, zero);
+      auto _src_curr_hi = _mm_unpackhi_epi16(_src_curr, zero);
+      auto _src_nn_hi = _mm_unpackhi_epi16(_src_nn, zero);
+      auto sum1_hi = _mm_add_epi32(_mm_add_epi32(_src_pp_hi, _src_nn_hi), _mm_slli_epi32(_src_curr_hi, 2)); // pp + 4*c + nn
 
-      auto absdiff_lo = _mm_or_si128(_mm_subs_epu16(sum1_lo, sum2_lo), _mm_subs_epu16(sum2_lo, sum1_lo));
+      auto _src_p = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(src2p_odd + x));
+      auto _src_n = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(src2p_odd + src_pitch * 2 + x));
 
-      auto res_lo = _mm_and_si128(absdiff_lo, _mm_cmpgt_epi16(absdiff_lo, nt)); // keep if >= nt, 0 otherwise
+      auto three = _mm_set1_epi32(3);
 
-      if (yuy2luma_only) {
-        res_lo = _mm_and_si128(res_lo, lumaWordMask);
-      }
+      // lower 4 pixels
+      auto _src_p_lo = _mm_unpacklo_epi16(_src_p, zero);
+      auto _src_n_lo = _mm_unpacklo_epi16(_src_n, zero);
+      auto sum2_lo = _mm_mullo_epi32(_mm_add_epi32(_src_p_lo, _src_n_lo), three); // 3*(p + n)
+      // upper 4 pixel
+      auto _src_p_hi = _mm_unpackhi_epi16(_src_p, zero);
+      auto _src_n_hi = _mm_unpackhi_epi16(_src_n, zero);
+      auto sum2_hi = _mm_mullo_epi32(_mm_add_epi32(_src_p_hi, _src_n_hi), three); // 3*(p + n)
+
+      auto absdiff_lo = _mm_abs_epi32(_mm_sub_epi32(sum1_lo, sum2_lo));
+      auto absdiff_hi = _mm_abs_epi32(_mm_sub_epi32(sum1_hi, sum2_hi));
+
+      auto res_lo = _mm_and_si128(absdiff_lo, _mm_cmpgt_epi32(absdiff_lo, nt)); // keep if > nt, 0 otherwise
+      auto res_hi = _mm_and_si128(absdiff_hi, _mm_cmpgt_epi32(absdiff_hi, nt)); // keep if > nt, 0 otherwise
 
       if (ssd_mode) {
-        //pmaddwd xmm0, xmm0
-        //pmaddwd xmm2, xmm2
-        auto res_lo2 = _mm_madd_epi16(res_lo, res_lo); // Sum Of Squares
-        sum = _mm_add_epi32(sum, res_lo2); // sum in 4x32 but parts xmm6
+        line_diff = _mm_add_epi64(line_diff, _mm_mul_epu32(res_lo, res_lo)); // Sum Of Squares
+        res_lo = _mm_srli_epi64(res_lo, 32);
+        line_diff = _mm_add_epi64(line_diff, _mm_mul_epu32(res_lo, res_lo)); // Sum Of Squares
+
+        line_diff = _mm_add_epi64(line_diff, _mm_mul_epu32(res_hi, res_hi)); // Sum Of Squares
+        res_hi = _mm_srli_epi64(res_hi, 32);
+        line_diff = _mm_add_epi64(line_diff, _mm_mul_epu32(res_hi, res_hi)); // Sum Of Squares
       }
       else {
-        //paddusw xmm0, xmm2
-        //movdqa xmm2, xmm0
-        //punpcklwd xmm0, xmm7
-        //punpckhwd xmm2, xmm7
-        auto res = res_lo;
-        auto res_lo2 = _mm_unpacklo_epi16(res, zero);
-        auto res_hi2 = _mm_unpackhi_epi16(res, zero);
-        sum = _mm_add_epi32(sum, _mm_add_epi32(res_lo2, res_hi2)); // sum in 4x32 but parts xmm6
+        line_diff = _mm_add_epi64(line_diff, _mm_unpacklo_epi32(res_lo, zero)); // plain sum
+        line_diff = _mm_add_epi64(line_diff, _mm_unpackhi_epi32(res_lo, zero));
+
+        line_diff = _mm_add_epi64(line_diff, _mm_unpacklo_epi32(res_hi, zero)); // plain sum
+        line_diff = _mm_add_epi64(line_diff, _mm_unpackhi_epi32(res_hi, zero));
       }
     }
-    // update output
-    auto sum2 = _mm_add_epi64(_mm_unpacklo_epi32(sum, zero), _mm_unpackhi_epi32(sum, zero));
-    diff64 = _mm_add_epi64(_mm_add_epi64(sum2, _mm_srli_si128(sum2, 8)), diff64);
+    // avoid overflow, normalize result back to 8 bit scale, per line
+    // line diff has two 64 bit sum content
+    line_diff = _mm_add_epi64(line_diff, _mm_srli_si128(line_diff, 8));
+    // single 64 bit
+    line_diff = _mm_add_epi64(line_diff, rounder);
+    line_diff = _mm_srli_epi64(line_diff, bit_shift);
+    // update output, a single 64 bit number
+    diff64 = _mm_add_epi64(diff64, line_diff);
     src2p_odd += src_pitch;
-    src2p += src_pitch;
+    srcp_pp += src_pitch;
   }
   _mm_storel_epi64(reinterpret_cast<__m128i *>(&diff), diff64);
 }
 
 
 template<bool yuy2luma_only, bool ssd_mode>
-static void calcFieldDiff_SSEorSSD_SSE2_simd_16(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
+static void calcFieldDiff_SSEorSSD_uint8_SSE2_simd(const uint8_t *srcp_pp, ptrdiff_t src_pitch,
+  int width, int height, int nt6, int64_t &diff)
 {
+  __m128i nt = _mm_set1_epi16(nt6);
   __m128i zero = _mm_setzero_si128();
   __m128i lumaWordMask = _mm_set1_epi32(0x0000FFFF);
 
-  const uint8_t *src2p_odd = src2p + src_pitch;
+  const uint8_t *src2p_odd = srcp_pp + src_pitch;
   auto diff64 = _mm_loadl_epi64(reinterpret_cast<const __m128i *>(&diff));
   while (height--) {
     __m128i sum = _mm_setzero_si128();
     for (int x = 0; x < width; x += 16) {
-      auto _src2p = _mm_load_si128(reinterpret_cast<const __m128i *>(src2p + x)); // xmm0
-      auto _srcp = _mm_load_si128(reinterpret_cast<const __m128i *>(src2p + src_pitch * 2 + x)); // xmm1
-      auto _src2n = _mm_load_si128(reinterpret_cast<const __m128i *>(src2p + src_pitch * 4 + x)); // xmm2
-      auto _src2p_lo = _mm_unpacklo_epi8(_src2p, zero);
-      auto _src2p_hi = _mm_unpackhi_epi8(_src2p, zero);
-      auto _srcp_lo = _mm_unpacklo_epi8(_srcp, zero);
-      auto _srcp_hi = _mm_unpackhi_epi8(_srcp, zero);
-      auto _src2n_lo = _mm_unpacklo_epi8(_src2n, zero);
-      auto _src2n_hi = _mm_unpackhi_epi8(_src2n, zero);
-      auto sum1_lo = _mm_adds_epu16(_mm_adds_epu16(_src2p_lo, _src2n_lo), _mm_slli_epi16(_srcp_lo, 2)); // 2p + 2*p + 2n
-      auto sum1_hi = _mm_adds_epu16(_mm_adds_epu16(_src2p_hi, _src2n_hi), _mm_slli_epi16(_srcp_hi, 2)); // 2p + 2*p + 2n
+      auto _src2p = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp_pp + x));
+      auto _srcp = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp_pp + src_pitch * 2 + x));
+      auto _src2n = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp_pp + src_pitch * 4 + x));
+      auto _src_pp_lo = _mm_unpacklo_epi8(_src2p, zero);
+      auto _src_pp_hi = _mm_unpackhi_epi8(_src2p, zero);
+      auto _src_curr_lo = _mm_unpacklo_epi8(_srcp, zero);
+      auto _src_curr_hi = _mm_unpackhi_epi8(_srcp, zero);
+      auto _src_nn_lo = _mm_unpacklo_epi8(_src2n, zero);
+      auto _src_nn_hi = _mm_unpackhi_epi8(_src2n, zero);
+      auto sum1_lo = _mm_adds_epu16(_mm_adds_epu16(_src_pp_lo, _src_nn_lo), _mm_slli_epi16(_src_curr_lo, 2)); // pp + 4*c + nn
+      auto sum1_hi = _mm_adds_epu16(_mm_adds_epu16(_src_pp_hi, _src_nn_hi), _mm_slli_epi16(_src_curr_hi, 2)); // pp + 4*c + nn
 
-      auto _srcpp = _mm_load_si128(reinterpret_cast<const __m128i *>(src2p_odd + x)); // xmm0
-      auto _srcpn = _mm_load_si128(reinterpret_cast<const __m128i *>(src2p_odd + src_pitch * 2 + x)); // xmm1
-      auto _srcpp_lo = _mm_unpacklo_epi8(_srcpp, zero);
-      auto _srcpp_hi = _mm_unpackhi_epi8(_srcpp, zero);
-      auto _srcpn_lo = _mm_unpacklo_epi8(_srcpn, zero);
-      auto _srcpn_hi = _mm_unpackhi_epi8(_srcpn, zero);
-      auto threeMask = _mm_set1_epi16(3);
-      auto sum2_lo = _mm_mullo_epi16(_mm_adds_epu16(_srcpp_lo, _srcpn_lo), threeMask); // 3*(pp + pn)
-      auto sum2_hi = _mm_mullo_epi16(_mm_adds_epu16(_srcpp_hi, _srcpn_hi), threeMask); //
+      auto _src_p = _mm_load_si128(reinterpret_cast<const __m128i *>(src2p_odd + x));
+      auto _src_n = _mm_load_si128(reinterpret_cast<const __m128i *>(src2p_odd + src_pitch * 2 + x));
+      auto _src_p_lo = _mm_unpacklo_epi8(_src_p, zero);
+      auto _src_p_hi = _mm_unpackhi_epi8(_src_p, zero);
+      auto _src_n_lo = _mm_unpacklo_epi8(_src_n, zero);
+      auto _src_n_hi = _mm_unpackhi_epi8(_src_n, zero);
+      auto three = _mm_set1_epi16(3);
+      auto sum2_lo = _mm_mullo_epi16(_mm_adds_epu16(_src_p_lo, _src_n_lo), three); // 3*(pp + pn)
+      auto sum2_hi = _mm_mullo_epi16(_mm_adds_epu16(_src_p_hi, _src_n_hi), three); //
 
       auto absdiff_lo = _mm_or_si128(_mm_subs_epu16(sum1_lo, sum2_lo), _mm_subs_epu16(sum2_lo, sum1_lo));
       auto absdiff_hi = _mm_or_si128(_mm_subs_epu16(sum1_hi, sum2_hi), _mm_subs_epu16(sum2_hi, sum1_hi));
 
-      auto res_lo = _mm_and_si128(absdiff_lo, _mm_cmpgt_epi16(absdiff_lo, nt)); // keep if >= nt, 0 otherwise
+      auto res_lo = _mm_and_si128(absdiff_lo, _mm_cmpgt_epi16(absdiff_lo, nt)); // keep if > nt, 0 otherwise
       auto res_hi = _mm_and_si128(absdiff_hi, _mm_cmpgt_epi16(absdiff_hi, nt));
 
       if (yuy2luma_only) {
@@ -507,16 +488,10 @@ static void calcFieldDiff_SSEorSSD_SSE2_simd_16(const uint8_t *src2p, int src_pi
       __m128i res_lo2, res_hi2;
 
       if (ssd_mode) {
-        //pmaddwd xmm0, xmm0
-        //pmaddwd xmm2, xmm2
         res_lo2 = _mm_madd_epi16(res_lo, res_lo);
         res_hi2 = _mm_madd_epi16(res_hi, res_hi);
       }
       else {
-        //paddusw xmm0, xmm2
-        //movdqa xmm2, xmm0
-        //punpcklwd xmm0, xmm7
-        //punpckhwd xmm2, xmm7
         auto res = _mm_adds_epu16(res_lo, res_hi);
         res_lo2 = _mm_unpacklo_epi16(res, zero);
         res_hi2 = _mm_unpackhi_epi16(res, zero);
@@ -527,68 +502,58 @@ static void calcFieldDiff_SSEorSSD_SSE2_simd_16(const uint8_t *src2p, int src_pi
     auto sum2 = _mm_add_epi64(_mm_unpacklo_epi32(sum, zero), _mm_unpackhi_epi32(sum, zero));
     diff64 = _mm_add_epi64(_mm_add_epi64(sum2, _mm_srli_si128(sum2, 8)), diff64);
     src2p_odd += src_pitch;
-    src2p += src_pitch;
+    srcp_pp += src_pitch;
   }
   _mm_storel_epi64(reinterpret_cast<__m128i *>(&diff), diff64);
 
 }
 
-void FieldDiff::calcFieldDiff_SAD_SSE2_8(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
+
+void FieldDiff::calcFieldDiff_SAD_SSE2(const uint8_t *srcp_pp, ptrdiff_t src_pitch,
+  int width, int height, int nt6, int64_t &diff)
 {
   // luma and chroma, sad_mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_8<false, false>(src2p, src_pitch, width, height, nt, diff);
+  calcFieldDiff_SSEorSSD_uint8_SSE2_simd<false, false>(srcp_pp, src_pitch, width, height, nt6, diff);
 }
 
-void FieldDiff::calcFieldDiff_SAD_SSE2_16(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
-{
-  // luma and chroma, sad_mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_16<false, false>(src2p, src_pitch, width, height, nt, diff);
-}
-
-
-void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_8(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
+void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly(const uint8_t *srcp_pp, ptrdiff_t src_pitch,
+  int width, int height, int nt6, int64_t &diff)
 {
   // yuy2 luma only, sad mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_8<true, false>(src2p, src_pitch, width, height, nt, diff);
+  calcFieldDiff_SSEorSSD_uint8_SSE2_simd<true, false>(srcp_pp, src_pitch, width, height, nt6, diff);
 }
 
-void FieldDiff::calcFieldDiff_SAD_SSE2_YUY2_LumaOnly_16(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
-{
-  // yuy2 luma only, sad mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_16<true, false>(src2p, src_pitch, width, height, nt, diff);
-}
-
-
-void FieldDiff::calcFieldDiff_SSE_SSE2_8(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
+void FieldDiff::calcFieldDiff_SSE_SSE2(const uint8_t *srcp_pp, ptrdiff_t src_pitch,
+  int width, int height, int nt6, int64_t &diff)
 {
   // w/o luma, ssd mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_8<false, true>(src2p, src_pitch, width, height, nt, diff);
+  calcFieldDiff_SSEorSSD_uint8_SSE2_simd<false, true>(srcp_pp, src_pitch, width, height, nt6, diff);
 }
 
-void FieldDiff::calcFieldDiff_SSE_SSE2_16(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
-{
-  // w/o luma, ssd mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_16<false, true>(src2p, src_pitch, width, height, nt, diff);
-}
-
-
-void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_8(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
+void FieldDiff::calcFieldDiff_SSE_SSE2_YUY2_LumaOnly(const uint8_t *srcp_pp, ptrdiff_t src_pitch,
+  int width, int height, int nt6, int64_t &diff)
 {
   // with luma, ssd mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_8<true, true>(src2p, src_pitch, width, height, nt, diff);
+  calcFieldDiff_SSEorSSD_uint8_SSE2_simd<true, true>(srcp_pp, src_pitch, width, height, nt6, diff);
 }
 
-void FieldDiff::calcFieldDiff_SSE_SSE2_Luma_16(const uint8_t *src2p, int src_pitch,
-  int width, int height, __m128i nt, int64_t &diff)
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("sse4.1")))
+#endif 
+void FieldDiff::calcFieldDiff_SSE_uint16_SSE4(const uint8_t* srcp_pp, ptrdiff_t src_pitch,
+  int width, int height, int nt6, int64_t& diff, int bits_per_pixel)
 {
-  // with luma, ssd mode
-  calcFieldDiff_SSEorSSD_SSE2_simd_16<true, true>(src2p, src_pitch, width, height, nt, diff);
+  // ssd mode
+  calcFieldDiff_SSEorSSD_uint16_SSE4_simd_8<true>(srcp_pp, src_pitch, width, height, nt6, diff, bits_per_pixel);
+}
+
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("sse4.1")))
+#endif 
+void FieldDiff::calcFieldDiff_SAD_uint16_SSE4(const uint8_t* srcp_pp, ptrdiff_t src_pitch,
+  int width, int height, int nt6, int64_t& diff, int bits_per_pixel)
+{
+  // sad_mode
+  calcFieldDiff_SSEorSSD_uint16_SSE4_simd_8<false>(srcp_pp, src_pitch, width, height, nt6, diff, bits_per_pixel);
 }
 
