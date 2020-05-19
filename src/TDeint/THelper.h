@@ -40,11 +40,6 @@ void subtractFrames_SSE2(const uint8_t* srcp1, int src1_pitch,
   const uint8_t* srcp2, int src2_pitch, int height, int width, int inc,
   uint64_t& diff);
 
-template<typename pixel_t>
-void blendFrames_SSE2(const uint8_t* srcp1, int src1_pitch,
-  const uint8_t* srcp2, int src2_pitch, uint8_t* dstp, int dst_pitch,
-  int height, int width);
-
 class TDHelper : public GenericVideoFilter
 {
 private:
@@ -66,7 +61,7 @@ private:
   uint64_t subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptEnvironment *env);
 
   template<typename pixel_t>
-  void blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env);
+  void blendFrames_5050(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env);
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
   ~TDHelper();

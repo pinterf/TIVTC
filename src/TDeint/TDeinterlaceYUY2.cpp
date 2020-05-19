@@ -478,9 +478,7 @@ void TDeinterlace::denoiseYUY2(PVideoFrame &mask)
 
 bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, IScriptEnvironment *env)
 {
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-  bool use_sse2 = (cpu&CPUF_SSE2) ? true : false;
+  bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const uint8_t *srcp = src->GetReadPtr();
   const int src_pitch = src->GetPitch();
@@ -1027,7 +1025,7 @@ void TDeinterlace::ELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
             dstp[x] = (srcpp[x] + srcpn[x] + 1) >> 1;
             continue;
           }
-          stop = min(x - 4, min(16, Width - 5 - x));
+          stop = std::min(x - 4, std::min(16, Width - 5 - x));
           inc = 4;
           shft = 3;
         }
@@ -1039,11 +1037,11 @@ void TDeinterlace::ELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
             dstp[x] = (srcpp[x] + srcpn[x] + 1) >> 1;
             continue;
           }
-          stop = min(x - 2, min(16, Width - 3 - x));
+          stop = std::min(x - 2, std::min(16, Width - 3 - x));
           inc = shft = 2;
         }
-        const int minf = min(srcpp[x], srcpn[x]) - 2;
-        const int maxf = max(srcpp[x], srcpn[x]) + 2;
+        const int minf = std::min(srcpp[x], srcpn[x]) - 2;
+        const int maxf = std::max(srcpp[x], srcpn[x]) + 2;
         int val = (srcpp[x] + srcpn[x] + 1) >> 1;
         int min = 450;
         for (int u = 0; u <= stop; u += inc)
@@ -1412,8 +1410,8 @@ void smartELADeintYUY2(PVideoFrame &dst, PVideoFrame &mask,
               temp = (int)((-dirF)*(srcpp[x - 2] + srcpn[x + 2]) + (0.5f + dirF)*(srcpp[x] + srcpn[x]) + 0.5f);
             }
           }
-          const int maxN = max(srcpp[x], srcpn[x]) + 25;
-          const int minN = min(srcpp[x], srcpn[x]) - 25;
+          const int maxN = std::max(srcpp[x], srcpn[x]) + 25;
+          const int minN = std::min(srcpp[x], srcpn[x]) - 25;
           if (abs(temp1 - temp2) > 20 || abs(srcpp[x] + srcpn[x] - temp - temp) > 60 || temp < minN || temp > maxN)
           {
             temp = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcpn[x], srcpnn[x]);

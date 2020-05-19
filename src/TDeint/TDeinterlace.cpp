@@ -22,8 +22,8 @@
 **   along with this program; if not, write to the Free Software
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <windows.h>
 #include "internal.h"
+#include <algorithm>
 #include "TDeinterlace.h"
 #include "avs/alignment.h"
 
@@ -64,9 +64,9 @@ void TDeinterlace::insertCompStats(int n, int norm1, int norm2, int mtn1, int mt
 
 int TDeinterlace::getMatch(int norm1, int norm2, int mtn1, int mtn2)
 {
-  float c1 = float(max(norm1, norm2)) / float(max(min(norm1, norm2), 1));
-  float c2 = float(max(mtn1, mtn2)) / float(max(min(mtn1, mtn2), 1));
-  float mr = float(max(mtn1, mtn2)) / float(max(max(norm1, norm2), 1));
+  float c1 = float(std::max(norm1, norm2)) / float(std::max(std::min(norm1, norm2), 1));
+  float c2 = float(std::max(mtn1, mtn2)) / float(std::max(std::min(mtn1, mtn2), 1));
+  float mr = float(std::max(mtn1, mtn2)) / float(std::max(std::max(norm1, norm2), 1));
   if (slow == 0)
   {
     if (((mtn1 >= 500 || mtn2 >= 500) && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1)) ||
@@ -103,7 +103,7 @@ int TDeinterlace::getMatch(int norm1, int norm2, int mtn1, int mtn2)
       return 0;
     }
   }
-  if (mr > 0.005 && max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
+  if (mr > 0.005 && std::max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
   {
     if (mtn1 > mtn2) return 1;
     return 0;

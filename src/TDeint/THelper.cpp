@@ -24,8 +24,10 @@
 */
 
 #include "THelper.h"
+#include "TCommonASM.h"
 #include "emmintrin.h"
 #include <inttypes.h>
+#include <algorithm>
 
 TDHelper::~TDHelper()
 {
@@ -67,13 +69,14 @@ TDHelper::TDHelper(PClip _child, int _order, int _field, double _lim, bool _debu
 
   const int bits_per_pixel = vi.BitsPerComponent();
 
+  // fixed in v1.6 (edge case): lim is uint64_t, while ULONG_MAX was 32 bits only
   if (_lim < 0.0)
-    lim = ULONG_MAX;
+    lim = UINT64_MAX; // was: ULLONG_MAX;
   else
   {
     // 219: 235-16 max Y difference
     double dlim = _lim * vi.height * vi.width * 219.0 * (1 << (bits_per_pixel - 8)) / 100.0;
-    lim = min(max(0, int64_t(dlim)), ULONG_MAX);  // scaled!
+    lim = std::min((uint64_t)(std::max(0., dlim)), UINT64_MAX);  // scaled!
   }
 }
 
@@ -133,9 +136,9 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
       n >> 1, norm1, norm2, mtn1, mtn2);
     OutputDebugString(buf);
   }
-  if (lim != ULONG_MAX)
+  if (lim != UINT64_MAX)
   {
-    uint64_t d1, d2;
+    uint64_t d1, d2; // not normalized, bit depth scaled
     if (bits_per_pixel == 8) {
       d1 = subtractFrames<uint8_t>(prv, src, env);
       d2 = subtractFrames<uint8_t>(src, nxt, env);
@@ -169,9 +172,9 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
   // When subtractFields would not leave at 8 bit scale, norm1, norm2, mtn1, mtn2 must be scaled instead
   // and probably use int64
 
-  float c1 = float(max(norm1, norm2)) / float(max(min(norm1, norm2), 1));
-  float c2 = float(max(mtn1, mtn2)) / float(max(min(mtn1, mtn2), 1));
-  float mr = float(max(mtn1, mtn2)) / float(max(max(norm1, norm2), 1));
+  float c1 = float(std::max(norm1, norm2)) / float(std::max(std::min(norm1, norm2), 1));
+  float c2 = float(std::max(mtn1, mtn2)) / float(std::max(std::min(mtn1, mtn2), 1));
+  float mr = float(std::max(mtn1, mtn2)) / float(std::max(std::max(norm1, norm2), 1));
   if (((mtn1 >= 500 || mtn2 >= 500) && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1)) ||
     ((mtn1 >= 1000 || mtn2 >= 1000) && (mtn1 * 3 < mtn2 * 2 || mtn2 * 3 < mtn1 * 2)) ||
     ((mtn1 >= 2000 || mtn2 >= 2000) && (mtn1 * 5 < mtn2 * 4 || mtn2 * 5 < mtn1 * 4)) ||
@@ -180,7 +183,7 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
     if (mtn1 > mtn2) ret = 1;
     else ret = 0;
   }
-  else if (mr > 0.005 && max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
+  else if (mr > 0.005 && std::max(mtn1, mtn2) > 150 && (mtn1 * 2 < mtn2 * 1 || mtn2 * 2 < mtn1 * 1))
   {
     if (mtn1 > mtn2) ret = 1;
     else ret = 0;
@@ -193,15 +196,15 @@ PVideoFrame __stdcall TDHelper::GetFrame(int n, IScriptEnvironment *env)
   
   if (ret == 0) {
     if (bits_per_pixel == 8)
-      blendFrames<uint8_t>(prv, src, dst, env);
+      blendFrames_5050<uint8_t>(prv, src, dst, env);
     else
-      blendFrames<uint16_t>(prv, src, dst, env);
+      blendFrames_5050<uint16_t>(prv, src, dst, env);
   }
   else if (ret == 1) {
     if (bits_per_pixel == 8)
-      blendFrames<uint8_t>(src, nxt, dst, env);
+      blendFrames_5050<uint8_t>(src, nxt, dst, env);
     else
-      blendFrames<uint16_t>(src, nxt, dst, env);
+      blendFrames_5050<uint16_t>(src, nxt, dst, env);
   }
   else 
     env->ThrowError("TDeint:  mode 2 internal error!");
@@ -247,7 +250,7 @@ uint64_t TDHelper::subtractFrames(PVideoFrame &src1, PVideoFrame &src2, IScriptE
 }
 
 template<typename pixel_t>
-void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env)
+void TDHelper::blendFrames_5050(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, IScriptEnvironment *env)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   const int stop = vi.IsYUY2() || vi.IsY() ? 1 : 3;
@@ -257,31 +260,22 @@ void TDHelper::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
+
     const uint8_t *srcp1 = src1->GetReadPtr(plane);
     const int src1_pitch = src1->GetPitch(plane);
     const int height = src1->GetHeight(plane);
 
-    // const int rowsize = (src1->GetRowSize(plane) >> 4) << 4; // mod 16
-    const int rowsize = src1->GetRowSize(plane); // no problem if SSE2 is overworking to 16 bytes
     const int width = src1->GetRowSize(plane) / sizeof(pixel_t);
 
     const uint8_t *srcp2 = src2->GetReadPtr(plane);
     const int src2_pitch = src2->GetPitch(plane);
     uint8_t *dstp = dst->GetWritePtr(plane);
     const int dst_pitch = dst->GetPitch(plane);
+
     if (use_sse2)
-      blendFrames_SSE2<pixel_t>(srcp1, src1_pitch, srcp2, src2_pitch, dstp, dst_pitch, height, rowsize);
+      blend_5050_SSE2<pixel_t>(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch);
     else
-    {
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = 0; x < width; ++x)
-          reinterpret_cast<pixel_t*>(dstp)[x] = (reinterpret_cast<const pixel_t*>(srcp1)[x] + reinterpret_cast<const pixel_t*>(srcp2)[x] + 1) >> 1;
-        srcp1 += src1_pitch;
-        srcp2 += src2_pitch;
-        dstp += dst_pitch;
-      }
-    }
+      blend_5050_c<pixel_t>(dstp, srcp1, srcp2, dst_pitch, width, height, src1_pitch, src2_pitch);
   }
 }
 
@@ -364,28 +358,4 @@ void subtractFrames_SSE2(const uint8_t *srcp1, int src1_pitch,
   }
 }
 
-template<typename pixel_t>
-void blendFrames_SSE2(const uint8_t *srcp1, int src1_pitch,
-  const uint8_t *srcp2, int src2_pitch, uint8_t *dstp, int dst_pitch,
-  int height, int rowsize)
-{
-  // simple average
-  for (int y = 0; y < height; ++y)
-  {
-    for (int x = 0; x < rowsize; x += 16)
-    {
-      auto src1 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x));
-      auto src2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x));
-      __m128i result;
-      if constexpr (sizeof(pixel_t) == 1)
-        result = _mm_avg_epu8(src1, src2);
-      else 
-        result = _mm_avg_epu16(src1, src2);
-      _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), result);
-    }
-    srcp1 += src1_pitch;
-    srcp2 += src2_pitch;
-    dstp += dst_pitch;
-  }
-}
 

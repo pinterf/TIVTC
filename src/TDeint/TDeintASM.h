@@ -26,7 +26,6 @@
 #ifndef __TDEINTASM_H__
 #define __TDEINTASM_H__
 
-#include <windows.h>
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include "internal.h"

@@ -23,7 +23,6 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include <windows.h>
 #include <stdio.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -55,14 +54,6 @@ void dispatch_smartELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFra
 template<typename pixel_t, int bits_per_pixel>
 void smartELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
 void smartELADeintYUY2(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);
-
-template<int bits_per_pixel>
-AVS_FORCEINLINE int cubicInt(int p1, int p2, int p3, int p4)
-{
-  const int max_pixel_value = (1 << bits_per_pixel) - 1;
-  const int temp = (19 * (p2 + p3) - 3 * (p1 + p4) + 16) >> 5;
-  return min(max(temp, 0), max_pixel_value);
-}
 
 class TDeinterlace : public GenericVideoFilter
 {

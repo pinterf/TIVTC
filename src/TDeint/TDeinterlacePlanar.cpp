@@ -1512,7 +1512,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
   // on the frame for the frame to be considered combed. While cthresh controls how "visible" or
   // "strong" the combing must be, this setting controls how much combing there must be in any 
   // localized area(a blockx by blocky sized window) on the frame.
-  // Min setting = 0, max setting = blockx x blocky (at which point no frames will ever be detected as combed).
+  // min setting = 0, max setting = blockx x blocky (at which point no frames will ever be detected as combed).
   // default - 64 (int)
 
   if (MIC > MI) return true;
@@ -1868,7 +1868,7 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
   if (accumPms < Const500 && 
     accumNms < Const500 && 
     (accumPmls >= Const500 || accumNmls >= Const500) &&
-    max(accumPmls, accumNmls) > 3 * min(accumPmls, accumNmls))
+    std::max(accumPmls, accumNmls) > 3 * std::min(accumPmls, accumNmls))
   {
     accumPms = accumPmls;
     accumNms = accumNmls;
@@ -2194,7 +2194,7 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
   if (accumPms < Const500 && 
     accumNms < Const500 && 
     (accumPmls >= Const500 || accumNmls >= Const500) &&
-    max(accumPmls, accumNmls) > 3 * min(accumPmls, accumNmls))
+    std::max(accumPmls, accumNmls) > 3 * std::min(accumPmls, accumNmls))
   {
     accumPms = accumPmls;
     accumNms = accumNmls;
@@ -2530,9 +2530,9 @@ void TDeinterlace::ELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
           }
           else
           {
-            const int stop = min(x - 1, min(ustop, Width - 2 - x));
-            const int minf = min(srcpp[x], srcpn[x]) - Const2;
-            const int maxf = max(srcpp[x], srcpn[x]) + Const2;
+            const int stop = std::min(x - 1, std::min(ustop, Width - 2 - x));
+            const int minf = std::min(srcpp[x], srcpn[x]) - Const2;
+            const int maxf = std::max(srcpp[x], srcpn[x]) + Const2;
             int val = (srcpp[x] + srcpn[x] + 1) >> 1;
             const int ConstMin450 = 450 << (bits_per_pixel - 8);
             
@@ -2692,13 +2692,13 @@ void TDeinterlace::kernelDeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
               0.116*(kerp[x] + kern[x]) -
               0.026*(srcppp[x] + srcpnn[x]) +
               0.031*(kerpp[x] + kernn[x])) + 0.5f);
-            dstp[x] = min(max(temp, 0), max_pixel_value);
+            dstp[x] = std::min(std::max(temp, 0), max_pixel_value);
           }
           else if (y > 1 && y < Height - 2)
           {
             const int temp = (((srcpp[x] + srcpn[x]) << 3) +
               (kerc[x] << 1) - (kerp[x] + kern[x]) + 8) >> 4;
-            dstp[x] = min(max(temp, 0), max_pixel_value);
+            dstp[x] = std::min(std::max(temp, 0), max_pixel_value);
           }
           else
           {
@@ -2982,8 +2982,8 @@ void smartELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
           const int Const20 = 20 << (bits_per_pixel - 8);
           const int Const25 = 25 << (bits_per_pixel - 8);
           const int Const60 = 60 << (bits_per_pixel - 8);
-          const int maxN = max(srcppY[x], srcpnY[x]) + Const25;
-          const int minN = min(srcppY[x], srcpnY[x]) - Const25;
+          const int maxN = std::max(srcppY[x], srcpnY[x]) + Const25;
+          const int minN = std::min(srcppY[x], srcpnY[x]) - Const25;
           if (abs(temp1 - temp2) > Const20 || 
             abs(srcppY[x] + srcpnY[x] - 2*temp) > Const60 
             || temp < minN 
@@ -2991,7 +2991,7 @@ void smartELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
           {
             temp = cubicInt<bits_per_pixel>(srcpppY[x], srcppY[x], srcpnY[x], srcpnnY[x]);
           }
-          dstpY[x] = min(max(temp, 0), max_pixel_value);
+          dstpY[x] = std::min(std::max(temp, 0), max_pixel_value);
         }
         else
         {
