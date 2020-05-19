@@ -26,6 +26,7 @@
 #include "TFMasm.h"
 #include "emmintrin.h"
 
+// fixme: hbd, diff to uint64_t
 void checkSceneChangeYV12_1_SSE2(const uint8_t *prvp, const uint8_t *srcp,
   int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
 {

@@ -875,7 +875,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     else
       buildDiffMapPlane2(prvnf - prvf_pitch, nxtnf - nxtf_pitch, mapn - map_pitch, prvf_pitch,
         nxtf_pitch, map_pitch, Height >> 1, Width, env);
-#ifdef USE_C_NO_ASM
+
     // TFM 874
     for (int y = 2; y < Height - 2; y += 2) {
       if ((y < y0a) || (y0a == y1a) || (y > y1a))
@@ -915,7 +915,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
       mapn += map_pitch;
     }
 
-#else
+#if 0
     // TFM 874
     __asm
     {
@@ -1555,7 +1555,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       else
         buildDiffMapPlaneYUY2(prvnf, nxtnf, mapn, prvf_pitch, nxtf_pitch, map_pitch, Height, Width, tp, env);
     }
-#ifdef USE_C_NO_ASM
+
     if (field == 0) {
     // TFM 1436
     // almost the same as in TFM 1144
@@ -1743,7 +1743,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
 
     }
 
-#else
+#if 0
     if (field == 0)
     {
       // TFM 1436
@@ -2143,7 +2143,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
 
       }
     }
-#endif // todo
+#endif
   }
   if (accumPm < 500 && accumNm < 500 && (accumPml >= 500 || accumNml >= 500) &&
     std::max(accumPml, accumNml) > 3 * std::min(accumPml, accumNml))
@@ -2189,21 +2189,104 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
   return ret;
 }
 
-// fixme: possible fix needed inside
+static void checkSceneChangeYV12_1_c(const uint8_t* srcp, const uint8_t* nxtp,
+  int height, int width, int src_pitch, int nxt_pitch, unsigned long& diff)
+{
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; x += 4)
+    {
+      diff += abs(srcp[x + 0] - nxtp[x + 0]);
+      diff += abs(srcp[x + 1] - nxtp[x + 1]);
+      diff += abs(srcp[x + 2] - nxtp[x + 2]);
+      diff += abs(srcp[x + 3] - nxtp[x + 3]);
+    }
+    srcp += src_pitch;
+    nxtp += nxt_pitch;
+  }
+}
+
+void checkSceneChangeYUY2_1_c(const uint8_t* srcp, const uint8_t* nxtp,
+int height, int width, int src_pitch, int nxt_pitch, unsigned long& diff)
+{
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; x += 8)
+    {
+      diff += abs(srcp[x + 0] - nxtp[x + 0]);
+      diff += abs(srcp[x + 2] - nxtp[x + 2]);
+      diff += abs(srcp[x + 4] - nxtp[x + 4]);
+      diff += abs(srcp[x + 6] - nxtp[x + 6]);
+    }
+    srcp += src_pitch;
+    nxtp += nxt_pitch;
+  }
+}
+
+static void checkSceneChangeYV12_2_c(const uint8_t* prvp, const uint8_t* srcp,
+  const uint8_t* nxtp, int height, int width, int prv_pitch, int src_pitch,
+  int nxt_pitch, unsigned long& diffp, unsigned long& diffn)
+{
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; x += 4)
+    {
+      diffp += abs(srcp[x + 0] - prvp[x + 0]);
+      diffp += abs(srcp[x + 1] - prvp[x + 1]);
+      diffp += abs(srcp[x + 2] - prvp[x + 2]);
+      diffp += abs(srcp[x + 3] - prvp[x + 3]);
+      diffn += abs(srcp[x + 0] - nxtp[x + 0]);
+      diffn += abs(srcp[x + 1] - nxtp[x + 1]);
+      diffn += abs(srcp[x + 2] - nxtp[x + 2]);
+      diffn += abs(srcp[x + 3] - nxtp[x + 3]);
+    }
+    prvp += prv_pitch;
+    srcp += src_pitch;
+    nxtp += nxt_pitch;
+  }
+}
+
+static void checkSceneChangeYUY2_2_c(const uint8_t* prvp, const uint8_t* srcp,
+  const uint8_t* nxtp, int height, int width, int prv_pitch, int src_pitch,
+  int nxt_pitch, unsigned long& diffp, unsigned long& diffn)
+{
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; x += 8)
+    {
+      diffp += abs(srcp[x + 0] - prvp[x + 0]);
+      diffp += abs(srcp[x + 2] - prvp[x + 2]);
+      diffp += abs(srcp[x + 4] - prvp[x + 4]);
+      diffp += abs(srcp[x + 6] - prvp[x + 6]);
+      diffn += abs(srcp[x + 0] - nxtp[x + 0]);
+      diffn += abs(srcp[x + 2] - nxtp[x + 2]);
+      diffn += abs(srcp[x + 4] - nxtp[x + 4]);
+      diffn += abs(srcp[x + 6] - nxtp[x + 6]);
+    }
+    prvp += prv_pitch;
+    srcp += src_pitch;
+    nxtp += nxt_pitch;
+  }
+}
+
 bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
   IScriptEnvironment *env, int n)
 {
   if (sclast.frame == n + 1) return sclast.sc;
+  // fixme: hbd? uint64_t?
   unsigned long diffp = 0, diffn = 0;
   const uint8_t *prvp = prv->GetReadPtr(PLANAR_Y);
   const uint8_t *srcp = src->GetReadPtr(PLANAR_Y);
   const uint8_t *nxtp = nxt->GetReadPtr(PLANAR_Y);
   int height = src->GetHeight(PLANAR_Y) >> 1;
   int width = src->GetRowSize(PLANAR_Y);
+  // this mod16 must be the same as in computing "diffmaxsc"
   if (vi.IsPlanar()) 
     width = ((width >> 4) << 4); // mod16
   else // YUY2
     width = ((width >> 5) << 5); // mod32
+
+  // every 2nd line
   int prv_pitch = prv->GetPitch(PLANAR_Y) << 1;
   int src_pitch = src->GetPitch(PLANAR_Y) << 1;
   int nxt_pitch = nxt->GetPitch(PLANAR_Y) << 1;
@@ -2213,107 +2296,35 @@ bool TFM::checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
 
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
-  if (use_sse2)
+  if (sclast.frame == n)
   {
-    if (sclast.frame == n)
-    {
-      diffp = sclast.diff;
-      // FIXME: Why planar is: src_pitch, nxt_pitch but YUY2 prv_pitch, src_pitch?
-      // or src_pitch, nxt_pitch is wrong and we need prv_pitch, src_pitch?????
-      if (vi.IsPlanar())
+    diffp = sclast.diff;
+    if (vi.IsPlanar())
+      if (use_sse2)
         checkSceneChangeYV12_1_SSE2(srcp, nxtp, height, width, src_pitch, nxt_pitch, diffn);
-      else 
-        checkSceneChangeYUY2_1_SSE2(srcp, nxtp, height, width, src_pitch, nxt_pitch, diffn);
-
-    }
+      else
+        checkSceneChangeYV12_1_c(srcp, nxtp, height, width, src_pitch, nxt_pitch, diffn);
     else
-    {
-      if (vi.IsPlanar())
-        checkSceneChangeYV12_2_SSE2(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
-      else 
-        checkSceneChangeYUY2_2_SSE2(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
-    }
+      if (use_sse2)
+        checkSceneChangeYUY2_1_SSE2(srcp, nxtp, height, width, src_pitch, nxt_pitch, diffn);
+      else
+        checkSceneChangeYUY2_1_c(srcp, nxtp, height, width, src_pitch, nxt_pitch, diffn);
+
   }
   else
   {
-    if (sclast.frame != n)
-    {
-      if (vi.IsPlanar())
-      {
-        for (int y = 0; y < height; ++y)
-        {
-          for (int x = 0; x < width; x += 4)
-          {
-            diffp += abs(srcp[x + 0] - prvp[x + 0]);
-            diffp += abs(srcp[x + 1] - prvp[x + 1]);
-            diffp += abs(srcp[x + 2] - prvp[x + 2]);
-            diffp += abs(srcp[x + 3] - prvp[x + 3]);
-            diffn += abs(srcp[x + 0] - nxtp[x + 0]);
-            diffn += abs(srcp[x + 1] - nxtp[x + 1]);
-            diffn += abs(srcp[x + 2] - nxtp[x + 2]);
-            diffn += abs(srcp[x + 3] - nxtp[x + 3]);
-          }
-          prvp += prv_pitch;
-          srcp += src_pitch;
-          nxtp += nxt_pitch;
-        }
-      }
+    if (vi.IsPlanar())
+      if (use_sse2)
+        checkSceneChangeYV12_2_SSE2(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
       else
-      {
-        for (int y = 0; y < height; ++y)
-        {
-          for (int x = 0; x < width; x += 8)
-          {
-            diffp += abs(srcp[x + 0] - prvp[x + 0]);
-            diffp += abs(srcp[x + 2] - prvp[x + 2]);
-            diffp += abs(srcp[x + 4] - prvp[x + 4]);
-            diffp += abs(srcp[x + 6] - prvp[x + 6]);
-            diffn += abs(srcp[x + 0] - nxtp[x + 0]);
-            diffn += abs(srcp[x + 2] - nxtp[x + 2]);
-            diffn += abs(srcp[x + 4] - nxtp[x + 4]);
-            diffn += abs(srcp[x + 6] - nxtp[x + 6]);
-          }
-          prvp += prv_pitch;
-          srcp += src_pitch;
-          nxtp += nxt_pitch;
-        }
-      }
-    }
+        checkSceneChangeYV12_2_c(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
     else
-    {
-      diffp = sclast.diff;
-      if (vi.IsPlanar())
-      {
-        for (int y = 0; y < height; ++y)
-        {
-          for (int x = 0; x < width; x += 4)
-          {
-            diffn += abs(srcp[x + 0] - nxtp[x + 0]);
-            diffn += abs(srcp[x + 1] - nxtp[x + 1]);
-            diffn += abs(srcp[x + 2] - nxtp[x + 2]);
-            diffn += abs(srcp[x + 3] - nxtp[x + 3]);
-          }
-          srcp += src_pitch;
-          nxtp += nxt_pitch;
-        }
-      }
+      if (use_sse2)
+        checkSceneChangeYUY2_2_SSE2(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
       else
-      {
-        for (int y = 0; y < height; ++y)
-        {
-          for (int x = 0; x < width; x += 8)
-          {
-            diffn += abs(srcp[x + 0] - nxtp[x + 0]);
-            diffn += abs(srcp[x + 2] - nxtp[x + 2]);
-            diffn += abs(srcp[x + 4] - nxtp[x + 4]);
-            diffn += abs(srcp[x + 6] - nxtp[x + 6]);
-          }
-          srcp += src_pitch;
-          nxtp += nxt_pitch;
-        }
-      }
-    }
+        checkSceneChangeYUY2_2_c(prvp, srcp, nxtp, height, width, prv_pitch, src_pitch, nxt_pitch, diffp, diffn);
   }
+
   if (debug)
   {
     sprintf(buf, "TFM:  frame %d  - diffp = %u   diffn = %u  diffmaxsc = %u  %c\n", n, (unsigned int)diffp, (unsigned int)diffn, (unsigned int)diffmaxsc,
@@ -2556,15 +2567,22 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   MIS = MI;
   d2vpercent = -20.00f;
   vidCount = setArraySize = 0;
+
   xhalf = blockx >> 1;
   yhalf = blocky >> 1;
+  
   xshift = blockx == 4 ? 2 : blockx == 8 ? 3 : blockx == 16 ? 4 : blockx == 32 ? 5 :
     blockx == 64 ? 6 : blockx == 128 ? 7 : blockx == 256 ? 8 : blockx == 512 ? 9 :
     blockx == 1024 ? 10 : 11;
   yshift = blocky == 4 ? 2 : blocky == 8 ? 3 : blocky == 16 ? 4 : blocky == 32 ? 5 :
     blocky == 64 ? 6 : blocky == 128 ? 7 : blocky == 256 ? 8 : blocky == 512 ? 9 :
     blocky == 1024 ? 10 : 11;
-  diffmaxsc = int((double(((vi.width >> 4) << 4)*vi.height * 219)*scthresh*0.5) / 100.0);
+
+  
+  // no high bit depth scaling here
+  // Warning: this mod16 must match with the calculation in "checkSceneChange"
+  diffmaxsc = int((double(((vi.width >> 4) << 4)*vi.height * (235-16))*scthresh*0.5) / 100.0);
+
   sclast.frame = -20;
   sclast.sc = true;
 
