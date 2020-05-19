@@ -26,10 +26,15 @@
 #ifndef __TDECIMATEASM_H__
 #define __TDECIMATEASM_H__
 
-#include <windows.h>
+//#include <windows.h>
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include "internal.h"
+
+void HorizontalBlurSSE2_YUY2_R_luma(const uint8_t* srcp, uint8_t* dstp, int src_pitch, int dst_pitch, int width, int height);
+void HorizontalBlurSSE2_YUY2_R(const uint8_t* srcp, uint8_t* dstp, int src_pitch, int dst_pitch, int width, int height);
+void VerticalBlurSSE2_R(const uint8_t* srcp, uint8_t* dstp, int src_pitch, int dst_pitch, int width, int height);
+void HorizontalBlurSSE2_Planar_R(const uint8_t* srcp, uint8_t* dstp, int src_pitch, int dst_pitch, int width, int height);
 
 // used for YUY2
 void calcLumaDiffYUY2SSD_SSE2_16(const uint8_t* prvp, const uint8_t* nxtp,
@@ -48,61 +53,40 @@ void calcSAD_SSE2_32x16_YUY2_lumaonly(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int& sad);
 void calcSAD_SSE2_8x8_YUY2_lumaonly(const uint8_t* ptr1, const uint8_t* ptr2,
   int pitch1, int pitch2, int& sad); // PF new
-void HorizontalBlurSSE2_YUY2_R_luma(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
-  int dst_pitch, int width, int height);
-void HorizontalBlurSSE2_YUY2_R(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
-  int dst_pitch, int width, int height);
+
 
 // generic
 template<int blkSizeY>
-void calcSSD_SSE2_16xN(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int &ssd);
+void calcSSD_SSE2_16xN(const uint8_t *ptr1, const uint8_t *ptr2, int pitch1, int pitch2, int &ssd);
 template<int blkSizeY>
-void calcSSD_SSE2_8xN(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int &ssd);
+void calcSSD_SSE2_8xN(const uint8_t *ptr1, const uint8_t *ptr2, int pitch1, int pitch2, int &ssd);
 template<int blkSizeY>
-void calcSSD_SSE2_4xN(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int &ssd);
+void calcSSD_SSE2_4xN(const uint8_t *ptr1, const uint8_t *ptr2, int pitch1, int pitch2, int &ssd);
 
 template<int blkSizeY>
-void calcSAD_SSE2_8xN(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int &sad); 
+void calcSAD_SSE2_8xN(const uint8_t *ptr1, const uint8_t *ptr2, int pitch1, int pitch2, int &sad); 
 template<int blkSizeY>
-void calcSAD_SSE2_4xN(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int &sad);
+void calcSAD_SSE2_4xN(const uint8_t *ptr1, const uint8_t *ptr2, int pitch1, int pitch2, int &sad);
 template<int blkSizeY>
-void calcSAD_SSE2_16xN(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int &sad);
-
-void blend_SSE2_16(uint8_t* dstp, const uint8_t* srcp,
-  const uint8_t* nxtp, int width, int height, int dst_pitch,
-  int src_pitch, int nxt_pitch, double w1, double w2);
-void blend_SSE2_5050(uint8_t* dstp, const uint8_t* srcp,
-  const uint8_t* nxtp, int width, int height, int dst_pitch,
-  int src_pitch, int nxt_pitch);
-
-void VerticalBlurSSE2_R(const uint8_t *srcp, uint8_t *dstp,
-  int src_pitch, int dst_pitch, int width, int height);
-void HorizontalBlurSSE2_Planar_R(const uint8_t *srcp, uint8_t *dstp, int src_pitch,
-  int dst_pitch, int width, int height);
+void calcSAD_SSE2_16xN(const uint8_t *ptr1, const uint8_t *ptr2, int pitch1, int pitch2, int &sad);
 
 
 //-- helpers
 void calcDiffSAD_32x32_SSE2(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, const VideoInfo& vi);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t *diff, bool chroma, const VideoInfo& vi);
 
 void calcDiffSSD_32x32_SSE2(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, const VideoInfo& vi);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t *diff, bool chroma, const VideoInfo& vi);
 
 void calcDiffSSD_Generic_SSE2(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi);
 
 void calcDiffSAD_Generic_SSE2(const uint8_t *ptr1, const uint8_t *ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi);
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi);
 
 template<bool SAD, int inc>
 void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
-  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 
 void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFrame& currt, CalcMetricData& d);
 
@@ -115,13 +99,17 @@ void HorizontalBlur_SSE2_Planar(const uint8_t* srcp, uint8_t* dstp, int src_pitc
 void HorizontalBlur_SSE2_YUY2_lumaonly(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
   int dst_pitch, int width, int height);
 
-void VerticalBlur(PVideoFrame& src, PVideoFrame& dst, int np, bool bchroma,
+void VerticalBlur(PVideoFrame& src, PVideoFrame& dst, bool bchroma,
   IScriptEnvironment* env, VideoInfo& vi_t, int opti);
 
-void HorizontalBlur(PVideoFrame& src, PVideoFrame& dst, int np, bool bchroma,
+void HorizontalBlur(PVideoFrame& src, PVideoFrame& dst, bool bchroma,
   IScriptEnvironment* env, VideoInfo& vi_t, int opti);
 
 void HorizontalBlur_SSE2_YUY2(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
   int dst_pitch, int width, int height);
+
+// handles 50% special case as well
+void dispatch_blend(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height,
+  int dst_pitch, int src1_pitch, int src2_pitch, int weight_i, int bits_per_pixel, int cpuFlags);
 
 #endif // __TDECIMATEASM_H__

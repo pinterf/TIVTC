@@ -23,59 +23,200 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
-#include "../TIVTC/TDecimate.h"
+#include "TDecimate.h"
 #include "TDecimateASM.h"
+#include "TCommonASM.h"
+#include "emmintrin.h"
+#include "smmintrin.h" // SSE4
 #include <assert.h>
 
-// Leak's sse2 blend routine
-void blend_SSE2_16(uint8_t* dstp, const uint8_t* srcp,
-  const uint8_t* nxtp, int width, int height, int dst_pitch,
-  int src_pitch, int nxt_pitch, double w1, double w2)
+static void blend_uint8_c(uint8_t* dstp, const uint8_t* srcp1,
+  const uint8_t* srcp2, int width, int height, int dst_pitch,
+  int src1_pitch, int src2_pitch, int weight_i)
 {
-  __m128i iw1 = _mm_set1_epi16((int)(w1*65536.0));
-  __m128i iw2 = _mm_set1_epi16((int)(w2*65536.0));
+  // weight_i is 16 bit scaled
+  assert(weight_i != 0 && weight_i != 65536);
+
+  const int invweight_i = 65536 - weight_i;
+
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; ++x)
+    {
+      dstp[x] = (weight_i * srcp1[x] + invweight_i * srcp2[x] + 32768) >> 16;
+    }
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+static void blend_uint16_c(uint8_t* dstp, const uint8_t* srcp1,
+  const uint8_t* srcp2, int width, int height, int dst_pitch,
+  int src1_pitch, int src2_pitch, int weight_i, int bits_per_pixel)
+{
+  // weight_i is 15 bit scaled
+  // min and max cases handled earlier
+  assert(weight_i != 0 && weight_i != 32768);
+
+  const int max_pixel_value = (1 << bits_per_pixel) - 1;
+  for (int y = 0; y < height; ++y)
+  {
+    for (int x = 0; x < width; ++x)
+    {
+      const int src1 = reinterpret_cast<const uint16_t*>(srcp1)[x];
+      const int src2 = reinterpret_cast<const uint16_t*>(srcp2)[x];
+      const int result = src2 + (((src1 - src2) * weight_i + 16384) >> 15);
+      reinterpret_cast<uint16_t*>(dstp)[x] = std::max(std::min(result, max_pixel_value), 0);
+      //  (reinterpret_cast<const uint16_t*>(srcp1)[x] * weight_i + reinterpret_cast<const uint16_t*>(srcp2)[x] * invweight_i + 16384) >> 15;
+    }
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
+    dstp += dst_pitch;
+  }
+}
+
+static void blend_uint8_SSE2(uint8_t* dstp, const uint8_t* srcp1,
+  const uint8_t* srcp2, int width, int height, int dst_pitch,
+  int src1_pitch, int src2_pitch, int weight_i)
+{
+  // weight_i is 16 bit scaled
+  assert(weight_i != 0 && weight_i != 65536);
+  // 0 and max weights are handled earlier
+  __m128i iw1 = _mm_set1_epi16((short)weight_i);
+  __m128i iw2 = _mm_set1_epi16((short)(65536 - weight_i));
   while (height--) {
     for (int x = 0; x < width; x += 16) {
-      __m128i src1 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
-      __m128i src2 = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
+      __m128i src1 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp1 + x));
+      __m128i src2 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp2 + x));
       __m128i src1_lo = _mm_unpacklo_epi8(src1, src1);
       __m128i src2_lo = _mm_unpacklo_epi8(src2, src2);
       __m128i src1_hi = _mm_unpackhi_epi8(src1, src1);
       __m128i src2_hi = _mm_unpackhi_epi8(src2, src2);
-      // pmulhuw -> _mm_mulhi_epu16
-      // paddusw -> _mm_adds_epu16
+      // small note: mulhi does not round. difference from C
+      // mulhi: instead of >> 16 we get the hi16 bit immediately
       __m128i mulres_lo = _mm_adds_epu16(_mm_mulhi_epu16(src1_lo, iw1), _mm_mulhi_epu16(src2_lo, iw2));
       __m128i mulres_hi = _mm_adds_epu16(_mm_mulhi_epu16(src1_hi, iw1), _mm_mulhi_epu16(src2_hi, iw2));
 
-      mulres_lo = _mm_srli_epi16(mulres_lo, 8); // psrlw xmm0, 8
+      mulres_lo = _mm_srli_epi16(mulres_lo, 8);
       mulres_hi = _mm_srli_epi16(mulres_hi, 8);
 
-      __m128i res = _mm_packus_epi16(mulres_lo, mulres_hi); // packuswb xmm0, xmm2
+      __m128i res = _mm_packus_epi16(mulres_lo, mulres_hi);
       _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), res);
     }
     dstp += dst_pitch;
-    srcp += src_pitch;
-    nxtp += nxt_pitch;
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
   }
 }
 
-// fast blend routine for 50:50 case
-void blend_SSE2_5050(uint8_t* dstp, const uint8_t* srcp,
-  const uint8_t* nxtp, int width, int height, int dst_pitch,
-  int src_pitch, int nxt_pitch)
+
+template<bool lessThan16bits>
+#if defined(GCC) || defined(CLANG)
+__attribute__((__target__("sse4.1")))
+#endif 
+static void blend_uint16_SSE4(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2,
+  int width, int height,
+  int dst_pitch, int src1_pitch, int src2_pitch, int weight_i, int bits_per_pixel)
 {
-  while (height--) {
-    for (int x = 0; x < width; x += 16) {
-      __m128i src1 = _mm_load_si128(reinterpret_cast<const __m128i *>(srcp + x));
-      __m128i src2 = _mm_load_si128(reinterpret_cast<const __m128i *>(nxtp + x));
-      __m128i res = _mm_avg_epu8(src1, src2); 
-      _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), res);
+  assert(weight_i != 0 && weight_i != 32768);
+  // full copy cases have to be handled earlier
+  // 15 bit integer arithwetic
+  auto round_mask = _mm_set1_epi32(0x4000); // 32768/2
+  auto weight = _mm_set1_epi32(weight_i);
+  auto zero = _mm_setzero_si128();
+
+  const int max_pixel_value = (1 << bits_per_pixel) - 1;
+  auto max_pixel_value_128 = _mm_set1_epi16((short)max_pixel_value);
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width * sizeof(uint16_t); x += 16) {
+      auto src1 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x));
+      auto src2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x));
+
+      auto src1_lo = _mm_unpacklo_epi16(src1, zero);
+      auto src1_hi = _mm_unpackhi_epi16(src1, zero);
+
+      auto src2_lo = _mm_unpacklo_epi16(src2, zero);
+      auto src2_hi = _mm_unpackhi_epi16(src2, zero);
+
+      // return src2 +(((src1 - src2) * weight_15bits + round) >> 15);
+
+      auto diff_lo = _mm_sub_epi32(src1_lo, src2_lo);
+      auto diff_hi = _mm_sub_epi32(src1_hi, src2_hi);
+
+      auto lerp_lo = _mm_mullo_epi32(diff_lo, weight);
+      auto lerp_hi = _mm_mullo_epi32(diff_hi, weight);
+
+      lerp_lo = _mm_srai_epi32(_mm_add_epi32(lerp_lo, round_mask), 15);
+      lerp_hi = _mm_srai_epi32(_mm_add_epi32(lerp_hi, round_mask), 15);
+
+      auto result_lo = _mm_add_epi32(src2_lo, lerp_lo);
+      auto result_hi = _mm_add_epi32(src2_hi, lerp_hi);
+
+      auto result = _mm_packus_epi32(result_lo, result_hi);
+      if constexpr(lessThan16bits) // otherwise no clamp needed
+        result = _mm_min_epu16(result, max_pixel_value_128);
+
+      _mm_store_si128(reinterpret_cast<__m128i*>(dstp + x), result);
     }
+
     dstp += dst_pitch;
-    srcp += src_pitch;
-    nxtp += nxt_pitch;
+    srcp1 += src1_pitch;
+    srcp2 += src2_pitch;
   }
 }
+
+// handles 50% special case as well
+// hbd ready
+void dispatch_blend(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height,
+  int dst_pitch, int src1_pitch, int src2_pitch, int weight_i, int bits_per_pixel, int cpuFlags)
+{
+  const bool use_sse2 = cpuFlags & CPUF_SSE2;
+  const bool use_sse4 = cpuFlags & CPUF_SSE4_1;
+
+  // weight_i 0 and max --> copy is already handled!
+  // weight_i is of 15 bit scale
+
+  // special 50% case
+  if (weight_i == 32768 / 2) {
+    if (bits_per_pixel == 8) {
+      if (use_sse2)
+        blend_5050_SSE2<uint8_t>(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch);
+      else
+        blend_5050_c<uint8_t>(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch);
+    }
+    else {
+      if (use_sse2)
+        blend_5050_SSE2<uint16_t>(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch);
+      else
+        blend_5050_c<uint16_t>(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch);
+    }
+    return;
+  }
+
+  // arbitrary blend
+  if (bits_per_pixel == 8) {
+    // using 16 bit scaled values inside instead of 15 bit scaled
+    if(use_sse2)
+      blend_uint8_SSE2(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch, weight_i * 2);
+    else
+      blend_uint8_c(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch, weight_i * 2);
+    return;
+  }
+
+  // 10-16 bits
+  if (use_sse4) {
+    if (bits_per_pixel < 16)
+      blend_uint16_SSE4<true>(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch, weight_i, bits_per_pixel);
+    else
+      blend_uint16_SSE4<false>(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch, weight_i, bits_per_pixel);
+  }
+  else {
+    blend_uint16_c(dstp, srcp1, srcp2, width, height, dst_pitch, src1_pitch, src2_pitch, weight_i, bits_per_pixel);
+  }
+}
+
 
 void calcLumaDiffYUY2SAD_SSE2_16(const uint8_t *prvp, const uint8_t *nxtp,
   int width, int height, int prv_pitch, int nxt_pitch, uint64_t &sad)
@@ -912,14 +1053,13 @@ void VerticalBlurSSE2_R(const uint8_t *srcp, uint8_t *dstp,
 
 // true SAD false SSD
 template<bool SAD>
-void calcDiff_SADorSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
+static void calcDiff_SADorSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int widtha, heighta, heights = height, widths = width;
   const uint8_t* ptr1T, * ptr2T;
-  const bool IsPlanar = (np == 3);
-  if (IsPlanar) // YV12, YV16, YV24: number of planes = 3 (planar)
+  if (!vi.IsYUY2())
   {
     // from YV12 to generic planar
     const int xsubsampling = vi.GetPlaneWidthSubsampling(plane);
@@ -1171,30 +1311,29 @@ void calcDiff_SADorSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
 }
 
 void calcDiffSAD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
-  calcDiff_SADorSSD_32x32_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, vi);
+  calcDiff_SADorSSD_32x32_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, diff, chroma, vi);
 }
 
 void calcDiffSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, const VideoInfo& vi)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, const VideoInfo& vi)
 {
-  calcDiff_SADorSSD_32x32_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, vi);
+  calcDiff_SADorSSD_32x32_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, diff, chroma, vi);
 }
 
 
 // true: SAD, false: SSD
 template<bool SAD>
 void calcDiff_SADorSSD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
   int heighta, heights = height, widtha, widths = width;
   int yshifta, yhalfa, xshifta, xhalfa;
   const uint8_t* ptr1T, * ptr2T;
-  const bool IsPlanar = (np == 3);
-  if (IsPlanar) // YV12, YV16, YV24
+  if (!vi.IsYUY2()) // YV12, YV16, YV24
   {
     // from YV12 to generic planar
     const int xsubsampling = vi.GetPlaneWidthSubsampling(plane);
@@ -1459,30 +1598,29 @@ void calcDiff_SADorSSD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
 }
 
 void calcDiffSAD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
 {
-  calcDiff_SADorSSD_Generic_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
+  calcDiff_SADorSSD_Generic_SSE2<true>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
 }
 
 void calcDiffSSD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
-  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
+  int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi)
 {
-  calcDiff_SADorSSD_Generic_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, np, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
+  calcDiff_SADorSSD_Generic_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
 }
 
 // true: SAD, false: SSD
 template<bool SAD, int inc>
 void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
-  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi)
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi)
 {
   int temp1, temp2, y, x, u, difft, box1, box2;
   int yshift, yhalf, xshift, xhalf;
   int heighta, widtha;
   const uint8_t* prvpT, * curpT;
-  const bool IsPlanar = (np == 3);
   int diffs;
 
-  if (IsPlanar)
+  if (!vi.IsYUY2())
   {
     const int ysubsampling = vi.GetPlaneHeightSubsampling(plane);
     const int xsubsampling = vi.GetPlaneWidthSubsampling(plane);
@@ -1595,12 +1733,12 @@ void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
 
 // instantiate
 template void calcDiff_SADorSSD_Generic_c<false, 1>(const uint8_t* prvp, const uint8_t* curp,
-  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 template void calcDiff_SADorSSD_Generic_c<false, 2>(const uint8_t* prvp, const uint8_t* curp,
-  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 template void calcDiff_SADorSSD_Generic_c<true, 1>(const uint8_t* prvp, const uint8_t* curp,
-  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 template void calcDiff_SADorSSD_Generic_c<true, 2>(const uint8_t* prvp, const uint8_t* curp,
-  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, int np, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 
 
