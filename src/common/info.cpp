@@ -1427,11 +1427,48 @@ void drawBox(PVideoFrame& dst, int blockx, int blocky, int blockN, int xblocks, 
   else drawBoxYUY2(dst, blockx, blocky, blockN, xblocks);
 }
 
-void Draw(PVideoFrame& dst, int x1, int y1, const char* s, VideoInfo& vi)
+void Draw(PVideoFrame& dst, int x1, int y1, const char* s, const VideoInfo& vi)
 {
   x1 *= 10;
   y1 = y1 * 20;
-  DrawStringPlanar(vi, dst, x1, y1, s);
+  DrawStringPlanar(const_cast<VideoInfo &>(vi), dst, x1, y1, s);
+}
+
+void setBlack(PVideoFrame& dst, const VideoInfo& vi)
+{
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+
+  for (int b = 0; b < np; ++b)
+  {
+    const int plane = planes[b];
+    uint8_t* dstp = dst->GetWritePtr(plane);
+    const int pitch = dst->GetPitch(plane);
+    const size_t height = dst->GetHeight(plane);
+    if (!vi.IsYUY2())
+    {
+      if (b == 0)
+        memset(dstp, 0, pitch * height); // luma
+      else {
+        // chroma
+        const int bits_per_pixel = vi.BitsPerComponent();
+        if (bits_per_pixel == 8)
+          memset(dstp, 128, pitch * height);
+        else
+          std::fill_n((uint16_t*)dstp, pitch * height / sizeof(uint16_t), 128 << (bits_per_pixel - 8));
+      }
+    }
+    else
+    {
+      const int width = dst->GetRowSize(plane) >> 1;
+      for (int y = 0; y < height; ++y)
+      {
+        for (int x = 0; x < width; ++x)
+          ((uint16_t*)dstp)[x] = 0x8000;
+        dstp += pitch;
+      }
+    }
+  }
 }
 
 

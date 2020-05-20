@@ -85,6 +85,6 @@ void DrawStringRGB24(VideoInfo& vi, PVideoFrame& dst, int x, int y, const char* 
 // Added from TIVTC/TDeint project
 void fillBox(PVideoFrame& dst, int blockx, int blocky, int blockN, int xblocks, bool dot, const VideoInfo& vi);
 void drawBox(PVideoFrame& dst, int blockx, int blocky, int blockN, int xblocks, const VideoInfo& vi);
-void Draw(PVideoFrame& dst, int x1, int y1, const char* s, VideoInfo& vi);
-
+void Draw(PVideoFrame& dst, int x1, int y1, const char* s, const VideoInfo& vi);
+void setBlack(PVideoFrame& dst, const VideoInfo& vi);
 #endif  // __INFO_H__
