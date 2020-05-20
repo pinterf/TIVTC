@@ -34,7 +34,10 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.17 (20200512):
+# TIVTC v1.0.18 (20200520 - work in progress):
+
+**v1.0.18
+- TFM: possible crash on YV16 for chroma=true (checkComb)
 
 **v1.0.17 (20200512)**
 - Fix: TDecimate clip2 colorspace check
