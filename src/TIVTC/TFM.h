@@ -149,12 +149,11 @@ private:
     int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh);
   bool checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma,int cthresh);
-  void writeDisplay(PVideoFrame &dst, int np, int n, int fmatch, int combed, bool over,
+  void writeDisplay(PVideoFrame &dst, const VideoInfo &vi_disp, int n, int fmatch, int combed, bool over,
     int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
   void putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm);
-  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
+
   void parseD2V(IScriptEnvironment *env);
   int D2V_find_and_correct(int *array, bool &found, int &tff);
   void D2V_find_fix(int a1, int a2, int sync, int &f1, int &f2, int &change);
@@ -186,8 +185,10 @@ private:
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
   AVSValue ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env);
+#if 0
   static void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
   static void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
+#endif
   TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _ovr, const char* _input,
     const char* _output, const char * _outputC, bool _debug, bool _display, int _slow,
     bool _mChroma, int _cNum, int _cthresh, int _MI, bool _chroma, int _blockx, int _blocky,

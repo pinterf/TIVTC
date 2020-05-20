@@ -25,6 +25,7 @@
 
 #include "TDecimate.h"
 #include <algorithm>
+#include "info.h"
 
 PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, const VideoInfo& vi)
 {

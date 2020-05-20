@@ -27,6 +27,7 @@
 #include "TFMasm.h"
 #include "TCommonASM.h"
 #include "avs/alignment.h"
+#include "info.h"
 
 PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
 {
@@ -91,7 +92,7 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
       }
     }
     fileOut(fmatch, combed, d2vfilm, n, mics[fmatch], mics);
-    if (display) writeDisplay(dst, np, n, fmatch, combed, true, blockN[fmatch], xblocks,
+    if (display) writeDisplay(dst, vi, n, fmatch, combed, true, blockN[fmatch], xblocks,
       d2vmatch, mics, prv, src, nxt, env);
     if (debug)
     {
@@ -428,7 +429,7 @@ d2vCJump:
   }
   d2vfilm = d2vduplicate(fmatch, combed, n);
   fileOut(fmatch, combed, d2vfilm, n, mics[fmatch], mics);
-  if (display) writeDisplay(dst, np, n, fmatch, combed, false, blockN[fmatch], xblocks,
+  if (display) writeDisplay(dst, vi, n, fmatch, combed, false, blockN[fmatch], xblocks,
     d2vmatch, mics, prv, src, nxt, env);
   if (debug)
   {
@@ -542,33 +543,29 @@ void TFM::micChange(int n, int m1, int m2, PVideoFrame &dst, PVideoFrame &prv,
   createWeaveFrame(dst, prv, src, nxt, env, m2, cfrm, np);
 }
 
-void TFM::writeDisplay(PVideoFrame &dst, int np, int n, int fmatch, int combed, bool over,
+void TFM::writeDisplay(PVideoFrame &dst, const VideoInfo& vi_disp, int n, int fmatch, int combed, bool over,
   int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
   PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env)
 {
   if (combed > 1 && PP > 1) return;
   if (combed > 1 && PP == 1 && blockN != -20)
   {
-    if (np == 3) drawBoxYV12(dst, blockN, xblocks);
-    else drawBoxYUY2(dst, blockN, xblocks);
+    drawBox(dst, blockx, blocky, blockN, xblocks, vi_disp);
   }
   sprintf(buf, "TFM %s by tritical ", VERSION);
-  if (np == 3) DrawYV12(dst, 0, 0, buf);
-  else DrawYUY2(dst, 0, 0, buf);
+  Draw(dst, 0, 0, buf, vi_disp);
   if (PP > 0)
     sprintf(buf, "order = %d  field = %d  mode = %d  MI = %d ", order, field, mode, MI);
   else
     sprintf(buf, "order = %d  field = %d  mode = %d ", order, field, mode);
-  if (np == 3) DrawYV12(dst, 0, 1, buf);
-  else DrawYUY2(dst, 0, 1, buf);
+  Draw(dst, 0, 1, buf, vi_disp);
   if (!over && !d2vmatch) sprintf(buf, "frame: %d  match = %c %s", n, MTC(fmatch),
     ((ubsco || mmsco || flags == 5) && checkSceneChange(prv, src, nxt, env, n)) ? " (SC) " : "");
   else if (d2vmatch) sprintf(buf, "frame: %d  match = %c (D2V) %s", n, MTC(fmatch),
     ((ubsco || mmsco || flags == 5) && checkSceneChange(prv, src, nxt, env, n)) ? " (SC) " : "");
   else sprintf(buf, "frame: %d  match = %c (OVR) %s", n, MTC(fmatch),
     ((ubsco || mmsco || flags == 5) && checkSceneChange(prv, src, nxt, env, n)) ? " (SC) " : "");
-  if (np == 3) DrawYV12(dst, 0, 2, buf);
-  else DrawYUY2(dst, 0, 2, buf);
+  Draw(dst, 0, 2, buf, vi_disp);
   int i = 3;
   if (micout > 0 || (micmatching > 0 && mics[0] != -20 && mics[1] != -20 && mics[2] != -20
     && mics[3] != -20 && mics[4] != -20))
@@ -576,20 +573,17 @@ void TFM::writeDisplay(PVideoFrame &dst, int np, int n, int fmatch, int combed, 
     if (micout == 1 && mics[0] != -20 && mics[1] != -20 && mics[2] != -20 && micmatching == 0)
     {
       sprintf(buf, "MICS:  p = %d  c = %d  n = %d ", mics[0], mics[1], mics[2]);
-      if (np == 3) DrawYV12(dst, 0, i, buf);
-      else DrawYUY2(dst, 0, i, buf);
+      Draw(dst, 0, i, buf, vi_disp);
       ++i;
     }
     else if ((micout == 2 && mics[0] != -20 && mics[1] != -20 && mics[2] != -20 &&
       mics[3] != -20 && mics[4] != -20) || micmatching > 0)
     {
       sprintf(buf, "MICS:  p = %d  c = %d  n = %d ", mics[0], mics[1], mics[2]);
-      if (np == 3) DrawYV12(dst, 0, i, buf);
-      else DrawYUY2(dst, 0, i, buf);
+      Draw(dst, 0, i, buf, vi_disp);
       ++i;
       sprintf(buf, "       b = %d  u = %d ", mics[3], mics[4]);
-      if (np == 3) DrawYV12(dst, 0, i, buf);
-      else DrawYUY2(dst, 0, i, buf);
+      Draw(dst, 0, i, buf, vi_disp);
       ++i;
     }
   }
@@ -605,15 +599,13 @@ void TFM::writeDisplay(PVideoFrame &dst, int np, int n, int fmatch, int combed, 
       sprintf(buft, " MIC = %d ", mics[fmatch]);
       strcat(buf, buft);
     }
-    if (np == 3) DrawYV12(dst, 0, i, buf);
-    else DrawYUY2(dst, 0, i, buf);
+    Draw(dst, 0, i, buf, vi_disp);
     ++i;
   }
   if (d2vpercent >= 0.0)
   {
     sprintf(buf, "%3.1f%s FILM (D2V) ", d2vpercent, "%");
-    if (np == 3) DrawYV12(dst, 0, i, buf);
-    else DrawYUY2(dst, 0, i, buf);
+    Draw(dst, 0, i, buf, vi_disp);
   }
 }
 

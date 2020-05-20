@@ -25,6 +25,7 @@
 
 #include "TDecimate.h"
 #include <algorithm>
+#include "info.h"
 
 void TDecimate::debugOutput1(int n, bool film, int blend)
 {
@@ -182,18 +183,28 @@ void TDecimate::addMetricCycle(Cycle &j)
 void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
   int ret, bool film, double amount1, double amount2, int f1, int f2, const VideoInfo &vi_disp)
 {
-  int i = 0;
+  int y = 0;
   char tempBuf[40];
   sprintf(buf, "TDecimate %s by tritical", VERSION);
-  Draw(dst, 0, i++, buf, vi_disp);
+
+  constexpr auto FONT_WIDTH = 10; // info_h
+  constexpr auto FONT_HEIGHT = 20; // info_h
+  const int MAX_X = vi_disp.width / FONT_WIDTH;
+  const int MAX_Y = vi_disp.height / FONT_HEIGHT;
+
+  Draw(dst, 0, y++, buf, vi_disp);
   sprintf(buf, "Mode: %d  Cycle: %d  CycleR: %d  Hybrid: %d", mode, cycle, cycleR, hybrid);
-  Draw(dst, 0, i++, buf, vi_disp);
+  Draw(dst, 0, y++, buf, vi_disp);
   if (amount1 == 0.0 && amount2 == 0.0)
     sprintf(buf, "inframe: %d  useframe: %d", n, ret);
   else sprintf(buf, "inframe: %d  useframe: blend %d-%d (%3.2f,%3.2f)", n, f1, f2,
     amount1*100.0, amount2*100.0);
-  Draw(dst, 0, i++, buf, vi_disp);
-  int i_saved = i, retd, side = 0, strack = 0;
+  Draw(dst, 0, y++, buf, vi_disp);
+
+  int y_saved = y;
+  int current_column_x = 0;
+  int max_column_width = 0;
+
   if (mode == 0 || (mode == 3 && vfrDec == 0))
   {
     int mp = prev.frame != -20 ? prev.match[prev.cycleE - 1] : -20;
@@ -217,15 +228,24 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
           strcat(buf, tempBuf);
         }
       }
-      retd = Draw(dst, side, i++, buf, vi_disp);
-      if (retd == -1)
+
+      int len = (int)strlen(buf);
+
+      Draw(dst, current_column_x, y++, buf, vi_disp);
+      // retd is 
+      // >=0: column width printed 
+      // -1 if does not fit vertically 
+      // (-2-length_written) if does not fit horizontally
+      if (y >= MAX_Y)
       {
-        side += strack + 2;
-        strack = 0;
-        i = i_saved;
-        Draw(dst, side, i++, buf, vi_disp);
+        // does not fit vertically
+        current_column_x += max_column_width + 2; // make x to next column, leaving a gap
+        max_column_width = 0; // reset width counter
+        y = y_saved; // back to the top of the area
+        Draw(dst, current_column_x, y++, buf, vi_disp);
       }
-      else strack = std::max(strack, retd);
+      else
+        max_column_width = std::max(max_column_width, len); // get max width so far in current column
       mp = mc;
       if (x < curr.cycleE - 1) mc = curr.match[x + 1];
     }
@@ -258,15 +278,19 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
           strcat(buf, tempBuf);
         }
       }
-      retd = Draw(dst, side, i++, buf, vi_disp);
-      if (retd == -1)
+
+      int len = (int)strlen(buf);
+
+      Draw(dst, current_column_x, y++, buf, vi_disp);
+      if (y >= MAX_Y)
       {
-        side += strack + 2;
-        strack = 0;
-        i = i_saved;
-        Draw(dst, side, i++, buf, vi_disp);
+        current_column_x += max_column_width + 2;
+        max_column_width = 0;
+        y = y_saved;
+        Draw(dst, current_column_x, y++, buf, vi_disp);
       }
-      else strack = std::max(strack, retd);
+      else 
+        max_column_width = std::max(max_column_width, len);
       mp = mc;
       if (x < curr.cycleE - 1) mc = curr.match[x + 1];
     }
@@ -277,15 +301,26 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
     formatDecs(curr);
   }
   else sprintf(buf, "VIDEO");
-  retd = Draw(dst, side, i++, buf, vi_disp);
-  if (retd == -1)
+
+  int len = (int)strlen(buf);
+
+  Draw(dst, current_column_x, y++, buf, vi_disp);
+  if (y >= MAX_Y)
   {
-    i = i_saved;
-    side += strack + 2;
-    retd = Draw(dst, side, i++, buf, vi_disp);
+    y = y_saved;
+    current_column_x += max_column_width + 2;
+    Draw(dst, current_column_x, y++, buf, vi_disp);
   }
-  while (retd < -1)
+
+  int length_available = (MAX_X - current_column_x);
+  int buf_offset = length_available;
+  len -= length_available;
+
+  // print rest buffer in a line-wrapped style
+  while (y < MAX_Y && len > 0)
   {
-    retd = Draw(dst, side, i++, buf, vi_disp, -retd - 2);
+    Draw(dst, current_column_x, y++, buf + buf_offset, vi_disp);
+    buf_offset += length_available;
+    len -= length_available;
   }
 }

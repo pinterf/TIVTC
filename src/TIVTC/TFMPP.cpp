@@ -27,6 +27,7 @@
 #include "TCommonASM.h"
 #include "emmintrin.h"
 #include "smmintrin.h"
+#include "info.h"
 
 
 PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
@@ -141,7 +142,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
       }
     }
   }
-  if (display) writeDisplay(dst, np, n, fieldSrc);
+  if (display) writeDisplay(dst, vi, n, fieldSrc);
   if (usehints) putHint(dst, fieldSrc, hint);
   else destroyHint(dst, hint);
   return dst;
@@ -1015,17 +1016,14 @@ void TFMPP::copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *en
   }
 }
 
-void TFMPP::writeDisplay(PVideoFrame &dst, int np, int n, int field)
+void TFMPP::writeDisplay(PVideoFrame &dst, const VideoInfo &vi, int n, int field)
 {
   sprintf(buf, "TFMPP %s by tritical ", VERSION);
-  if (np == 3) TFM::DrawYV12(dst, 0, 0, buf);
-  else TFM::DrawYUY2(dst, 0, 0, buf);
+  Draw(dst, 0, 0, buf, vi);
   sprintf(buf, "field = %d  PP = %d  mthresh = %d ", field, PP, mthresh);
-  if (np == 3) TFM::DrawYV12(dst, 0, 1, buf);
-  else TFM::DrawYUY2(dst, 0, 1, buf);
+  Draw(dst, 0, 1, buf, vi);
   sprintf(buf, "frame: %d  (COMBED - DEINTERLACED)! ", n);
-  if (np == 3) TFM::DrawYV12(dst, 0, 2, buf);
-  else TFM::DrawYUY2(dst, 0, 2, buf);
+  Draw(dst, 0, 2, buf, vi);
 }
 
 void TFMPP::elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi)

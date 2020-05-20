@@ -26,6 +26,7 @@
 #include "TFM.h"
 #include "TFMasm.h"
 #include "TCommonASM.h"
+#include "info.h"
 
 AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
 {
@@ -77,15 +78,6 @@ private:
   template<typename pixel_t>
   void fillCombedPlanar(PVideoFrame &src, int &MICount, int &b_over, int &c_over, IScriptEnvironment *env);
 
-  void fillBox(PVideoFrame &dst, int blockN, int xblocks);
-  void drawBox(PVideoFrame &dst, int blockN, int xblocks, int np);
-  void Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np);
-  void fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-  void fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks);
-  void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
-  void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
 
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
@@ -206,15 +198,15 @@ PVideoFrame __stdcall ShowCombedTIVTC::GetFrame(int n, IScriptEnvironment *env)
   if (display != 5)
   {
     sprintf(buf, "ShowCombedTIVTC %s by tritical", VERSION);
-    Draw(src, 0, 0, buf, np);
+    Draw(src, 0, 0, buf, vi);
     sprintf(buf, "MI = %d  cthresh = %d  chroma = %c", MI, cthresh, chroma ? 'T' : 'F');
-    Draw(src, 0, 1, buf, np);
+    Draw(src, 0, 1, buf, vi);
     sprintf(buf, "MIC = %d  b_above = %d  c_above = %d", MICount, b_over, c_over);
-    Draw(src, 0, 2, buf, np);
+    Draw(src, 0, 2, buf, vi);
     if (MICount > MI)
     {
       sprintf(buf, "COMBED FRAME!");
-      Draw(src, 0, 3, buf, np);
+      Draw(src, 0, 3, buf, vi);
     }
   }
   return src;
@@ -472,15 +464,15 @@ cjump:
       ++b_over;
       if (display == 2 || display == 4)
       {
-        if (fill) fillBox(src, x, xblocks4);
-        else drawBox(src, x, xblocks4, vi.IsPlanar() ? 3 : 1);
+        if (fill) fillBox(src, blockx, blocky, x, xblocks4, false, vi);
+        else drawBox(src, blockx, blocky, x, xblocks4, vi);
       }
     }
   }
   if (display == 1 || display == 3)
   {
-    if (fill) fillBox(src, high_block, xblocks4);
-    else drawBox(src, high_block, xblocks4, vi.IsPlanar() ? 3 : 1);
+    if (fill) fillBox(src, blockx, blocky, high_block, xblocks4, false, vi);
+    else drawBox(src, blockx, blocky, high_block, xblocks4, vi);
   }
 }
 
@@ -706,298 +698,18 @@ void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame &src, int &MICount,
       ++b_over;
       if (display == 2 || display == 4)
       {
-        if (fill) fillBox(src, x, xblocks4);
-        else drawBox(src, x, xblocks4, vi.IsPlanar() ? 3 : 1);
+        if (fill) fillBox(src, blockx, blocky, x, xblocks4, false, vi);
+        else drawBox(src, blockx, blocky, x, xblocks4, vi);
       }
     }
   }
   if (display == 1 || display == 3)
   {
-    if (fill) fillBox(src, high_block, xblocks4);
-    else drawBox(src, high_block, xblocks4, vi.IsPlanar() ? 3 : 1);
+    if (fill) fillBox(src, blockx, blocky, high_block, xblocks4, false, vi);
+    else drawBox(src, blockx, blocky, high_block, xblocks4, vi);
   }
 }
 
-void ShowCombedTIVTC::fillBox(PVideoFrame &dst, int blockN, int xblocks)
-{
-  if (vi.IsPlanar()) return fillBoxPlanar(dst, blockN, xblocks);
-  else return fillBoxYUY2(dst, blockN, xblocks);
-}
-
-void ShowCombedTIVTC::drawBox(PVideoFrame &dst, int blockN, int xblocks, int np)
-{
-  if (np == 3) drawBoxYV12(dst, blockN, xblocks);
-  else drawBoxYUY2(dst, blockN, xblocks);
-}
-
-void ShowCombedTIVTC::Draw(PVideoFrame &dst, int x1, int y1, const char *s, int np)
-{
-  if (np == 3) DrawYV12(dst, x1, y1, s);
-  else DrawYUY2(dst, x1, y1, s);
-}
-
-void ShowCombedTIVTC::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
-{
-  uint8_t *dstp = dst->GetWritePtr();
-  int pitch = dst->GetPitch();
-  int width = dst->GetRowSize();
-  int height = dst->GetHeight();
-  int cordy, cordx, x, y, temp, xlim, ylim;
-  cordy = blockN / xblocks;
-  cordx = blockN - (cordy*xblocks);
-  temp = cordx % 4;
-  cordx = (cordx >> 2);
-  cordy *= blocky;
-  cordx *= (blockx << 1);
-  if (temp == 1) cordx -= blockx;
-  else if (temp == 2) cordy -= (blocky >> 1);
-  else if (temp == 3) { cordx -= blockx; cordy -= (blocky >> 1); }
-  xlim = cordx + 2 * blockx;
-  ylim = cordy + blocky;
-  int ymid = std::max(std::min(cordy + ((ylim - cordy) >> 1), height - 1), 0);
-  int xmid = std::max(std::min(cordx + ((xlim - cordx) >> 1), width - 2), 0);
-  if (xlim > width) xlim = width;
-  if (ylim > height) ylim = height;
-  cordy = std::max(cordy, 0);
-  cordx = std::max(cordx, 0);
-  dstp = dstp + cordy*pitch;
-  for (y = cordy; y < ylim; ++y)
-  {
-    for (x = cordx; x < xlim; x += 4)
-    {
-      if (y == ymid && (x == xmid || x + 2 == xmid))
-      {
-        dstp[x] = 0;
-        dstp[x + 1] = 128;
-        dstp[x + 2] = 0;
-        dstp[x + 3] = 128;
-      }
-      else if (!(dstp[x] == 0 && dstp[x + 2] == 0 &&
-        (x <= 1 || dstp[x - 2] == 255) &&
-        (x >= width - 4 || dstp[x + 4] == 255) &&
-        (y == 0 || dstp[x - pitch] == 255) &&
-        (y == height - 1 || dstp[x + pitch] == 255)))
-      {
-        dstp[x] = 255;
-        dstp[x + 1] = 128;
-        dstp[x + 2] = 255;
-        dstp[x + 3] = 128;
-      }
-    }
-    dstp += pitch;
-  }
-}
-
-void ShowCombedTIVTC::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
-{
-  uint8_t *dstp = dst->GetWritePtr();
-  int pitch = dst->GetPitch();
-  int width = dst->GetRowSize();
-  int height = dst->GetHeight();
-  int cordy, cordx, x, y, temp, xlim, ylim;
-  cordy = blockN / xblocks;
-  cordx = blockN - (cordy*xblocks);
-  temp = cordx % 4;
-  cordx = (cordx >> 2);
-  cordy *= blocky;
-  cordx *= (blockx << 1);
-  if (temp == 1) cordx -= blockx;
-  else if (temp == 2) cordy -= (blocky >> 1);
-  else if (temp == 3) { cordx -= blockx; cordy -= (blocky >> 1); }
-  xlim = cordx + 2 * blockx;
-  if (xlim > width) xlim = width;
-  ylim = cordy + blocky;
-  if (ylim > height) ylim = height;
-  for (y = std::max(cordy, 0), temp = cordx + 2 * (blockx - 1); y < ylim; ++y)
-  {
-    if (cordx >= 0) (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
-    if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
-  }
-  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; x += 4)
-  {
-    if (cordy >= 0)
-    {
-      (dstp + cordy*pitch)[x] = (dstp + cordy*pitch)[x] <= 128 ? 255 : 0;
-      (dstp + cordy*pitch)[x + 1] = 128;
-      (dstp + cordy*pitch)[x + 2] = (dstp + cordy*pitch)[x + 2] <= 128 ? 255 : 0;
-      (dstp + cordy*pitch)[x + 3] = 128;
-    }
-    if (temp < height)
-    {
-      (dstp + temp*pitch)[x] = (dstp + temp*pitch)[x] <= 128 ? 255 : 0;
-      (dstp + temp*pitch)[x + 1] = 128;
-      (dstp + temp*pitch)[x + 2] = (dstp + temp*pitch)[x + 2] <= 128 ? 255 : 0;
-      (dstp + temp*pitch)[x + 3] = 128;
-    }
-  }
-}
-
-void ShowCombedTIVTC::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
-{
-  int x, y = y1 * 20, num, pitch = dst->GetPitch();
-  uint8_t *dp;
-  unsigned int width = dst->GetRowSize();
-  int height = dst->GetHeight();
-  if (y + 20 >= height) return;
-  for (int xx = 0; *s; ++s, ++xx)
-  {
-    x = (x1 + xx) * 10;
-    if ((x + 10) * 2 >= (int)(width)) return;
-    num = *s - ' ';
-    for (int tx = 0; tx < 10; tx++)
-    {
-      for (int ty = 0; ty < 20; ty++)
-      {
-        dp = &dst->GetWritePtr()[(x + tx) * 2 + (y + ty) * pitch];
-        if (font[num][ty] & (1 << (15 - tx)))
-        {
-          if (tx & 1)
-          {
-            dp[0] = 255;
-            dp[-1] = 128;
-            dp[1] = 128;
-          }
-          else
-          {
-            dp[0] = 255;
-            dp[1] = 128;
-            dp[3] = 128;
-          }
-        }
-        else
-        {
-          if (tx & 1)
-          {
-            dp[0] = (unsigned char)(dp[0] >> 1);
-            dp[-1] = (unsigned char)((dp[-1] + 128) >> 1);
-            dp[1] = (unsigned char)((dp[1] + 128) >> 1);
-          }
-          else
-          {
-            dp[0] = (unsigned char)(dp[0] >> 1);
-            dp[1] = (unsigned char)((dp[1] + 128) >> 1);
-            dp[3] = (unsigned char)((dp[3] + 128) >> 1);
-          }
-        }
-      }
-    }
-  }
-}
-
-void ShowCombedTIVTC::fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks)
-{
-  uint8_t *dstp = dst->GetWritePtr(PLANAR_Y);
-  int width = dst->GetRowSize(PLANAR_Y);
-  int height = dst->GetHeight(PLANAR_Y);
-  int pitch = dst->GetPitch(PLANAR_Y);
-  int cordy, cordx, x, y, temp, xlim, ylim;
-  cordy = blockN / xblocks;
-  cordx = blockN - (cordy*xblocks);
-  temp = cordx % 4;
-  cordx = (cordx >> 2);
-  cordy *= blocky;
-  cordx *= blockx;
-  if (temp == 1) cordx -= (blockx >> 1);
-  else if (temp == 2) cordy -= (blocky >> 1);
-  else if (temp == 3) { cordx -= (blockx >> 1); cordy -= (blocky >> 1); }
-  xlim = cordx + blockx;
-  ylim = cordy + blocky;
-  int ymid = std::max(std::min(cordy + ((ylim - cordy) >> 1), height - 1), 0);
-  int xmid = std::max(std::min(cordx + ((xlim - cordx) >> 1), width - 1), 0);
-  if (xlim > width) xlim = width;
-  if (ylim > height) ylim = height;
-  cordy = std::max(cordy, 0);
-  cordx = std::max(cordx, 0);
-  dstp = dstp + cordy*pitch;
-  for (y = cordy; y < ylim; ++y)
-  {
-    for (x = cordx; x < xlim; ++x)
-    {
-      if (y == ymid && x == xmid) dstp[x] = 0;
-      else if (!(dstp[x] == 0 &&
-        (x == width - 1 || dstp[x + 1] == 255) &&
-        (x == 0 || dstp[x - 1] == 255) &&
-        (y == height - 1 || dstp[x + pitch] == 255) &&
-        (y == 0 || dstp[x - pitch] == 255))) dstp[x] = 255;
-    }
-    dstp += pitch;
-  }
-}
-
-void ShowCombedTIVTC::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
-{
-  uint8_t *dstp = dst->GetWritePtr(PLANAR_Y);
-  int width = dst->GetRowSize(PLANAR_Y);
-  int height = dst->GetHeight(PLANAR_Y);
-  int pitch = dst->GetPitch(PLANAR_Y);
-  int cordy, cordx, x, y, temp, xlim, ylim;
-  cordy = blockN / xblocks;
-  cordx = blockN - (cordy*xblocks);
-  temp = cordx % 4;
-  cordx = (cordx >> 2);
-  cordy *= blocky;
-  cordx *= blockx;
-  if (temp == 1) cordx -= (blockx >> 1);
-  else if (temp == 2) cordy -= (blocky >> 1);
-  else if (temp == 3) { cordx -= (blockx >> 1); cordy -= (blocky >> 1); }
-  xlim = cordx + blockx;
-  if (xlim > width) xlim = width;
-  ylim = cordy + blocky;
-  if (ylim > height) ylim = height;
-  for (y = std::max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
-  {
-    if (cordx >= 0) (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
-    if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
-  }
-  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
-  {
-    if (cordy >= 0) (dstp + cordy*pitch)[x] = (dstp + cordy*pitch)[x] <= 128 ? 255 : 0;
-    if (temp < height) (dstp + temp*pitch)[x] = (dstp + temp*pitch)[x] <= 128 ? 255 : 0;
-  }
-}
-
-void ShowCombedTIVTC::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s)
-{
-  int x, y = y1 * 20, num, tx, ty;
-  int pitchY = dst->GetPitch(PLANAR_Y), pitchUV = dst->GetPitch(PLANAR_V);
-  uint8_t *dpY, *dpU, *dpV;
-  unsigned int width = dst->GetRowSize(PLANAR_Y);
-  int height = dst->GetHeight(PLANAR_Y);
-  if (y + 20 >= height) return;
-  for (int xx = 0; *s; ++s, ++xx)
-  {
-    x = (x1 + xx) * 10;
-    if (x + 10 >= (int)(width)) return;
-    num = *s - ' ';
-    for (tx = 0; tx < 10; tx++)
-    {
-      for (ty = 0; ty < 20; ty++)
-      {
-        dpY = &dst->GetWritePtr(PLANAR_Y)[(x + tx) + (y + ty) * pitchY];
-        if (font[num][ty] & (1 << (15 - tx))) *dpY = 255;
-        else *dpY = (unsigned char)(*dpY >> 1);
-      }
-    }
-    for (tx = 0; tx < 10; tx++)
-    {
-      for (ty = 0; ty < 20; ty++)
-      {
-        dpU = &dst->GetWritePtr(PLANAR_U)[((x + tx) / 2) + ((y + ty) / 2) * pitchUV];
-        dpV = &dst->GetWritePtr(PLANAR_V)[((x + tx) / 2) + ((y + ty) / 2) * pitchUV];
-        if (font[num][ty] & (1 << (15 - tx)))
-        {
-          *dpU = 128;
-          *dpV = 128;
-        }
-        else
-        {
-          *dpU = (unsigned char)((*dpU + 128) >> 1);
-          *dpV = (unsigned char)((*dpV + 128) >> 1);
-        }
-      }
-    }
-  }
-}
 
 AVSValue __cdecl Create_ShowCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env)
 {

@@ -26,6 +26,7 @@
 #include <emmintrin.h>
 #include <smmintrin.h>
 #include <inttypes.h>
+#include "info.h"
 
 FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _debug,
   bool _sse, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child),
@@ -133,13 +134,10 @@ PVideoFrame __stdcall FieldDiff::GetFrame(int n, IScriptEnvironment *env)
   {
     env->MakeWritable(&src);
     sprintf(buf, "FieldDiff %s by tritical", VERSION);
-    // fixme: use display drawing which supports any videoformat like in mvtools2
-    if (vi.IsPlanar()) TFM::DrawYV12(src, 0, 0, buf);
-    else TFM::DrawYUY2(src, 0, 0, buf);
+    Draw(src, 0, 0, buf, vi);
     if (sse) sprintf(buf, "Frame = %d  Diff = %" PRId64 " (sse)", n, diff);
     else sprintf(buf, "Frame = %d  Diff = %" PRId64 " (sad)", n, diff);
-    if (vi.IsPlanar()) TFM::DrawYV12(src, 0, 1, buf);
-    else TFM::DrawYUY2(src, 0, 1, buf);
+    Draw(src, 0, 1, buf, vi);
     return src;
   }
   return src;

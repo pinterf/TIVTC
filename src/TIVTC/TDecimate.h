@@ -155,7 +155,6 @@ private:
 
   void init_mode_5(IScriptEnvironment* env);
   void rerunFromStart(int s, const VideoInfo& vi, IScriptEnvironment *env);
-  void setBlack(PVideoFrame &dst, const VideoInfo& vi);
   void checkVideoMetrics(Cycle &c, double thresh);
   void checkVideoMatches(Cycle &p, Cycle &c);
   bool checkMatchDup(int mp, int mc);
@@ -167,13 +166,6 @@ private:
     double amount1, const VideoInfo& vi, IScriptEnvironment *env);
   void calcBlendRatios(double &amount1, double &amount2, int &frame1, int &frame2, int n,
     int bframe, int cycleI);
-
-  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-  void drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks);
-  void drawBox(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo& vi);
-  int DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s, int start);
-  int DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s, int start);
-  int Draw(PVideoFrame &dst, int x1, int y1, const char *s, const VideoInfo &vi, int start = 0);
 
   PVideoFrame GetFrameMode01(int n, IScriptEnvironment *env, const VideoInfo& vi);
   PVideoFrame GetFrameMode2(int n, IScriptEnvironment *env, const VideoInfo& vi);

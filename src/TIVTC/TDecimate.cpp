@@ -29,6 +29,7 @@
 #include "TCommonASM.h"
 #include <inttypes.h>
 #include <algorithm>
+#include "info.h"
 
 PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
 {
@@ -782,7 +783,7 @@ PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, const Video
       src = clip2->GetFrame(n, env);
     }
     env->MakeWritable(&src);
-    if (blockN != -20) drawBox(src, blockN, xblocks, vi2);
+    if (blockN != -20) drawBox(src, blockx, blocky, blockN, xblocks, vi2);
     sprintf(buf, "TDecimate %s by tritical", VERSION);
     Draw(src, 0, 0, buf, vi2);
     sprintf(buf, "Mode: 4 (metrics output)");
@@ -2177,56 +2178,6 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
   }
 }
 
-void TDecimate::drawBox(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo& vi)
-{
-  // fixme: not only yv12
-  if (vi.IsPlanar()) drawBoxYV12(dst, blockN, xblocks);
-  else drawBoxYUY2(dst, blockN, xblocks);
-}
-
-int TDecimate::Draw(PVideoFrame &dst, int x1, int y1, const char *s, const VideoInfo& vi, int start)
-{
-  // fixme: not only yv12
-  if (vi.IsPlanar()) return DrawYV12(dst, x1, y1, s, start);
-  else return DrawYUY2(dst, x1, y1, s, start);
-}
-
-void TDecimate::setBlack(PVideoFrame& dst, const VideoInfo& vi)
-{
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
-
-  for (int b = 0; b < np; ++b)
-  {
-    const int plane = planes[b];
-    uint8_t* dstp = dst->GetWritePtr(plane);
-    const int pitch = dst->GetPitch(plane);
-    const size_t height = dst->GetHeight(plane);
-    if (!vi.IsYUY2())
-    {
-      if (b == 0)
-        memset(dstp, 0, pitch * height); // luma
-      else {
-        // chroma
-        const int bits_per_pixel = vi.BitsPerComponent();
-        if (bits_per_pixel == 8)
-          memset(dstp, 128, pitch * height);
-        else
-          std::fill_n((uint16_t*)dstp, pitch * height / sizeof(uint16_t), 128 << (bits_per_pixel - 8));
-      }
-    }
-    else
-    {
-      const int width = dst->GetRowSize(plane) >> 1;
-      for (int y = 0; y < height; ++y)
-      {
-        for (int x = 0; x < width; ++x)
-          ((uint16_t*)dstp)[x] = 0x8000;
-        dstp += pitch;
-      }
-    }
-  }
-}
 
 /*
 ** I've copied the following functions:  float_to_frac, reduce_float,

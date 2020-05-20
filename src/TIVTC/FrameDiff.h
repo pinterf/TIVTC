@@ -50,20 +50,8 @@ private:
   int blocky_shift, blockx_shift, blocky_half, blockx_half;
   uint64_t *diff, MAX_DIFF, threshU;
   void calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const VideoInfo &vi, IScriptEnvironment *env);
-#if 0
-  void fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot, const VideoInfo& vi);
-  void fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool dot, const VideoInfo& vi);
-  void fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot);
-  void Draw(PVideoFrame &dst, int x1, int y1, const char *s, const VideoInfo& vi);
-  void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
-  void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-  void drawBox(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo& vi);
-  void drawBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo& vi);
-  void drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks);
-#endif
   int mapn(int n);
   bool checkOnImage(int x, int xblocks4);
-  void setBlack(PVideoFrame& dst, const VideoInfo& vi);
   int getCoord(int blockN, int xblocks);
 
 public:

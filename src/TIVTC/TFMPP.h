@@ -109,7 +109,6 @@ private:
   void destroyHint(PVideoFrame &dst, unsigned int hint);
   void CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
     int field, const VideoInfo &vi, IScriptEnvironment *env);
-  void writeDisplay(PVideoFrame &dst, int np, int n, int field);
   void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);
 
   // not the same as in tdeinterlace.
@@ -122,6 +121,8 @@ private:
   void buildMotionMask2_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
     const uint8_t *srcp3, uint8_t *dstp, int s1_pitch, int s2_pitch,
     int s3_pitch, int dst_pitch, int width, int height, long cpu);
+
+  void writeDisplay(PVideoFrame& dst, const VideoInfo& vi, int n, int field);
 
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
