@@ -1609,16 +1609,29 @@ void calcDiffSSD_Generic_SSE2(const uint8_t* ptr1, const uint8_t* ptr2,
   calcDiff_SADorSSD_Generic_SSE2<false>(ptr1, ptr2, pitch1, pitch2, width, height, plane, xblocks4, diff, chroma, xshiftS, yshiftS, xhalfS, yhalfS, vi);
 }
 
+
 // true: SAD, false: SSD
-template<bool SAD, int inc>
-void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
-  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi)
+// inc: YUY2 increment
+template<typename pixel_t, bool SAD, int inc>
+void calcDiff_SADorSSD_Generic_c(const pixel_t* prvp, const pixel_t* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff,
+  bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt,
+  const VideoInfo& vi)
 {
-  int temp1, temp2, y, x, u, difft, box1, box2;
+  int temp1, temp2, u;
+
+  // 16 bits SSD requires int64 intermediate
+  typedef typename std::conditional<sizeof(pixel_t) == 1 && !SAD, int, int64_t> ::type safeint_t;
+
+  safeint_t difft; // int or 64 bits
+  int diffs; // pixel differences are internally scaled back to 8 bit range to avoid overflow
+  int box1, box2;
   int yshift, yhalf, xshift, xhalf;
   int heighta, widtha;
-  const uint8_t* prvpT, * curpT;
-  int diffs;
+  const pixel_t* prvpT, * curpT;
+
+  const int bits_per_pixel = vi.BitsPerComponent();
+  const int shift_count = SAD ? (bits_per_pixel - 8) : (bits_per_pixel - 8) * (bits_per_pixel - 8);
 
   if (!vi.IsYUY2())
   {
@@ -1640,11 +1653,11 @@ void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
   heighta = (height >> (yshift - 1)) << (yshift - 1);
   widtha = (width >> (xshift - 1)) << (xshift - 1);
   // whole blocks
-  for (y = 0; y < heighta; y += yhalf)
+  for (int y = 0; y < heighta; y += yhalf)
   {
     temp1 = (y >> yshift) * xblocks4;
     temp2 = ((y + yhalf) >> yshift) * xblocks4;
-    for (x = 0; x < widtha; x += xhalf)
+    for (int x = 0; x < widtha; x += xhalf)
     {
       prvpT = prvp;
       curpT = curp;
@@ -1652,13 +1665,16 @@ void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
       {
         for (int v = 0; v < xhalf; v += inc)
         {
-          if constexpr (SAD)
+          if constexpr (SAD) {
             difft = abs(prvpT[x + v] - curpT[x + v]);
+          }
           else {
             difft = prvpT[x + v] - curpT[x + v];
             difft *= difft;
           }
-          if (difft > nt) diffs += difft;
+          if constexpr (sizeof(pixel_t) == 2) difft >>= shift_count; // back to 8 bit range
+
+          if (difft > nt) diffs += static_cast<int>(difft);
         }
         prvpT += prv_pitch;
         curpT += cur_pitch;
@@ -1674,19 +1690,21 @@ void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
       }
     }
     // rest non - whole block on the right
-    for (x = widtha; x < width; x += inc)
+    for (int x = widtha; x < width; x += inc)
     {
       prvpT = prvp;
       curpT = curp;
       for (diffs = 0, u = 0; u < yhalf; ++u)
       {
-        if constexpr (SAD)
+        if constexpr (SAD) {
           difft = abs(prvpT[x] - curpT[x]);
+        }
         else {
           difft = prvpT[x] - curpT[x];
           difft *= difft;
         }
-        if (difft > nt) diffs += difft;
+        if constexpr (sizeof(pixel_t) == 2) difft >>= shift_count; // back to 8 bit range
+        if (difft > nt) diffs += static_cast<int>(difft);
         prvpT += prv_pitch;
         curpT += cur_pitch;
       }
@@ -1704,18 +1722,20 @@ void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
     curp += cur_pitch * yhalf;
   }
   // rest non-whole block at the bottom
-  for (y = heighta; y < height; ++y)
+  for (int y = heighta; y < height; ++y)
   {
     temp1 = (y >> yshift) * xblocks4;
     temp2 = ((y + yhalf) >> yshift) * xblocks4;
-    for (x = 0; x < width; x += inc)
+    for (int x = 0; x < width; x += inc)
     {
-      if constexpr (SAD)
+      if constexpr (SAD) {
         difft = abs(prvp[x] - curp[x]);
+      }
       else {
         difft = prvp[x] - curp[x];
         difft *= difft;
       }
+      if constexpr (sizeof(pixel_t) == 2) difft >>= shift_count; // back to 8 bit range
       if (difft > nt)
       {
         box1 = (x >> xshift) << 2;
@@ -1732,13 +1752,18 @@ void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
 }
 
 // instantiate
-template void calcDiff_SADorSSD_Generic_c<false, 1>(const uint8_t* prvp, const uint8_t* curp,
+template void calcDiff_SADorSSD_Generic_c<uint8_t, false, 1>(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
-template void calcDiff_SADorSSD_Generic_c<false, 2>(const uint8_t* prvp, const uint8_t* curp,
+template void calcDiff_SADorSSD_Generic_c<uint8_t, false, 2>(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
-template void calcDiff_SADorSSD_Generic_c<true, 1>(const uint8_t* prvp, const uint8_t* curp,
+template void calcDiff_SADorSSD_Generic_c<uint8_t, true, 1>(const uint8_t* prvp, const uint8_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
-template void calcDiff_SADorSSD_Generic_c<true, 2>(const uint8_t* prvp, const uint8_t* curp,
+template void calcDiff_SADorSSD_Generic_c<uint8_t, true, 2>(const uint8_t* prvp, const uint8_t* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+
+template void calcDiff_SADorSSD_Generic_c<uint16_t, false, 1>(const uint16_t* prvp, const uint16_t* curp,
+  int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
+template void calcDiff_SADorSSD_Generic_c<uint16_t, true, 1>(const uint16_t* prvp, const uint16_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 
 

@@ -84,8 +84,8 @@ void calcDiffSSD_Generic_SSE2(const uint8_t *ptr1, const uint8_t *ptr2,
 void calcDiffSAD_Generic_SSE2(const uint8_t *ptr1, const uint8_t *ptr2,
   int pitch1, int pitch2, int width, int height, int plane, int xblocks4, uint64_t *diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, const VideoInfo& vi);
 
-template<bool SAD, int inc>
-void calcDiff_SADorSSD_Generic_c(const uint8_t* prvp, const uint8_t* curp,
+template<typename pixel_t, bool SAD, int inc>
+void calcDiff_SADorSSD_Generic_c(const pixel_t* prvp, const pixel_t* curp,
   int prv_pitch, int cur_pitch, int width, int height, int plane, int xblocks4, uint64_t* diff, bool chroma, int xshiftS, int yshiftS, int xhalfS, int yhalfS, int nt, const VideoInfo& vi);
 
 void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFrame& currt, CalcMetricData& d);
