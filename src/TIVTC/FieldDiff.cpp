@@ -186,7 +186,7 @@ int64_t FieldDiff::getDiff_SADorSSE(PVideoFrame &src, const VideoInfo &vi, bool 
   if constexpr (SAD)
     bit_shift = (bits_per_pixel - 8); // SAD
   else
-    bit_shift = (bits_per_pixel - 8)* (bits_per_pixel - 8); // SSE
+    bit_shift = 2 * (bits_per_pixel - 8); // SSE
   const int diffline_rounder = 1 << (bit_shift - 1);
 
 
@@ -361,7 +361,7 @@ static void calcFieldDiff_SSEorSSD_uint16_SSE4_simd_8(const uint8_t *srcp_pp, pt
   if constexpr (!ssd_mode)
     bit_shift = (bits_per_pixel - 8); // SAD
   else
-    bit_shift = (bits_per_pixel - 8) * (bits_per_pixel - 8); // SSE
+    bit_shift = 2 * (bits_per_pixel - 8); // SSE
   const int diffline_rounder = 1 << (bit_shift - 1);
   const auto rounder = _mm_set1_epi64x(diffline_rounder);
 

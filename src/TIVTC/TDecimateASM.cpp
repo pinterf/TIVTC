@@ -1631,7 +1631,7 @@ void calcDiff_SADorSSD_Generic_c(const pixel_t* prvp, const pixel_t* curp,
   const pixel_t* prvpT, * curpT;
 
   const int bits_per_pixel = vi.BitsPerComponent();
-  const int shift_count = SAD ? (bits_per_pixel - 8) : (bits_per_pixel - 8) * (bits_per_pixel - 8);
+  const int shift_count = SAD ? (bits_per_pixel - 8) : 2 * (bits_per_pixel - 8);
 
   if (!vi.IsYUY2())
   {
