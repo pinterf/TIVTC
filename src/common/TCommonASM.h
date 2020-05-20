@@ -116,4 +116,7 @@ void blend_5050_SSE2(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, 
 template<typename pixel_t>
 void blend_5050_c(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
 
+template<int planarType>
+void do_FillCombedPlanarUpdateCmaskByUV(uint8_t* cmkp, uint8_t* cmkpU, uint8_t* cmkpV, int Width, int Height, ptrdiff_t cmk_pitch, ptrdiff_t cmk_pitchUV);
+
 #endif // __TCOMMONASM_H__

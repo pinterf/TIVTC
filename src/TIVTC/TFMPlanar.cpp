@@ -28,84 +28,20 @@
 #include "TCommonASM.h"
 #include <algorithm>
 
-// used by isCombedTIVTC as well
-// mask only, no hbd needed
+
 template<int planarType>
 void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask)
 {
   uint8_t* cmkp = cmask->GetPtr(0);
   uint8_t* cmkpU = cmask->GetPtr(1);
   uint8_t* cmkpV = cmask->GetPtr(2);
-  const int Width = cmask->GetWidth(2);
+  const int Width = cmask->GetWidth(2); // chroma!
   const int Height = cmask->GetHeight(2);
   const int cmk_pitch = cmask->GetPitch(0);
   const int cmk_pitchUV = cmask->GetPitch(2);
-
-  // 420 only
-  uint8_t* cmkpn = cmkp + cmk_pitch;
-  uint8_t* cmkpp = cmkp - cmk_pitch;
-  uint8_t* cmkpnn = cmkpn + cmk_pitch;
-
-  uint8_t* cmkppU = cmkpU - cmk_pitchUV;
-  uint8_t* cmkpnU = cmkpU + cmk_pitchUV;
-
-  uint8_t* cmkppV = cmkpV - cmk_pitchUV;
-  uint8_t* cmkpnV = cmkpV + cmk_pitchUV;
-  for (int y = 1; y < Height - 1; ++y)
-  {
-    if (planarType == 420) {
-      cmkp += cmk_pitch * 2;
-      cmkpn += cmk_pitch * 2;
-      cmkpp += cmk_pitch * 2;
-      cmkpnn += cmk_pitch * 2;
-    }
-    else {
-      cmkp += cmk_pitch;
-    }
-    cmkppV += cmk_pitchUV;
-    cmkpV += cmk_pitchUV;
-    cmkpnV += cmk_pitchUV;
-    cmkppU += cmk_pitchUV;
-    cmkpU += cmk_pitchUV;
-    cmkpnU += cmk_pitchUV;
-    for (int x = 1; x < Width - 1; ++x)
-    {
-      if (
-        (cmkpV[x] == 0xFF &&
-          (cmkpV[x - 1] == 0xFF || cmkpV[x + 1] == 0xFF ||
-            cmkppV[x - 1] == 0xFF || cmkppV[x] == 0xFF || cmkppV[x + 1] == 0xFF ||
-            cmkpnV[x - 1] == 0xFF || cmkpnV[x] == 0xFF || cmkpnV[x + 1] == 0xFF
-            )
-          ) ||
-        (cmkpU[x] == 0xFF &&
-          (cmkpU[x - 1] == 0xFF || cmkpU[x + 1] == 0xFF ||
-            cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
-            cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF
-            )
-          )
-        )
-      {
-        if (planarType == 420) {
-          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
-          ((uint16_t*)cmkpn)[x] = (uint16_t)0xFFFF;
-          if (y & 1)
-            ((uint16_t*)cmkpp)[x] = (uint16_t)0xFFFF;
-          else
-            ((uint16_t*)cmkpnn)[x] = (uint16_t)0xFFFF;
-        }
-        else if (planarType == 422) {
-          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
-        }
-        else if (planarType == 444) {
-          cmkp[x] = 0xFF;
-        }
-        else if (planarType == 411) {
-          ((uint32_t*)cmkp)[x] = (uint32_t)0xFFFFFFFF;
-        }
-      }
-    }
-  }
+  do_FillCombedPlanarUpdateCmaskByUV<planarType>(cmkp, cmkpU, cmkpV, Width, Height, cmk_pitch, cmk_pitchUV);
 }
+
 // templatize
 template void FillCombedPlanarUpdateCmaskByUV<411>(PlanarFrame* cmask);
 template void FillCombedPlanarUpdateCmaskByUV<420>(PlanarFrame* cmask);
@@ -126,6 +62,9 @@ void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame& src, int& MICount,
 bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
   int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh)
 {
+  typedef uint8_t pixel_t; // until high bit depth
+  typedef typename std::conditional<sizeof(pixel_t) == 1, int, int64_t> ::type safeint_t;
+
   if (mics[match] != -20)
   {
     if (mics[match] > MI)
@@ -146,6 +85,10 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     }
     return false;
   }
+
+  // fixme: put here template<typename pixel_t> from TDeinterlacePlanar
+  // static void do_checkCombedPlanar<pixel_t>(PVideoFrame & src, int& MIC, int bits_per_pixel, bool chroma, int cthresh, PVideoFrame & cmask, int cpuFlags, const VideoInfo & vi_saved, int metric, IScriptEnvironment * env)
+  // difference: cmask is here PlanarFrame, in TDeinterlace: PVideoFrame
 
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
@@ -262,29 +205,24 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
       srcpn += src_pitch;
       cmkp += cmk_pitch;
       // middle
+      const int lines_to_process = Height - 2;
       if (use_sse2)
       {
-        check_combing_SSE2_Metric1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
-        srcpp += src_pitch * (Height - 2);
-        srcp += src_pitch * (Height - 2);
-        srcpn += src_pitch * (Height - 2);
-        cmkp += cmk_pitch * (Height - 2);
+        if constexpr (sizeof(pixel_t) == 1)
+          check_combing_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
+        else
+          check_combing_c_Metric1<pixel_t, false, safeint_t>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
+        // fixme: write SIMD? later. int64 inside.
+        // check_combing_uint16_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
       }
       else
       {
-        for (int y = 1; y < Height - 1; ++y)
-        {
-          for (int x = 0; x < Width; ++x)
-          {
-            if ((srcp[x] - srcpp[x])*(srcp[x] - srcpn[x]) > cthreshsq)
-              cmkp[x] = 0xFF;
-          }
-          srcpp += src_pitch;
-          srcp += src_pitch;
-          srcpn += src_pitch;
-          cmkp += cmk_pitch;
-        }
+        check_combing_c_Metric1<pixel_t, false, safeint_t>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
       }
+      srcpp += src_pitch * lines_to_process;
+      srcp += src_pitch * lines_to_process;
+      srcpn += src_pitch * lines_to_process;
+      cmkp += cmk_pitch * lines_to_process;
       // bottom
       for (int x = 0; x < Width; ++x)
       {

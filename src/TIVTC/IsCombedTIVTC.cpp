@@ -140,10 +140,7 @@ ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _
   if (!cArray)
     env->ThrowError("ShowCombedTIVTC:  malloc failure (cArray)!");
 
-  long cpu = env->GetCPUFlags();
-  if (opt == 0) cpu = 0;
-
-  cmask = new PlanarFrame(vi, true, cpu);
+  cmask = new PlanarFrame(vi, true, cpuFlags);
   if (vi.IsYUY2())
   {
     xhalf *= 2;

@@ -647,7 +647,10 @@ cjump:
           cmkp[x - 3] == 0xFF || cmkp[x + 5] == 0xFF || cmkpn[x - 3] == 0xFF || cmkpn[x + 1] == 0xFF ||
           cmkpn[x + 5] == 0xFF)) || (cmkp[x + 3] == 0xFF && (cmkpp[x - 1] == 0xFF || cmkpp[x + 3] == 0xFF ||
             cmkpp[x + 7] == 0xFF || cmkp[x - 1] == 0xFF || cmkp[x + 7] == 0xFF || cmkpn[x - 1] == 0xFF ||
-            cmkpn[x + 3] == 0xFF || cmkpn[x + 7] == 0xFF))) cmkp[x] = cmkp[x + 2] = 0xFF;
+            cmkpn[x + 3] == 0xFF || cmkpn[x + 7] == 0xFF)))
+        {
+          cmkp[x] = cmkp[x + 2] = 0xFF;
+        }
       }
       cmkpp += cmk_pitch;
       cmkp += cmk_pitch;

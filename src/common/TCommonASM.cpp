@@ -437,9 +437,6 @@ void AnalyzeDiffMask_Planar(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer8, int
   const pixel_t* dpn = tbuffer + tpitch * 2;
   const pixel_t* dpnn = tbuffer + tpitch * 3;
 
-  const int Const3 = 3 << (bits_per_pixel - 8);
-  const int Const19 = 19 << (bits_per_pixel - 8);
-
   for (int y = 2; y < Height - 2; y += 2) {
     for (int x = 1; x < Width - 1; x++) {
       AnalyzeOnePixel<pixel_t, bits_per_pixel, 1>(dstp, dppp, dpp, dp, dpn, dpnn, x, y, Width, Height);
@@ -468,7 +465,6 @@ void AnalyzeDiffMask_YUY2(uint8_t* dstp, int dst_pitch, uint8_t* tbuffer, int tp
   const uint8_t* dp = tbuffer + tpitch;
   const uint8_t* dpn = tbuffer + tpitch * 2;
   const uint8_t* dpnn = tbuffer + tpitch * 3;
-  int count;
   // reconstructed from inline 700+ lines asm by pinterf
 
   if (mChroma) // TFM YUY2's mChroma bool parameter
@@ -1305,4 +1301,79 @@ void blend_5050_c(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int
 template void blend_5050_c<uint8_t>(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
 template void blend_5050_c<uint16_t>(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);
 
+// like HandleChromaCombing in TDeinterlace
+// used by isCombedTIVTC as well
+// mask only, no hbd needed
+template<int planarType>
+void do_FillCombedPlanarUpdateCmaskByUV(uint8_t* cmkp, uint8_t* cmkpU, uint8_t* cmkpV, int Width, int Height, ptrdiff_t cmk_pitch, ptrdiff_t cmk_pitchUV)
+{
+  // 420 only
+  uint8_t* cmkpn = cmkp + cmk_pitch;
+  uint8_t* cmkpp = cmkp - cmk_pitch;
+  uint8_t* cmkpnn = cmkpn + cmk_pitch;
 
+  uint8_t* cmkppU = cmkpU - cmk_pitchUV;
+  uint8_t* cmkpnU = cmkpU + cmk_pitchUV;
+
+  uint8_t* cmkppV = cmkpV - cmk_pitchUV;
+  uint8_t* cmkpnV = cmkpV + cmk_pitchUV;
+  for (int y = 1; y < Height - 1; ++y)
+  {
+    if (planarType == 420) {
+      cmkp += cmk_pitch * 2;
+      cmkpn += cmk_pitch * 2;
+      cmkpp += cmk_pitch * 2;
+      cmkpnn += cmk_pitch * 2;
+    }
+    else {
+      cmkp += cmk_pitch;
+    }
+    cmkppV += cmk_pitchUV;
+    cmkpV += cmk_pitchUV;
+    cmkpnV += cmk_pitchUV;
+    cmkppU += cmk_pitchUV;
+    cmkpU += cmk_pitchUV;
+    cmkpnU += cmk_pitchUV;
+    for (int x = 1; x < Width - 1; ++x)
+    {
+      if (
+        (cmkpV[x] == 0xFF &&
+          (cmkpV[x - 1] == 0xFF || cmkpV[x + 1] == 0xFF ||
+            cmkppV[x - 1] == 0xFF || cmkppV[x] == 0xFF || cmkppV[x + 1] == 0xFF ||
+            cmkpnV[x - 1] == 0xFF || cmkpnV[x] == 0xFF || cmkpnV[x + 1] == 0xFF
+            )
+          ) ||
+        (cmkpU[x] == 0xFF &&
+          (cmkpU[x - 1] == 0xFF || cmkpU[x + 1] == 0xFF ||
+            cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
+            cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF
+            )
+          )
+        )
+      {
+        if (planarType == 420) {
+          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
+          ((uint16_t*)cmkpn)[x] = (uint16_t)0xFFFF;
+          if (y & 1)
+            ((uint16_t*)cmkpp)[x] = (uint16_t)0xFFFF;
+          else
+            ((uint16_t*)cmkpnn)[x] = (uint16_t)0xFFFF;
+        }
+        else if (planarType == 422) {
+          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
+        }
+        else if (planarType == 444) {
+          cmkp[x] = 0xFF;
+        }
+        else if (planarType == 411) {
+          ((uint32_t*)cmkp)[x] = (uint32_t)0xFFFFFFFF;
+        }
+      }
+    }
+  }
+}
+
+template void do_FillCombedPlanarUpdateCmaskByUV<411>(uint8_t* cmkp, uint8_t* cmkpU, uint8_t* cmkpV, int Width, int Height, ptrdiff_t cmk_pitch, ptrdiff_t cmk_pitchUV);
+template void do_FillCombedPlanarUpdateCmaskByUV<420>(uint8_t* cmkp, uint8_t* cmkpU, uint8_t* cmkpV, int Width, int Height, ptrdiff_t cmk_pitch, ptrdiff_t cmk_pitchUV);
+template void do_FillCombedPlanarUpdateCmaskByUV<422>(uint8_t* cmkp, uint8_t* cmkpU, uint8_t* cmkpV, int Width, int Height, ptrdiff_t cmk_pitch, ptrdiff_t cmk_pitchUV);
+template void do_FillCombedPlanarUpdateCmaskByUV<444>(uint8_t* cmkp, uint8_t* cmkpU, uint8_t* cmkpV, int Width, int Height, ptrdiff_t cmk_pitch, ptrdiff_t cmk_pitchUV);

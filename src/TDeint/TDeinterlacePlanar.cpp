@@ -1100,73 +1100,18 @@ void TDeinterlace::denoisePlanar(PVideoFrame &mask)
   }
 }
 
-// mask only no need HBD
+// similar in tfm but with PlanarFrame
 template<int planarType>
-static void HandleChromaCombing(PVideoFrame& cmask) {
+void FillCombedPlanarUpdateCmaskByUV(PVideoFrame& cmask)
+{
   uint8_t* cmkp = cmask->GetWritePtr(PLANAR_Y);
   uint8_t* cmkpU = cmask->GetWritePtr(PLANAR_U);
   uint8_t* cmkpV = cmask->GetWritePtr(PLANAR_V);
-  const int Width = cmask->GetRowSize(PLANAR_V);
+  const int Width = cmask->GetRowSize(PLANAR_V); // chroma!
   const int Height = cmask->GetHeight(PLANAR_V);
-  const int cmk_pitch = cmask->GetPitch(PLANAR_Y) << 1;
-  const int cmk_pitchUV = cmask->GetPitch(PLANAR_V);
-  uint8_t* cmkpp = cmkp - (cmk_pitch >> 1);
-  uint8_t* cmkpn = cmkp + (cmk_pitch >> 1);
-  uint8_t* cmkpnn = cmkpn + (cmk_pitch >> 1);
-  uint8_t* cmkppU = cmkpU - cmk_pitchUV;
-  uint8_t* cmkpnU = cmkpU + cmk_pitchUV;
-  uint8_t* cmkppV = cmkpV - cmk_pitchUV;
-  uint8_t* cmkpnV = cmkpV + cmk_pitchUV;
-
-  for (int y = 1; y < Height - 1; ++y)
-  {
-    cmkpp += cmk_pitch;
-    cmkp += cmk_pitch;
-    cmkpn += cmk_pitch;
-    cmkpnn += cmk_pitch;
-    
-    cmkppV += cmk_pitchUV;
-    cmkpV += cmk_pitchUV;
-    cmkpnV += cmk_pitchUV;
-
-    cmkppU += cmk_pitchUV;
-    cmkpU += cmk_pitchUV;
-    cmkpnU += cmk_pitchUV;
-    for (int x = 1; x < Width - 1; ++x)
-    {
-      if ((cmkpV[x] == 0xFF && (cmkpV[x - 1] == 0xFF || cmkpV[x + 1] == 0xFF ||
-        cmkppV[x - 1] == 0xFF || cmkppV[x] == 0xFF || cmkppV[x + 1] == 0xFF ||
-        cmkpnV[x - 1] == 0xFF || cmkpnV[x] == 0xFF || cmkpnV[x + 1] == 0xFF)) ||
-        (cmkpU[x] == 0xFF && (cmkpU[x - 1] == 0xFF || cmkpU[x + 1] == 0xFF ||
-          cmkppU[x - 1] == 0xFF || cmkppU[x] == 0xFF || cmkppU[x + 1] == 0xFF ||
-          cmkpnU[x - 1] == 0xFF || cmkpnU[x] == 0xFF || cmkpnU[x + 1] == 0xFF)))
-      {
-        if constexpr(planarType == 420) {
-          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
-          ((uint16_t*)cmkpn)[x] = (uint16_t)0xFFFF;
-          if (y & 1) 
-            ((uint16_t*)cmkpp)[x] = (uint16_t)0xFFFF;
-          else
-            ((uint16_t*)cmkpnn)[x] = (uint16_t)0xFFFF;
-        }
-        else if constexpr (planarType == 422) {
-          ((uint16_t*)cmkp)[x] = (uint16_t)0xFFFF;
-          ((uint16_t*)cmkpn)[x] = (uint16_t)0xFFFF;
-          ((uint16_t*)cmkpp)[x] = (uint16_t)0xFFFF;
-        }
-        else if constexpr (planarType == 444) {
-          cmkp[x] = 0xFF;
-          cmkpn[x] = 0xFF;
-          cmkpp[x] = 0xFF;
-        }
-        else if constexpr (planarType == 411) {
-          ((uint32_t*)cmkp)[x] = (uint32_t)0xFFFFFFFF;
-          ((uint32_t*)cmkpn)[x] = (uint32_t)0xFFFFFFFF;
-          ((uint32_t*)cmkpp)[x] = (uint32_t)0xFFFFFFFF;
-        }
-      }
-    }
-  }
+  const ptrdiff_t cmk_pitch = cmask->GetPitch(PLANAR_Y);
+  const ptrdiff_t cmk_pitchUV = cmask->GetPitch(PLANAR_V);
+  do_FillCombedPlanarUpdateCmaskByUV<planarType>(cmkp, cmkpU, cmkpV, Width, Height, cmk_pitch, cmk_pitchUV);
 }
 
 bool TDeinterlace::dispatch_checkCombedPlanar(PVideoFrame& src, int& MIC, const VideoInfo &vi, bool chroma, int cthresh, IScriptEnvironment* env)
@@ -1183,10 +1128,10 @@ bool TDeinterlace::dispatch_checkCombedPlanar(PVideoFrame& src, int& MIC, const 
 }
 
 template<typename pixel_t>
-bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pixel, bool chroma, int cthresh, IScriptEnvironment *env)
+static void do_checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pixel, bool chroma, int cthresh, 
+  PVideoFrame &cmask,
+  int cpuFlags, const VideoInfo &vi_saved, int metric, IScriptEnvironment *env)
 {
-  PVideoFrame cmask = env->NewVideoFrame(vi_mask);
-  
   const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
   const bool use_sse4 = (cpuFlags & CPUF_SSE4_1) ? true : false;
   // cthresh: Area combing threshold used for combed frame detection.
@@ -1200,7 +1145,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
   const int cthresh6 = scaled_cthresh * 6;
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+  const int np = vi_saved.IsYUY2() || vi_saved.IsY() ? 1 : 3;
   const int stop = chroma ? np : 1;
   for (int b = 0; b < stop; ++b)
   {
@@ -1348,37 +1293,50 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
   // Includes chroma combing in the decision about whether a frame is combed.
   if (chroma)
   {
-    if (vi_saved.Is420()) HandleChromaCombing<420>(cmask);
-    else if (vi_saved.Is422()) HandleChromaCombing<422>(cmask);
-    else if (vi_saved.Is444()) HandleChromaCombing<444>(cmask);
-    else if (vi_saved.IsYV411()) HandleChromaCombing<411>(cmask);
+    if (vi_saved.Is420()) FillCombedPlanarUpdateCmaskByUV<420>(cmask);
+    else if (vi_saved.Is422()) FillCombedPlanarUpdateCmaskByUV<422>(cmask);
+    else if (vi_saved.Is444()) FillCombedPlanarUpdateCmaskByUV<444>(cmask);
+    else if (vi_saved.IsYV411()) FillCombedPlanarUpdateCmaskByUV<411>(cmask);
   }
   // end of chroma handling
+
+}
+
+template<typename pixel_t>
+bool TDeinterlace::checkCombedPlanar(PVideoFrame& src, int& MIC, int bits_per_pixel, bool chroma, int cthresh, IScriptEnvironment* env)
+{
+  PVideoFrame cmask = env->NewVideoFrame(vi_mask);
+
+  do_checkCombedPlanar<pixel_t>(src, MIC, bits_per_pixel, chroma, cthresh, cmask, cpuFlags, vi_saved, metric, env);
 
   // from now on, only mask is used, no hbd stuff here
 
   const int cmk_pitch = cmask->GetPitch(PLANAR_Y);
-  const uint8_t *cmkp = cmask->GetReadPtr(PLANAR_Y) + cmk_pitch;
-  const uint8_t *cmkpp = cmkp - cmk_pitch;
-  const uint8_t *cmkpn = cmkp + cmk_pitch;
+  const uint8_t* cmkp = cmask->GetReadPtr(PLANAR_Y) + cmk_pitch;
   const int Width = cmask->GetRowSize(PLANAR_Y);
   const int Height = cmask->GetHeight(PLANAR_Y);
+
+  const uint8_t* cmkpp = cmkp - cmk_pitch;
+  const uint8_t* cmkpn = cmkp + cmk_pitch;
+
   const int xblocks = ((Width + blockx_half) >> blockx_shift) + 1;
   const int xblocks4 = xblocks << 2;
   const int yblocks = ((Height + blocky_half) >> blocky_shift) + 1;
-  const int arraysize = (xblocks*yblocks) << 2;
+  const int arraysize = (xblocks * yblocks) << 2;
   memset(cArray, 0, arraysize * sizeof(int));
   int Heighta = (Height >> (blocky_shift - 1)) << (blocky_shift - 1);
   if (Heighta == Height) Heighta = Height - blocky_half;
   const int Widtha = (Width >> (blockx_shift - 1)) << (blockx_shift - 1);
+
+  const bool use_sse2 = cpuFlags & CPUF_SSE2;
   // quick case for 8x8 base
   const bool use_sse2_8x8_sum = (use_sse2 && blockx_half == 8 && blocky_half == 8) ? true : false;
-  
+
   // top y block
   for (int y = 1; y < blocky_half; ++y)
   {
-    const int temp1 = (y >> blocky_shift)*xblocks4;
-    const int temp2 = ((y + blocky_half) >> blocky_shift)*xblocks4;
+    const int temp1 = (y >> blocky_shift) * xblocks4;
+    const int temp2 = ((y + blocky_half) >> blocky_shift) * xblocks4;
     for (int x = 0; x < Width; ++x)
     {
       if (cmkpp[x] == 0xFF && cmkp[x] == 0xFF && cmkpn[x] == 0xFF)
@@ -1398,8 +1356,8 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
   // middle y blocks
   for (int y = blocky_half; y < Heighta; y += blocky_half)
   {
-    const int temp1 = (y >> blocky_shift)*xblocks4;
-    const int temp2 = ((y + blocky_half) >> blocky_shift)*xblocks4;
+    const int temp1 = (y >> blocky_shift) * xblocks4;
+    const int temp2 = ((y + blocky_half) >> blocky_shift) * xblocks4;
     // fixme: do it probably for other block sizes than 8x8 and dispatch earlier
     if (use_sse2_8x8_sum)
     {
@@ -1425,9 +1383,9 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
       {
         int sum = 0;
         // fixme: put into compute_sum_8xN_C
-        const uint8_t *cmkppT = cmkpp;
-        const uint8_t *cmkpT = cmkp;
-        const uint8_t *cmkpnT = cmkpn;
+        const uint8_t* cmkppT = cmkpp;
+        const uint8_t* cmkpT = cmkp;
+        const uint8_t* cmkpnT = cmkpn;
         for (int u = 0; u < blocky_half; ++u)
         {
           for (int v = 0; v < blockx_half; ++v)
@@ -1453,9 +1411,9 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
     // rest on the right
     for (int x = Widtha; x < Width; ++x)
     {
-      const uint8_t *cmkppT = cmkpp;
-      const uint8_t *cmkpT = cmkp;
-      const uint8_t *cmkpnT = cmkpn;
+      const uint8_t* cmkppT = cmkpp;
+      const uint8_t* cmkpT = cmkp;
+      const uint8_t* cmkpnT = cmkpn;
       int sum = 0;
       for (int u = 0; u < blocky_half; ++u)
       {
@@ -1475,15 +1433,15 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
         cArray[temp2 + box2 + 3] += sum;
       }
     }
-    cmkpp += cmk_pitch*blocky_half;
-    cmkp += cmk_pitch*blocky_half;
-    cmkpn += cmk_pitch*blocky_half;
+    cmkpp += cmk_pitch * blocky_half;
+    cmkp += cmk_pitch * blocky_half;
+    cmkpn += cmk_pitch * blocky_half;
   }
   // rest non-whole blocky at the bottom
   for (int y = Heighta; y < Height - 1; ++y)
   {
-    const int temp1 = (y >> blocky_shift)*xblocks4;
-    const int temp2 = ((y + blocky_half) >> blocky_shift)*xblocks4;
+    const int temp1 = (y >> blocky_shift) * xblocks4;
+    const int temp2 = ((y + blocky_half) >> blocky_shift) * xblocks4;
     for (int x = 0; x < Width; ++x)
     {
       if (cmkpp[x] == 0xFF && cmkp[x] == 0xFF && cmkpn[x] == 0xFF)
@@ -1517,7 +1475,9 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pi
 
   if (MIC > MI) return true;
   return false;
+
 }
+
 
 template<typename pixel_t>
 void TDeinterlace::buildDiffMapPlane2(const uint8_t* prvp, const uint8_t* nxtp,
