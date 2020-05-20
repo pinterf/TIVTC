@@ -26,6 +26,7 @@
 #include "FrameDiff.h"
 #include <inttypes.h>
 #include <algorithm>
+#include "info.h"
 
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
   bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise, bool _ssd,
@@ -40,8 +41,8 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
   cpuFlags = env->GetCPUFlags();
   if (opt == 0) cpuFlags = 0;
 
-  if (vi.BitsPerComponent() != 8)
-    env->ThrowError("FrameDiff:  Only 8 bit clip data supported!");
+  if (vi.BitsPerComponent() > 16)
+    env->ThrowError("FrameDiff:  Only 8-16 bit clip data supported!");
   if (vi.IsRGB())
     env->ThrowError("FrameDiff:  RGB data not supported!");
   if (vi.height & 1)
@@ -71,10 +72,6 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
   blocky_half = blocky >> 1;
   blockx_half = blockx >> 1;
 
-  /*
-  const int blockxC = vi.IsYUY2() ? blocky >> 1 : blocky >> vi.GetPlaneHeightSubsampling(PLANAR_U); // fixme: yv12 specific?
-  const int blockYC = vi.IsYUY2() ? blockx >> 1 : blockx >> vi.GetPlaneWidthSubsampling(PLANAR_U); // fixme: vy12/yuy2 specific?
-  */
   if (!vi.IsYUY2())
   {
     if (chroma) // Y + U + V
@@ -82,7 +79,6 @@ FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx,
       // fixme: common metrics, like in mvtools? 4:2:2 has greater chroma weight!
       // keep xhalfS and yhalfS if YV16/24 ssd/sad is converted to YV12-like metrics
       // or else use blockXC and blockYC
-      
       // Y: 219 = 235-15
       // UV: 224 = 240-16
       const int blockx_chroma = blockx >> vi.GetPlaneWidthSubsampling(PLANAR_U);
@@ -278,9 +274,9 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
       lpos = getCoord(x, xblocks * 4);
     }
     if ((display == 2 || display == 4) && mode == 0 && difft <= threshU)
-      fillBox(src, x, xblocks4, display == 2 ? true : false);
+      fillBox(src, blockx, blocky, x, xblocks4, display == 2 ? true : false, vi);
     else if ((display == 2 || display == 4) && mode == 1 && difft >= threshU)
-      fillBox(src, x, xblocks4, display == 2 ? true : false);
+      fillBox(src, blockx, blocky, x, xblocks4, display == 2 ? true : false, vi);
   }
 
   if (display > 0 && display < 3)
@@ -312,13 +308,13 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
   }
   if (display == 1)
   {
-    if (mode == 0) drawBox(src, blockL, xblocks4, vi);
-    else drawBox(src, blockH, xblocks4, vi);
+    if (mode == 0) drawBox(src, blockx, blocky, blockL, xblocks4, vi);
+    else drawBox(src, blockx, blocky, blockH, xblocks4, vi);
   }
   else if (display == 3)
   {
-    if (mode == 0) fillBox(src, blockL, xblocks4, false);
-    else fillBox(src, blockH, xblocks4, false);
+    if (mode == 0) fillBox(src, blockx, blocky, blockL, xblocks4, false, vi);
+    else fillBox(src, blockx, blocky, blockH, xblocks4, false, vi);
   }
   if (debug)
   {
@@ -458,21 +454,22 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
 
+  const int pixelsize = d.vi.ComponentSize(); 
+
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
     prvp = prev->GetReadPtr(plane);
-    prv_pitch = prev->GetPitch(plane);
-    width = prev->GetRowSize(plane);
+    prv_pitch = prev->GetPitch(plane) / pixelsize;
+    width = prev->GetRowSize(plane) / pixelsize;
     height = prev->GetHeight(plane);
     curp = curr->GetReadPtr(plane);
-    cur_pitch = curr->GetPitch(plane);
+    cur_pitch = curr->GetPitch(plane) / pixelsize;
 
-    // fixme: correct chroma diff for yv16 and yv24 to the yv12 metrics (div by 2 for yv16, div by 4 for yv24)?
-    // or use Chromaweight correction factor like in mvtools2
     // sum is gathered in uint64_t diff
+    // diff[] entries are normalized back to 8 bit
 
-    if (d.blockx == 32 && d.blocky == 32 && d.nt <= 0)
+    if (pixelsize == 1 && d.blockx == 32 && d.blocky == 32 && d.nt <= 0)
     {
       if (d.ssd && use_sse2)
         calcDiffSSD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.vi);
@@ -480,7 +477,7 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
         calcDiffSAD_32x32_SSE2(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.vi);
       else { goto use_c; }
     }
-    else if (((!IsYUY2 && d.blockx >= 16 && d.blocky >= 16) || (IsYUY2 && d.blockx >= 8 && d.blocky >= 8)) && d.nt <= 0)
+    else if (pixelsize == 1 && ((!IsYUY2 && d.blockx >= 16 && d.blocky >= 16) || (IsYUY2 && d.blockx >= 8 && d.blocky >= 8)) && d.nt <= 0)
     {
       // YUY2 block size 8 is really 16 in width because luma + chroma
       if (d.ssd && use_sse2)
@@ -491,20 +488,34 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
     }
     else
     {
+      // fixme: have calcDiffSSD uint16_t to SIMD.
     use_c:
-      if (!d.ssd) {
-        // SAD
-        if (inc == 2) // YUY2 luma only
-          calcDiff_SADorSSD_Generic_c<true, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
-        else
-          calcDiff_SADorSSD_Generic_c<true, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+      if (pixelsize == 1) {
+        if (!d.ssd) {
+          // SAD
+          if (inc == 2) // YUY2 luma only
+            calcDiff_SADorSSD_Generic_c<uint8_t, true, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+          else
+            calcDiff_SADorSSD_Generic_c<uint8_t, true, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+        }
+        else {
+          // SSD
+          if (inc == 2) // YUY2 luma only
+            calcDiff_SADorSSD_Generic_c<uint8_t, false, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+          else
+            calcDiff_SADorSSD_Generic_c<uint8_t, false, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+        }
       }
       else {
-        // SSD
-        if (inc == 2) // YUY2 luma only
-          calcDiff_SADorSSD_Generic_c<false, 2>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
-        else
-          calcDiff_SADorSSD_Generic_c<false, 1>(prvp, curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+        // pixelsize == 2, 10-16 bits
+        if (!d.ssd) {
+          // SAD
+          calcDiff_SADorSSD_Generic_c<uint16_t, true, 1>((const uint16_t *)prvp, (const uint16_t*)curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+        }
+        else {
+          // SSD
+          calcDiff_SADorSSD_Generic_c<uint16_t, false, 1>((const uint16_t*)prvp, (const uint16_t*)curp, prv_pitch, cur_pitch, width, height, plane, xblocks4, d.diff, d.chroma, d.blockx_shift, d.blocky_shift, d.blockx_half, d.blocky_half, d.nt, d.vi);
+        }
       }
     }
 
@@ -520,8 +531,7 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
           {
             for (int x = 0; x < arraysize; x += 4)
               *d.metricF += d.diff[x]; 
-            // fixme: future hbd, if diff is for 10+ bit source, does it overflow? 
-            // or have to normalize here, to be decided
+            // d.diff entries are normalized back to 8 bit video world, done inside calcDiff_SADorSSD_Generic_c
           }
           else
           {
@@ -539,16 +549,17 @@ void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFra
   }
 }
 
-void FrameDiff::fillBox(PVideoFrame &dst, int blockN, int xblocks, bool dot)
+#if 0
+void fillBox(PVideoFrame &dst, int blockx, int blocky, int blockN, int xblocks, bool dot, const VideoInfo &vi)
 {
-  if (vi.IsPlanar()) return fillBoxPlanar(dst, blockN, xblocks, dot);
-  else return fillBoxYUY2(dst, blockN, xblocks, dot);
+  if (vi.IsPlanar()) return fillBoxPlanar(dst, blockx, blocky, blockN, xblocks, dot, vi);
+  else return fillBoxYUY2(dst, blockx, blocky, blockN, xblocks, dot);
 }
 
-void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot)
+void fillBoxYUY2(PVideoFrame &dst, int blockx, int blocky, int blockN, int xblocks, bool dot)
 {
   uint8_t *dstp = dst->GetWritePtr();
-  int pitch = dst->GetPitch();
+  ptrdiff_t pitch = dst->GetPitch();
   int width = dst->GetRowSize();
   int height = dst->GetHeight();
   int cordy, cordx, x, y, temp, xlim, ylim;
@@ -593,62 +604,97 @@ void FrameDiff::fillBoxYUY2(PVideoFrame &dst, int blockN, int xblocks, bool dot)
   }
 }
 
-void FrameDiff::fillBoxPlanar(PVideoFrame &dst, int blockN, int xblocks, bool dot)
+void fillBoxPlanar(PVideoFrame& dst, int blockx, int blocky, int blockN, int xblocks, bool dot, const VideoInfo& vi)
 {
-  uint8_t *dstp = dst->GetWritePtr(PLANAR_Y);
-  int width = dst->GetRowSize(PLANAR_Y);
-  int height = dst->GetHeight(PLANAR_Y);
-  int pitch = dst->GetPitch(PLANAR_Y);
-  int cordy, cordx, x, y, temp, xlim, ylim;
+  const int pixelsize = vi.ComponentSize();
+
+  uint8_t* dstp = dst->GetWritePtr(PLANAR_Y);
+  const int width = dst->GetRowSize(PLANAR_Y) / pixelsize;
+  const int height = dst->GetHeight(PLANAR_Y);
+  ptrdiff_t pitch = dst->GetPitch(PLANAR_Y);
+  
+  int cordy, cordx, xlim, ylim;
+
   cordy = blockN / xblocks;
-  cordx = blockN - (cordy*xblocks);
-  temp = cordx % 4;
+  cordx = blockN - (cordy * xblocks);
+
+  int temp = cordx % 4;
   cordx = (cordx >> 2);
   cordy *= blocky;
   cordx *= blockx;
+
   if (temp == 1) cordx -= (blockx >> 1);
   else if (temp == 2) cordy -= (blocky >> 1);
   else if (temp == 3) { cordx -= (blockx >> 1); cordy -= (blocky >> 1); }
+
   xlim = cordx + blockx;
   ylim = cordy + blocky;
+
   int ymid = std::max(std::min(cordy + ((ylim - cordy) >> 1), height - 1), 0);
   int xmid = std::max(std::min(cordx + ((xlim - cordx) >> 1), width - 1), 0);
   if (xlim > width) xlim = width;
   if (ylim > height) ylim = height;
   cordy = std::max(cordy, 0);
   cordx = std::max(cordx, 0);
-  dstp = dstp + cordy*pitch;
-  for (y = cordy; y < ylim; ++y)
-  {
-    for (x = cordx; x < xlim; ++x)
+  dstp = dstp + cordy * pitch;
+
+  const int bits_per_pixel = vi.BitsPerComponent();
+
+  if (bits_per_pixel == 8) {
+    for (int y = cordy; y < ylim; ++y)
     {
-      if (y == ymid && x == xmid && dot) dstp[x] = 0;
-      else if (!(dstp[x] == 0 &&
-        (x == width - 1 || dstp[x + 1] == 255) &&
-        (x == 0 || dstp[x - 1] == 255) &&
-        (y == height - 1 || dstp[x + pitch] == 255) &&
-        (y == 0 || dstp[x - pitch] == 255)) || !dot) dstp[x] = 255;
+      for (int x = cordx; x < xlim; ++x)
+      {
+        if (y == ymid && x == xmid && dot) dstp[x] = 0;
+        else if (!(dstp[x] == 0 &&
+          (x == width - 1 || dstp[x + 1] == 255) &&
+          (x == 0 || dstp[x - 1] == 255) &&
+          (y == height - 1 || dstp[x + pitch] == 255) &&
+          (y == 0 || dstp[x - pitch] == 255)) || !dot)
+        {
+          dstp[x] = 255;
+        }
+      }
+      dstp += pitch;
     }
-    dstp += pitch;
+  } 
+  else if (bits_per_pixel <= 16) {
+    const int max_pixel_value = (1 << bits_per_pixel) - 1;
+    const int half = 1 << (bits_per_pixel - 1);
+
+    uint16_t* dstp16 = reinterpret_cast<uint16_t*>(dstp);
+    ptrdiff_t pitch16 = pitch / sizeof(uint16_t);
+
+    for (int y = cordy; y < ylim; ++y)
+    {
+      for (int x = cordx; x < xlim; ++x)
+      {
+        if (y == ymid && x == xmid && dot)
+          dstp16[x] = 0;
+        else if (!(dstp16[x] == 0 &&
+          (x == width - 1 || dstp16[x + 1] == max_pixel_value) &&
+          (x == 0 || dstp16[x - 1] == max_pixel_value) &&
+          (y == height - 1 || dstp16[x + pitch16] == max_pixel_value) &&
+          (y == 0 || dstp16[x - pitch16] == max_pixel_value)) || !dot)
+        {
+          dstp16[x] = max_pixel_value;
+        }
+      }
+      dstp16 += pitch16;
+    }
   }
 }
 
-void FrameDiff::drawBox(PVideoFrame &dst, int blockN, int xblocks, const VideoInfo &vi)
+void drawBox(PVideoFrame &dst, int blockx, int blocky, int blockN, int xblocks, const VideoInfo &vi)
 {
-  if (vi.IsPlanar()) drawBoxYV12(dst, blockN, xblocks);
-  else drawBoxYUY2(dst, blockN, xblocks);
+  if (vi.IsPlanar()) drawBoxPlanar(dst, blockx, blocky, blockN, xblocks, vi);
+  else drawBoxYUY2(dst, blockx, blocky, blockN, xblocks);
 }
 
-void FrameDiff::Draw(PVideoFrame &dst, int x1, int y1, const char *s, const VideoInfo& vi)
-{
-  if (vi.IsPlanar()) DrawYV12(dst, x1, y1, s);
-  else DrawYUY2(dst, x1, y1, s);
-}
-
-void FrameDiff::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
+void drawBoxYUY2(PVideoFrame &dst, int blockx, int blocky, int blockN, int xblocks)
 {
   uint8_t *dstp = dst->GetWritePtr();
-  int pitch = dst->GetPitch();
+  ptrdiff_t pitch = dst->GetPitch();
   int width = dst->GetRowSize();
   int height = dst->GetHeight();
   int cordy, cordx, x, y, temp, xlim, ylim;
@@ -689,133 +735,75 @@ void FrameDiff::drawBoxYUY2(PVideoFrame &dst, int blockN, int xblocks)
   }
 }
 
-void FrameDiff::DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s)
+void drawBoxPlanar(PVideoFrame &dst, int blockx, int blocky, int blockN, int xblocks, const VideoInfo& vi)
 {
-  int x, y = y1 * 20, num, pitch = dst->GetPitch();
-  uint8_t *dp;
-  unsigned int width = dst->GetRowSize();
-  int height = dst->GetHeight();
-  if (y + 20 >= height) return;
-  for (int xx = 0; *s; ++s, ++xx)
-  {
-    x = (x1 + xx) * 10;
-    if ((x + 10) * 2 >= (int)(width)) return;
-    num = *s - ' ';
-    for (int tx = 0; tx < 10; tx++)
-    {
-      for (int ty = 0; ty < 20; ty++)
-      {
-        dp = &dst->GetWritePtr()[(x + tx) * 2 + (y + ty) * pitch];
-        if (font[num][ty] & (1 << (15 - tx)))
-        {
-          if (tx & 1)
-          {
-            dp[0] = 255;
-            dp[-1] = 128;
-            dp[1] = 128;
-          }
-          else
-          {
-            dp[0] = 255;
-            dp[1] = 128;
-            dp[3] = 128;
-          }
-        }
-        else
-        {
-          if (tx & 1)
-          {
-            dp[0] = (unsigned char)(dp[0] >> 1);
-            dp[-1] = (unsigned char)((dp[-1] + 128) >> 1);
-            dp[1] = (unsigned char)((dp[1] + 128) >> 1);
-          }
-          else
-          {
-            dp[0] = (unsigned char)(dp[0] >> 1);
-            dp[1] = (unsigned char)((dp[1] + 128) >> 1);
-            dp[3] = (unsigned char)((dp[3] + 128) >> 1);
-          }
-        }
-      }
-    }
-  }
-}
+  const int pixelsize = vi.ComponentSize();
 
-void FrameDiff::drawBoxYV12(PVideoFrame &dst, int blockN, int xblocks)
-{
   uint8_t *dstp = dst->GetWritePtr(PLANAR_Y);
-  int width = dst->GetRowSize(PLANAR_Y);
-  int height = dst->GetHeight(PLANAR_Y);
-  int pitch = dst->GetPitch(PLANAR_Y);
-  int cordy, cordx, x, y, temp, xlim, ylim;
+  const int width = dst->GetRowSize(PLANAR_Y) / pixelsize;
+  const int height = dst->GetHeight(PLANAR_Y);
+  ptrdiff_t pitch = dst->GetPitch(PLANAR_Y);
+  int cordy, cordx, xlim, ylim;
+  
   cordy = blockN / xblocks;
   cordx = blockN - (cordy*xblocks);
-  temp = cordx % 4;
+
+  int temp = cordx % 4;
   cordx = (cordx >> 2);
   cordy *= blocky;
   cordx *= blockx;
+
   if (temp == 1) cordx -= (blockx >> 1);
   else if (temp == 2) cordy -= (blocky >> 1);
   else if (temp == 3) { cordx -= (blockx >> 1); cordy -= (blocky >> 1); }
+  
   xlim = cordx + blockx;
   if (xlim > width) xlim = width;
   ylim = cordy + blocky;
   if (ylim > height) ylim = height;
-  for (y = std::max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
-  {
-    if (cordx >= 0) (dstp + y*pitch)[cordx] = (dstp + y*pitch)[cordx] <= 128 ? 255 : 0;
-    if (temp < width) (dstp + y*pitch)[temp] = (dstp + y*pitch)[temp] <= 128 ? 255 : 0;
-  }
-  for (x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
-  {
-    if (cordy >= 0) (dstp + cordy*pitch)[x] = (dstp + cordy*pitch)[x] <= 128 ? 255 : 0;
-    if (temp < height) (dstp + temp*pitch)[x] = (dstp + temp*pitch)[x] <= 128 ? 255 : 0;
-  }
-}
 
-// fixme: not only for YV12
-void FrameDiff::DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s)
-{
-  int x, y = y1 * 20, num, tx, ty;
-  int pitchY = dst->GetPitch(PLANAR_Y), pitchUV = dst->GetPitch(PLANAR_V);
-  uint8_t *dpY, *dpU, *dpV;
-  unsigned int width = dst->GetRowSize(PLANAR_Y);
-  int height = dst->GetHeight(PLANAR_Y);
-  if (y + 20 >= height) return;
-  for (int xx = 0; *s; ++s, ++xx)
-  {
-    x = (x1 + xx) * 10;
-    if (x + 10 >= (int)(width)) return;
-    num = *s - ' ';
-    for (tx = 0; tx < 10; tx++)
+  const int bits_per_pixel = vi.BitsPerComponent();
+
+  if (bits_per_pixel == 8) {
+    for (int y = std::max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
     {
-      for (ty = 0; ty < 20; ty++)
-      {
-        dpY = &dst->GetWritePtr(PLANAR_Y)[(x + tx) + (y + ty) * pitchY];
-        if (font[num][ty] & (1 << (15 - tx))) *dpY = 255;
-        else *dpY = (unsigned char)(*dpY >> 1);
-      }
+      if (cordx >= 0)
+        (dstp + y * pitch)[cordx] = (dstp + y * pitch)[cordx] <= 128 ? 255 : 0;
+      if (temp < width)
+        (dstp + y * pitch)[temp] = (dstp + y * pitch)[temp] <= 128 ? 255 : 0;
     }
-    for (tx = 0; tx < 10; tx++)
+    for (int x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
     {
-      for (ty = 0; ty < 20; ty++)
-      {
-        dpU = &dst->GetWritePtr(PLANAR_U)[((x + tx) / 2) + ((y + ty) / 2) * pitchUV];
-        dpV = &dst->GetWritePtr(PLANAR_V)[((x + tx) / 2) + ((y + ty) / 2) * pitchUV];
-        if (font[num][ty] & (1 << (15 - tx)))
-        {
-          *dpU = 128;
-          *dpV = 128;
-        }
-        else
-        {
-          *dpU = (unsigned char)((*dpU + 128) >> 1);
-          *dpV = (unsigned char)((*dpV + 128) >> 1);
-        }
-      }
+      if (cordy >= 0)
+        (dstp + cordy * pitch)[x] = (dstp + cordy * pitch)[x] <= 128 ? 255 : 0;
+      if (temp < height) 
+        (dstp + temp * pitch)[x] = (dstp + temp * pitch)[x] <= 128 ? 255 : 0;
+    }
+  }
+  else if (bits_per_pixel <= 16) {
+    const int max_pixel_value = (1 << bits_per_pixel) - 1;
+    const int half = 1 << (bits_per_pixel - 1);
+    for (int y = std::max(cordy, 0), temp = cordx + blockx - 1; y < ylim; ++y)
+    {
+      uint16_t* ptr1 = reinterpret_cast<uint16_t*>(dstp + y * pitch);
+      uint16_t* ptr2 = reinterpret_cast<uint16_t*>(dstp + y * pitch);
+      if (cordx >= 0)
+        ptr1[cordx] = ptr1[cordx] <= half ? max_pixel_value : 0;
+      if (temp < width)
+        ptr2[temp] = ptr2[temp] <= half ? max_pixel_value : 0;
+    }
+    for (int x = std::max(cordx, 0), temp = cordy + blocky - 1; x < xlim; ++x)
+    {
+      uint16_t* ptr1 = reinterpret_cast<uint16_t*>(dstp + cordy * pitch);
+      uint16_t* ptr2 = reinterpret_cast<uint16_t*>(dstp + temp * pitch);
+      if (cordy >= 0)
+        ptr1[x] = ptr1[x] <= half ? max_pixel_value : 0;
+      if (temp < height)
+        ptr2[x] = ptr2[x] <= half ? max_pixel_value : 0;
     }
   }
 }
+#endif
 
 AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
