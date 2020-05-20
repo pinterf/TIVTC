@@ -437,6 +437,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\common\fixedfonts.cpp" />
+    <ClCompile Include="..\common\info.cpp" />
     <ClCompile Include="..\common\TCommonASM.cpp" />
     <ClCompile Include="Cache.cpp" />
     <ClCompile Include="calcCRC.cpp" />
@@ -465,6 +467,8 @@
     <ClCompile Include="TFMPlanar.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\common\fixedfonts.h" />
+    <ClInclude Include="..\common\info.h" />
     <ClInclude Include="..\common\internal.h" />
     <ClInclude Include="..\common\TCommonASM.h" />
     <ClInclude Include="..\include\avisynth.h" />
