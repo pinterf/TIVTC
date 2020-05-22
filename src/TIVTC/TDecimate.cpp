@@ -2333,12 +2333,13 @@ void TDecimate::init_mode_5(IScriptEnvironment* env) {
   int count, b, np = vi.IsYUY2() || vi.IsY() ? 1 : 3, passThrough = 0;
 twopassrun:
   ++passThrough;
+#if 0
   if ((f = fopen("debug.txt", "a")) != NULL) {
     fprintf(f, "passThrough=%d cycle=%d nfrms=%d vidThresh=%f np=%d\n", passThrough, cycle, nfrms, (float)vidThresh, np);
     fclose(f);
     f = NULL;
   }
-
+#endif
   count = 0;
   for (b = 0; b <= nfrms; b += cycle)
   {
@@ -2412,11 +2413,13 @@ twopassrun:
           {
             input[i] = 2;
             ++count;
+#if 0
             if ((f = fopen("debug.txt", "a")) != NULL) {
               fprintf(f, "count=%03d b=%d w=%d i=%d \n", count, b, w, i);
               fclose(f);
               f = NULL;
             }
+#endif
           }
           else input[i] = 0;
         }
@@ -2467,11 +2470,13 @@ finishTP:
     ovrArray = NULL;
   }
 
+#if 0
   if ((f = fopen("debug.txt", "a")) != NULL) {
     fprintf(f, "new_num_frames=%d vi.num_frames=%d count=%d\n", vi.num_frames - count, vi.num_frames, count);
     fclose(f);
     f = NULL;
   }
+#endif
 
   vi.MulDivFPS(vi.num_frames - count, vi.num_frames);
   vi.num_frames = vi.num_frames - count;
