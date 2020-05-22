@@ -45,12 +45,12 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
   int np = vi.IsPlanar() ? 3 : 1;
   int mics[5] = { -20, -20, -20, -20, -20 };
   int blockN[5] = { -20, -20, -20, -20, -20 };
-  order = orderS;
-  mode = modeS;
-  field = fieldS;
-  PP = PPS;
-  MI = MIS;
-  getSettingOvr(n);
+  order = order_origSaved;
+  mode = mode_origSaved;
+  field = field_origSaved;
+  PP = PP_origSaved;
+  MI = MI_origSaved;
+  getSettingOvr(n); // process overrides
   if (order == -1) order = child->GetParity(n) ? 1 : 0;
   if (field == -1) field = order;
   int frstT = field^order ? 2 : 0;
@@ -609,6 +609,7 @@ void TFM::writeDisplay(PVideoFrame &dst, const VideoInfo& vi_disp, int n, int fm
   }
 }
 
+// override from ovr file
 void TFM::getSettingOvr(int n)
 {
   if (setArray == NULL || setArraySize <= 0) return;
@@ -616,11 +617,11 @@ void TFM::getSettingOvr(int n)
   {
     if (n >= setArray[x + 1] && n <= setArray[x + 2])
     {
-      if (setArray[x] == 111) order = setArray[x + 3];
-      else if (setArray[x] == 102) field = setArray[x + 3];
-      else if (setArray[x] == 109) mode = setArray[x + 3];
-      else if (setArray[x] == 80) PP = setArray[x + 3];
-      else if (setArray[x] == 105) MI = setArray[x + 3];
+      if (setArray[x] == 111) order = setArray[x + 3]; // o
+      else if (setArray[x] == 109) mode = setArray[x + 3]; // m
+      else if (setArray[x] == 102) field = setArray[x + 3]; // f
+      else if (setArray[x] == 80) PP = setArray[x + 3]; // P
+      else if (setArray[x] == 105) MI = setArray[x + 3]; // i
     }
   }
 }
@@ -785,6 +786,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
     const int startx = IsYUY2 ? 16 : 8 >> vi.GetPlaneWidthSubsampling(plane);
     stopx = Width - startx;
     curf_pitch = src_pitch << 1;
+    // exclusion area limits from parameters
     if (b == 0)
     { 
       y0a = y0; 
@@ -796,6 +798,10 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
       y0a = y0 >> ysubsampling;
       y1a = y1 >> ysubsampling;
     }
+    const bool noBandExclusion = (y0a == y1a);
+    if (y0a >= 2) y0a = y0a - 2; // v18: real limit, since y goes only till Height-2
+    if (y1a <= Height - 2) y1a = y1a + 2; // v18: real limit, since y goes only from 2
+
     if (match1 < 3)
     {
       curf = srcp + ((3 - field)*src_pitch);
@@ -870,7 +876,7 @@ int TFM::compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int
 
     // TFM 874
     for (int y = 2; y < Height - 2; y += 2) {
-      if ((y < y0a) || (y0a == y1a) || (y > y1a))
+      if ((y < y0a) || noBandExclusion || (y > y1a))  // exclusion area check
       {
         for (int x = startx; x < stopx; x += incl)
         {
@@ -1112,6 +1118,10 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
       y1a = y1 >> ysubsampling;
       tp = tpitchuv;
     }
+    const bool noBandExclusion = (y0a == y1a);
+    if (y0a >= 2) y0a = y0a - 2; // v18: real limit, since y goes only till Height-2
+    if (y1a <= Height - 2) y1a = y1a + 2; // v18: real limit, since y goes only from 2
+
     if (match1 < 3)
     {
       curf = srcp + ((3 - field)*src_pitch);
@@ -1195,7 +1205,7 @@ int TFM::compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     // TFM 1144
     // almost the same as in buildDiffMapPlane2
     for (int y = 2; y < Height - 2; y += 2) {
-      if ((y < y0a) || (y0a == y1a) || (y > y1a))
+      if ((y < y0a) || noBandExclusion || (y > y1a)) // exclusion area check
       {
         for (int x = startx; x < stopx; x += incl)
         {
@@ -1464,6 +1474,10 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       y1a = y1 >> ysubsampling;
       tp = tpitchuv;
     }
+    const bool noBandExclusion = (y0a == y1a);
+    if (y0a >= 2) y0a = y0a - 2; // v18: real limit, since y goes only till Height-2
+    if (y1a <= Height - 2) y1a = y1a + 2; // v18: real limit, since y goes only from 2
+
     if (match1 < 3)
     {
       curf = srcp + ((3 - field)*src_pitch);
@@ -1552,7 +1566,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     // TFM 1436
     // almost the same as in TFM 1144
       for (int y = 2; y < Height - 2; y += 2) {
-        if ((y < y0a) || (y0a == y1a) || (y > y1a))
+        if ((y < y0a) || noBandExclusion || (y > y1a))
         {
           for (int x = startx; x < stopx; x += incl)
           {
@@ -1638,7 +1652,7 @@ int TFM::compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       // differences are after eax&56 block, see later
 
       for (int y = 2; y < Height - 2; y += 2) {
-        if ((y < y0a) || (y0a == y1a) || (y > y1a))
+        if ((y < y0a) || noBandExclusion || (y > y1a))
         {
           for (int x = startx; x < stopx; x += incl)
           {
@@ -2554,9 +2568,9 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   lastMatch.frame = lastMatch.field = lastMatch.combed = lastMatch.match = -20;
   nfrms = vi.num_frames - 1;
   f = NULL;
-  modeS = mode;
-  PPS = PP;
-  MIS = MI;
+  mode_origSaved = mode;
+  PP_origSaved = PP;
+  MI_origSaved = MI;
   d2vpercent = -20.00f;
   vidCount = setArraySize = 0;
 
@@ -2585,8 +2599,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     if (!cArray) env->ThrowError("TFM:  malloc failure (cArray)!");
     cmask = new PlanarFrame(vi, true, cpuFlags);
   }
-  
-  map = new PlanarFrame(vi, true, cpuFlags);
+
+  VideoInfo vi_map = vi; // prepare map format: always 8 bits
+  vi_map.pixel_type = (vi_map.pixel_type & ~VideoInfo::CS_Sample_Bits_Mask) | VideoInfo::CS_Sample_Bits_8;
+  map = new PlanarFrame(vi_map, true, cpuFlags);
 
   if (vi.IsYUY2())
   {
@@ -2602,8 +2618,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
       trimArray = NULL;
     }
   }
-  orderS = order;
-  fieldS = fieldO = field;
+  order_origSaved = order;
+  field_origSaved = fieldO = field;
   if (fieldO == -1)
   {
     if (order == -1) fieldO = child->GetParity(0) ? 1 : 0;
@@ -2633,7 +2649,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     bool d2vmarked, micmarked;
     if ((f = fopen(input, "r")) != NULL)
     {
-      ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
+      ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(uint8_t));
       if (ovrArray == NULL)
       {
         fclose(f);
@@ -2643,9 +2659,9 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
       memset(ovrArray, 255, vi.num_frames);
       if (d2vfilmarray == NULL)
       {
-        d2vfilmarray = (uint8_t *)malloc((vi.num_frames + 1) * sizeof(unsigned char));
+        d2vfilmarray = (uint8_t *)malloc((vi.num_frames + 1) * sizeof(uint8_t));
         if (d2vfilmarray == NULL) env->ThrowError("TFM:  malloc failure (d2vfilmarray)!");
-        memset(d2vfilmarray, 0, (vi.num_frames + 1) * sizeof(unsigned char));
+        memset(d2vfilmarray, 0, (vi.num_frames + 1) * sizeof(uint8_t));
       }
       fieldt = fieldO;
       firstLine = 0;
