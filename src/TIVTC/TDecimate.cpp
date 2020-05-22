@@ -2881,7 +2881,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       sceneDivU = (uint64_t)(219.0*vi.width*vi.height);
     }
   }
-  if (mode < 5 || mode == 7)
+  if (mode <= 5 || mode == 7)
   {
     diff = (uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16);
     if (diff == NULL) env->ThrowError("TDecimate:  malloc failure (diff)!");
@@ -3494,6 +3494,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   else if (mode == 5)
   {
     init_mode_5(env);
+    _aligned_free(diff); // mode 5 is using diff buffer only at init
+    diff = nullptr;
   } // mode 5
   else if (mode == 6)
   {
