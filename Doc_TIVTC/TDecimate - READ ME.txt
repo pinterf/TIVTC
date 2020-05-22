@@ -773,6 +773,9 @@ F.)  OVERRIDES:
 
 G.)  CHANGE LIST:
 
+    (20200522) (in v1.0.18 pack)
+         - fix mode=5 crash at the initializing stage due to an unallocated metric buffer (old bug)
+
     (20200512) (in v1.0.17 pack)
          - fix regression on metric calculation
          - fix incorrect clip2 colorspace check (introduced in v1.0.15)

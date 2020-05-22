@@ -899,7 +899,12 @@ F.)  OVERRIDES:
 
 G.)  CHANGE LIST:
 
-   20200508 - pinterf)
+   20200522 (part of v1.0.18 package)
+      - Fix: TFM: possible crash on YV16 for chroma=true (checkComb) (un-YV12 project was not 100%)
+      - Fix: TFM: y0 (and y1) banding exclusion parameters are properly handled 
+        (by knowing that a frame is processed between 2 and (y0-2) for internal algorithmic reasons)
+
+   20200508
       - Fix regression: TFMPP clip2 colorspace similarity check failed
 
    20200508 - pinterf

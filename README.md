@@ -1,4 +1,4 @@
-# TIVTC v1.0.17 (20200512) 
+# TIVTC v1.0.18 (20200522) 
 # TDeInt v1.5 (20200513)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -34,10 +34,13 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.18 (20200520 - work in progress):
+# TIVTC v1.0.18 (20200522):
 
 **v1.0.18
-- TFM: possible crash on YV16 for chroma=true (checkComb)
+- Fix: TFM: possible crash on YV16 for chroma=true (checkComb)
+- Fix: TDecimate: fix mode=5 crash at the initializing stage due to an unallocated metric buffer (old bug)
+- Fix: TFM: y0 (and y1) banding exclusion parameters are properly handled 
+       (by knowing that a frame is processed between 2 and (y0-2) for internal algorithmic reasons)
 
 **v1.0.17 (20200512)**
 - Fix: TDecimate clip2 colorspace check
