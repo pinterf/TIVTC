@@ -84,8 +84,11 @@ private:
   PClip clip2;
   bool usehints;
   int opt;
-  bool uC2;
-  int PPS, nfrms, mthreshS, setArraySize;
+  bool uC2; // use clip2
+  int PP_origSaved;
+  int mthresh_origSaved;
+  int nfrms;
+  int setArraySize;
   int* setArray;
   PlanarFrame *mmask;
   void buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,

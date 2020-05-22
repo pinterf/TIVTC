@@ -50,7 +50,7 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
   else if (autoFO)
   {
     order = child->GetParity(n) ? 1 : 0;
-    if (fieldS == -1) field = order;
+    if (field_origSaved == -1) field = order;
   }
   PVideoFrame prv2, prv, nxt, nxt2, dst, mask;
   PVideoFrame src = child->GetFrame(n, env);
@@ -61,12 +61,12 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
   {
     if (mode != 1)
     {
-      if (fieldS != -1) field = fieldS;
-      if (!autoFO) order = orderS;
+      if (field_origSaved != -1) field = field_origSaved;
+      if (!autoFO) order = order_origSaved;
     }
-    mthreshL = mthreshLS;
-    mthreshC = mthreshCS;
-    type = typeS;
+    mthreshL = mthreshL_origSaved;
+    mthreshC = mthreshC_origSaved;
+    type = type_origSaved;
     for (x = 0; x < countOvr; x += 4)
     {
       if (n >= input[x + 1] && n <= input[x + 2])

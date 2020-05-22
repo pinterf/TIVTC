@@ -97,8 +97,8 @@ class TDeinterlace : public GenericVideoFilter
   bool tshints;
   int opt;
 
-  int countOvr, nfrms, nfrms2, orderS, fieldS;
-  int mthreshLS, mthreshCS, typeS, cthresh6;
+  int countOvr, nfrms, nfrms2, order_origSaved, field_origSaved;
+  int mthreshL_origSaved, mthreshC_origSaved, type_origSaved, cthresh6;
   int blockx_half, blocky_half, blockx_shift, blocky_shift;
   std::vector<int> input;
   int* cArray;

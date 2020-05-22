@@ -475,11 +475,13 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
   vi_mask.pixel_type = (vi_mask.pixel_type & ~VideoInfo::CS_Sample_Bits_Mask) | VideoInfo::CS_Sample_Bits_8;
 
   if (map > 2) vi.height *= 2; // vertically stacked output
-  orderS = order;
-  fieldS = field;
-  mthreshLS = mthreshL;
-  mthreshCS = mthreshC;
-  typeS = type;
+  
+  order_origSaved = order;
+  field_origSaved = field;
+  mthreshL_origSaved = mthreshL;
+  mthreshC_origSaved = mthreshC;
+  type_origSaved = type;
+
   if (debug)
   {
     sprintf(buf, "TDeint:  %s (%s) by tritical\n", TDEINT_VERSION, TDEINT_DATE);

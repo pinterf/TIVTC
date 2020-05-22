@@ -83,7 +83,7 @@ private:
 
   int order, field, mode;
   int PP;
-  const char* ovr;
+  const char* ovr; // override file name
   const char* input;
   const char* output;
   const char* outputC;
@@ -95,7 +95,7 @@ private:
   int MI;
   bool chroma;
   int blockx, blocky;
-  int y0, y1;
+  int y0, y1; // band exclusion
   const char* d2v;
   int ovrDefault;
   int flags;
@@ -107,22 +107,33 @@ private:
   bool batch, ubsco, mmsco;
   int opt;
 
-  int PPS, MIS;
-  int nfrms, orderS, fieldS, modeS;
+  int PP_origSaved, MI_origSaved;
+  int order_origSaved, field_origSaved, mode_origSaved;
+  int nfrms;
   int xhalf, yhalf, xshift, yshift;
   int vidCount, setArraySize, fieldO, mode7_field;
-  unsigned int outputCrc;
+  uint32_t outputCrc;
   unsigned long diffmaxsc;
+  
   int *cArray, *setArray;
   bool *trimArray;
+
   double d2vpercent;
-  uint8_t* ovrArray, * outArray, * d2vfilmarray;
+  
+  uint8_t* ovrArray, * outArray, * d2vfilmarray; // fixme: to vector
+
   uint8_t *tbuffer; // absdiff buffer
-  int tpitchy, tpitchuv, *moutArray, *moutArrayE;
+  int tpitchy, tpitchuv;
+
+  int* moutArray;
+  int* moutArrayE;
+  
   MTRACK lastMatch;
   SCTRACK sclast;
   char buf[4096], outputFull[270], outputCFull[270];
-  PlanarFrame *map, *cmask;
+  PlanarFrame* map;
+  PlanarFrame *cmask;
+
   void buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
@@ -185,10 +196,6 @@ private:
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
   AVSValue ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env);
-#if 0
-  static void DrawYV12(PVideoFrame &dst, int x1, int y1, const char *s);
-  static void DrawYUY2(PVideoFrame &dst, int x1, int y1, const char *s);
-#endif
   TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _ovr, const char* _input,
     const char* _output, const char * _outputC, bool _debug, bool _display, int _slow,
     bool _mChroma, int _cNum, int _cthresh, int _MI, bool _chroma, int _blockx, int _blocky,

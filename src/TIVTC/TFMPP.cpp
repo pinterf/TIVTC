@@ -980,14 +980,14 @@ bool TFMPP::getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hi
 void TFMPP::getSetOvr(int n)
 {
   if (setArray == NULL || setArraySize <= 0) return;
-  mthresh = mthreshS;
-  PP = PPS;
+  mthresh = mthresh_origSaved;
+  PP = PP_origSaved;
   for (int x = 0; x < setArraySize; x += 4)
   {
     if (n >= setArray[x + 1] && n <= setArray[x + 2])
     {
-      if (setArray[x] == 80) PP = setArray[x + 3];
-      else if (setArray[x] == 77) mthresh = setArray[x + 3];
+      if (setArray[x] == 80) PP = setArray[x + 3]; // P
+      else if (setArray[x] == 77) mthresh = setArray[x + 3]; // M
     }
   }
 }
@@ -1718,8 +1718,8 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
 
   mmask = new PlanarFrame(vi, true, cpuFlags);
   nfrms = vi.num_frames - 1;
-  PPS = PP;
-  mthreshS = mthresh;
+  PP_origSaved = PP;
+  mthresh_origSaved = mthresh;
   setArraySize = 0;
   i = 0;
   if (*ovr)
