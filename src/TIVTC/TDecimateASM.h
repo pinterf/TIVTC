@@ -90,23 +90,36 @@ void calcDiff_SADorSSD_Generic_c(const pixel_t* prvp, const pixel_t* curp,
 
 void CalcMetricsExtracted(IScriptEnvironment* env, PVideoFrame& prevt, PVideoFrame& currt, CalcMetricData& d);
 
-void VerticalBlurSSE2(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+template<typename pixel_t>
+void HorizontalBlur_Planar_c(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+  int dst_pitch, int width, int height, bool allow_leftminus1);
+void HorizontalBlur_YUY2_lumaonly_c(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+  int dst_pitch, int width, int height, bool allow_leftminus1);
+void HorizontalBlur_YUY2_c(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+  int dst_pitch, int width, int height, bool allow_leftminus1);
+
+void HorizontalBlur_Planar_SSE2(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+  int dst_pitch, int width, int height);
+void HorizontalBlur_YUY2_lumaonly_SSE2(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+  int dst_pitch, int width, int height);
+void HorizontalBlur_YUY2_SSE2(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
   int dst_pitch, int width, int height);
 
-void HorizontalBlur_SSE2_Planar(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
-  int dst_pitch, int width, int height);
+void HorizontalBlur(PVideoFrame& src, PVideoFrame& dst, bool bchroma,
+  VideoInfo& vi_t, int opti);
 
-void HorizontalBlur_SSE2_YUY2_lumaonly(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+template<typename pixel_t>
+void VerticalBlur_c(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+  int dst_pitch, int width, int height);
+void VerticalBlur_YUY2_c(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
+  int dst_pitch, int width, int height, int inc);
+
+void VerticalBlur_SSE2(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
   int dst_pitch, int width, int height);
 
 void VerticalBlur(PVideoFrame& src, PVideoFrame& dst, bool bchroma,
-  IScriptEnvironment* env, VideoInfo& vi_t, int opti);
+  VideoInfo& vi_t, int opti);
 
-void HorizontalBlur(PVideoFrame& src, PVideoFrame& dst, bool bchroma,
-  IScriptEnvironment* env, VideoInfo& vi_t, int opti);
-
-void HorizontalBlur_SSE2_YUY2(const uint8_t* srcp, uint8_t* dstp, int src_pitch,
-  int dst_pitch, int width, int height);
 
 // handles 50% special case as well
 void dispatch_blend(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height,
