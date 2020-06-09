@@ -46,13 +46,19 @@ PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
   else if (mode == 6) dst = GetFrameMode6(n, env, vi2); // second pass for 120fps to vfr
   else if (mode == 7) dst = GetFrameMode7(n, env, vi2); // arbitrary framerate v2
   else env->ThrowError("TDecimate:  unknown error (no such mode)!");
-  if (usehints) restoreHint(dst, env);
+  if (usehints) {
+    if (vi.ComponentSize() == 1)
+      restoreHint<uint8_t>(dst, env);
+    else
+      restoreHint<uint16_t>(dst, env);
+  }
   return dst;
 }
 
+template<typename pixel_t>
 void TDecimate::restoreHint(PVideoFrame &dst, IScriptEnvironment *env)
 {
-  const uint8_t *srcp = dst->GetReadPtr(PLANAR_Y);
+  const pixel_t *srcp = reinterpret_cast<const pixel_t *>(dst->GetReadPtr(PLANAR_Y));
   unsigned int i, hint = 0, magic_number = 0;
   for (i = 0; i < 32; ++i)
   {
@@ -65,7 +71,7 @@ void TDecimate::restoreHint(PVideoFrame &dst, IScriptEnvironment *env)
     hint |= ((*srcp++ & 1) << i);
   }
   env->MakeWritable(&dst);
-  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
+  pixel_t* p = reinterpret_cast<pixel_t *>(dst->GetWritePtr(PLANAR_Y));
   if (hint & 0x80)
   {
     hint >>= 8;
@@ -977,10 +983,10 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, const VideoInfo &vit, 
     {
       if (!src) {
         PVideoFrame frame = child->GetFrame(n2, env);
-        nbuf.match[pos] = getHint(frame, nbuf.filmd2v[pos]);
+        nbuf.match[pos] = getHint(vit, frame, nbuf.filmd2v[pos]);
       }
       else {
-        nbuf.match[pos] = getHint(src, nbuf.filmd2v[pos]);
+        nbuf.match[pos] = getHint(vit, src, nbuf.filmd2v[pos]);
       }
     }
   }
@@ -1075,7 +1081,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
           {
             nextt = child->GetFrame(w, env);
             next_num = w;
-            current.match[i] = getHint(nextt, current.filmd2v[i]);
+            current.match[i] = getHint(vit, nextt, current.filmd2v[i]); // hints: vit not vi (are they different?)
           }
         }
         continue;
@@ -1091,7 +1097,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
       if (current.match[i] == -20 && hnt)
       {
         if (!usehints) current.match[i] = -200;
-        else current.match[i] = getHint(nextt, current.filmd2v[i]);
+        else current.match[i] = getHint(vit, nextt, current.filmd2v[i]);
       }
       if (next_numd == w - 1) 
         copyFrame(prev, next, vit, env);
@@ -1113,7 +1119,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
           {
             next = child->GetFrame(w, env);
             next_num = w;
-            current.match[i] = getHint(next, current.filmd2v[i]);
+            current.match[i] = getHint(vit, next, current.filmd2v[i]);
           }
         }
         continue;
@@ -1127,7 +1133,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
       if (current.match[i] == -20 && hnt)
       {
         if (!usehints) current.match[i] = -200;
-        else current.match[i] = getHint(next, current.filmd2v[i]);
+        else current.match[i] = getHint(vit, next, current.filmd2v[i]);
       }
     }
 
@@ -1240,9 +1246,18 @@ uint64_t calcLumaDiffYUY2_SSD(const uint8_t* prvp, const uint8_t* nxtp,
   return calcLumaDiffYUY2_SADorSSD<false>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, cpuFlags);
 }
 
-int TDecimate::getHint(PVideoFrame &src, int &d2vfilm)
+int TDecimate::getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm)
 {
-  const uint8_t *p = src->GetReadPtr(PLANAR_Y);
+  if (vi.ComponentSize() == 1)
+    return getHint_core<uint8_t>(src, d2vfilm);
+  else // 2
+    return getHint_core<uint16_t>(src, d2vfilm);
+}
+
+template<typename pixel_t>
+int TDecimate::getHint_core(PVideoFrame &src, int &d2vfilm)
+{
+  const pixel_t *p = reinterpret_cast<const pixel_t *>(src->GetReadPtr(PLANAR_Y));
   unsigned int i, magic_number = 0, hint = 0;
   int match = -200, field = 0;
   d2vfilm = 0;
@@ -2791,8 +2806,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   {
     int d2hg;
     
-    PVideoFrame sthg = child->GetFrame(0, env); // ?? 170607 what happens when a constructor calls GetFrame?
-    int mhg = getHint(sthg, d2hg);
+    PVideoFrame sthg = child->GetFrame(0, env);
+    int mhg = getHint(vi, sthg, d2hg);
     if (mhg != -200) usehints = true;
     else usehints = false;
   }

@@ -163,7 +163,10 @@ private:
   void writeDisplay(PVideoFrame &dst, const VideoInfo &vi_disp, int n, int fmatch, int combed, bool over,
     int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
-  void putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm);
+
+  void putHint(const VideoInfo &vi, PVideoFrame& dst, int match, int combed, bool d2vfilm);
+  template<typename pixel_t>
+  void putHint_core(PVideoFrame &dst, int match, int combed, bool d2vfilm);
 
   void parseD2V(IScriptEnvironment *env);
   int D2V_find_and_correct(int *array, bool &found, int &tff);

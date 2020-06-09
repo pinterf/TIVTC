@@ -239,9 +239,11 @@ class TDeinterlace : public GenericVideoFilter
   template<typename pixel_t>
   void updateMapAP(PVideoFrame &dst, PVideoFrame &mask, IScriptEnvironment *env);
 
-  void putHint2(PVideoFrame &dst, bool wdtd);
   PVideoFrame createMap(PVideoFrame &src, int c, IScriptEnvironment *env, int tf);
 
+  void putHint2(const VideoInfo& vi, PVideoFrame& dst, bool wdtd);
+  template<typename pixel_t>
+  void putHint2_core(PVideoFrame& dst, bool wdtd);
 
 public:
   std::vector<int> sa;
@@ -253,8 +255,13 @@ public:
     int _blockx, int _blocky, int _APType, PClip _edeint, PClip _emask, int _metric,
     int _expand, int _slow, PClip _emtn, bool _tshints, int _opt, IScriptEnvironment* env);
   ~TDeinterlace();
-  static int getHint(PVideoFrame &src, unsigned int &storeHint, int &hintField);
-  static void putHint(PVideoFrame &dst, unsigned int hint, int fieldt);
+
+  static int getHint(const VideoInfo &vi, PVideoFrame& src, unsigned int& storeHint, int& hintField);
+  template<typename pixel_t>
+  static int getHint_core(PVideoFrame& src, unsigned int& storeHint, int& hintField);
+  static void putHint(const VideoInfo& vi, PVideoFrame& dst, unsigned int hint, int fieldt);
+  template<typename pixel_t>
+  static void putHint_core(PVideoFrame &dst, unsigned int hint, int fieldt);
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
     return 

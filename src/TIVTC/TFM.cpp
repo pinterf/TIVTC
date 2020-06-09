@@ -124,7 +124,7 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
         OutputDebugString(buf);
       }
     }
-    if (usehints || PP >= 2) putHint(dst, fmatch, combed, d2vfilm);
+    if (usehints || PP >= 2) putHint(vi, dst, fmatch, combed, d2vfilm);
     lastMatch.frame = n;
     lastMatch.match = fmatch;
     lastMatch.field = field;
@@ -461,7 +461,7 @@ d2vCJump:
       OutputDebugString(buf);
     }
   }
-  if (usehints || PP >= 2) putHint(dst, fmatch, combed, d2vfilm);
+  if (usehints || PP >= 2) putHint(vi, dst, fmatch, combed, d2vfilm);
   lastMatch.frame = n;
   lastMatch.match = fmatch;
   lastMatch.field = field;
@@ -2401,10 +2401,19 @@ void TFM::createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
   cfrm = match;
 }
 
-void TFM::putHint(PVideoFrame &dst, int match, int combed, bool d2vfilm)
+void TFM::putHint(const VideoInfo& vi, PVideoFrame& dst, int match, int combed, bool d2vfilm)
 {
-  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
-  uint8_t *srcp = p;
+  if (vi.ComponentSize() == 1)
+    putHint_core<uint8_t>(dst, match, combed, d2vfilm);
+  else
+    putHint_core<uint16_t>(dst, match, combed, d2vfilm);
+}
+
+template<typename pixel_t>
+void TFM::putHint_core(PVideoFrame &dst, int match, int combed, bool d2vfilm)
+{
+  pixel_t *p = reinterpret_cast<pixel_t *>(dst->GetWritePtr(PLANAR_Y));
+  pixel_t *srcp = p;
   unsigned int i, hint = 0;
   unsigned int hint2 = 0, magic_number = 0;
   if (match == 0) hint |= ISP;

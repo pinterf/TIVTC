@@ -32,8 +32,12 @@ private:
   char buf[512];
   PClip c1, c2;
   bool debug;
-  int getHint(PVideoFrame &src, unsigned int &hint, int &htype);
-  void putHint(PVideoFrame &dst, unsigned int hint, int htype);
+  int getHint(const VideoInfo &vi, PVideoFrame &src, unsigned int &hint, int &htype);
+  template<typename pixel_t>
+  int getHint_core(PVideoFrame& src, unsigned int& hint, int& htype);
+  void putHint(const VideoInfo& vi, PVideoFrame &dst, unsigned int hint, int htype);
+  template<typename pixel_t>
+  void putHint_core(PVideoFrame& dst, unsigned int hint, int htype);
 
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;

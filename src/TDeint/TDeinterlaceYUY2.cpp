@@ -102,7 +102,7 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
       return src;
     }
   }
-  if (mode == 0 && hints && TDeinterlace::getHint(src, passHint, hintField) == 0 && !found)
+  if (mode == 0 && hints && TDeinterlace::getHint(vi_saved, src, passHint, hintField) == 0 && !found)
   {
     if (debug)
     {
@@ -275,7 +275,7 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
     }
   }
   if (map != 1 && map != 2)
-    TDeinterlace::putHint(dst, passHint, field);
+    TDeinterlace::putHint(vi_saved, dst, passHint, field);
   if (debug)
   {
     sprintf(buf, "TDeint2y:  frame %d:  field = %s (%d)  order = %s (%d)\n", n,

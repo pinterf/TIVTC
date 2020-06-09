@@ -159,7 +159,12 @@ private:
   void checkVideoMatches(Cycle &p, Cycle &c);
   bool checkMatchDup(int mp, int mc);
   void findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
-  int getHint(PVideoFrame &src, int &d2vfilm);
+
+  int getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm);
+  template<typename pixel_t>
+  int getHint_core(PVideoFrame &src, int &d2vfilm);
+
+  template<typename pixel_t>
   void restoreHint(PVideoFrame &dst, IScriptEnvironment *env);
 
   void blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst,

@@ -91,14 +91,21 @@ private:
   int setArraySize;
   int* setArray;
   PlanarFrame *mmask;
+
   void buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
     PlanarFrame *mask, int use, int np, IScriptEnvironment *env);
   void BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst,
     bool nomask, const VideoInfo& vi, IScriptEnvironment *env);
   void maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
     PVideoFrame &dst, const VideoInfo& vi, IScriptEnvironment *env);
-  void putHint(PVideoFrame &dst, int field, unsigned int hint);
-  bool getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hint);
+
+  void putHint(const VideoInfo& vi, PVideoFrame& dst, int field, unsigned int hint);
+  template<typename pixel_t>
+  void putHint_core(PVideoFrame &dst, int field, unsigned int hint);
+  bool getHint(const VideoInfo &vi, PVideoFrame& src, int& field, bool& combed, unsigned int& hint);
+  template<typename pixel_t>
+  bool getHint_core(PVideoFrame& src, int& field, bool& combed, unsigned int& hint);
+
   void getSetOvr(int n);
   
   // fixme check: similar (but not same) in TDeInterlace
@@ -109,7 +116,10 @@ private:
   template<int planarType>
   void linkPlanar(PlanarFrame *mask);
 
-  void destroyHint(PVideoFrame &dst, unsigned int hint);
+  void destroyHint(const VideoInfo &vi, PVideoFrame &dst, unsigned int hint);
+  template<typename pixel_t>
+  void destroyHint_core(PVideoFrame& dst, unsigned int hint);
+
   void CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
     int field, const VideoInfo &vi, IScriptEnvironment *env);
   void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);

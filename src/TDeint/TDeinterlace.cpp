@@ -43,7 +43,7 @@ PVideoFrame __stdcall TDeinterlace::GetFrame(int n, IScriptEnvironment* env)
   if (tshints && map != 1 && map != 2)
   {
     env->MakeWritable(&dst);
-    putHint2(dst, wdtd);
+    putHint2(vi, dst, wdtd);
   }
   return dst;
 }
@@ -115,10 +115,19 @@ int TDeinterlace::getMatch(int norm1, int norm2, int mtn1, int mtn2)
   }
 }
 
-int TDeinterlace::getHint(PVideoFrame &src, unsigned int &storeHint, int &hintField)
+int TDeinterlace::getHint(const VideoInfo& vi, PVideoFrame& src, unsigned int& storeHint, int& hintField)
+{
+  if (vi.ComponentSize() == 1)
+    return getHint_core<uint8_t>(src, storeHint, hintField);
+  else
+    return getHint_core<uint16_t>(src, storeHint, hintField);
+}
+
+template<typename pixel_t>
+int TDeinterlace::getHint_core(PVideoFrame &src, unsigned int &storeHint, int &hintField)
 {
   hintField = -1;
-  const uint8_t *p = src->GetReadPtr(PLANAR_Y);
+  const pixel_t *p = reinterpret_cast<const pixel_t *>(src->GetReadPtr(PLANAR_Y));
   unsigned int i, magic_number = 0, hint = 0;
   storeHint = 0xFFFFFFFF;
   for (i = 0; i < 32; ++i)
@@ -145,7 +154,16 @@ int TDeinterlace::getHint(PVideoFrame &src, unsigned int &storeHint, int &hintFi
   return 0;
 }
 
-void TDeinterlace::putHint(PVideoFrame &dst, unsigned int hint, int fieldt)
+void TDeinterlace::putHint(const VideoInfo& vi, PVideoFrame& dst, unsigned int hint, int fieldt)
+{
+  if (vi.NumComponents() == 1)
+    putHint_core<uint8_t>(dst, hint, fieldt);
+  else
+    putHint_core<uint16_t>(dst, hint, fieldt);
+}
+
+template<typename pixel_t>
+void TDeinterlace::putHint_core(PVideoFrame &dst, unsigned int hint, int fieldt)
 {
   int htype = (hint & 0x00100000) ? 0 : 1;
   hint &= ~0x00100000;
@@ -156,7 +174,7 @@ void TDeinterlace::putHint(PVideoFrame &dst, unsigned int hint, int fieldt)
     if (fieldt == 1) hint |= 0x0E; // top + 'h'
     else hint |= 0x05; // bot + 'l'
   }
-  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
+  pixel_t *p = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_Y));
   unsigned int i;
   for (i = 0; i < 32; ++i)
   {
@@ -171,9 +189,18 @@ void TDeinterlace::putHint(PVideoFrame &dst, unsigned int hint, int fieldt)
   }
 }
 
-void TDeinterlace::putHint2(PVideoFrame &dst, bool wdtd)
+void TDeinterlace::putHint2(const VideoInfo& vi, PVideoFrame& dst, bool wdtd)
 {
-  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
+  if (vi.NumComponents() == 1)
+    putHint2_core<uint8_t>(dst, wdtd);
+  else
+    putHint2_core<uint16_t>(dst, wdtd);
+}
+
+template<typename pixel_t>
+void TDeinterlace::putHint2_core(PVideoFrame &dst, bool wdtd)
+{
+  pixel_t* p = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_Y));
   unsigned int i, magic_number = 0, hint = 0;
   for (i = 0; i < 32; ++i)
   {
@@ -203,7 +230,7 @@ void TDeinterlace::putHint2(PVideoFrame &dst, bool wdtd)
     magic_number = 0xdeaddeed;
     if (wdtd) hint |= 0x40;
   }
-  p = dst->GetWritePtr(PLANAR_Y);
+  p = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_Y));
   for (i = 0; i < 32; ++i)
   {
     *p &= ~1;
@@ -216,7 +243,7 @@ void TDeinterlace::putHint2(PVideoFrame &dst, bool wdtd)
   }
 }
 
-// HBD ready becasue absDiff is OK
+// HBD ready because absDiff is OK
 void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env)
 {
   if (db->fnum[pos] == n) return;
@@ -771,8 +798,9 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
     int tfieldHint;
     if (!args[13].IsBool())
     {
+      const VideoInfo& vi = args[0].AsClip()->GetVideoInfo();
       PVideoFrame frame = args[0].AsClip()->GetFrame(0, env);
-      if (TDeinterlace::getHint(frame, temp, tfieldHint) != -1)
+      if (TDeinterlace::getHint(vi, frame, temp, tfieldHint) != -1)
         hints = true;
     }
   }

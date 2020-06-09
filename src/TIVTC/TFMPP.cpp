@@ -38,12 +38,12 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
   int fieldSrc, field;
   unsigned int hint;
   PVideoFrame src = child->GetFrame(n, env);
-  bool res = getHint(src, fieldSrc, combed, hint);
+  bool res = getHint(vi, src, fieldSrc, combed, hint);
   if (!combed)
   {
     if (usehints || !res) return src;
     env->MakeWritable(&src);
-    destroyHint(src, hint);
+    destroyHint(vi, src, hint);
     return src;
   }
   int np = vi.IsPlanar() ? 3 : 1;
@@ -54,10 +54,10 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     int use = 0;
     unsigned int hintt;
     PVideoFrame prv = child->GetFrame(n > 0 ? n - 1 : 0, env);
-    getHint(prv, field, combed, hintt);
+    getHint(vi, prv, field, combed, hintt);
     if (!combed && field != -1 && n != 0) ++use;
     PVideoFrame nxt = child->GetFrame(n < nfrms ? n + 1 : nfrms, env);
-    getHint(nxt, field, combed, hintt);
+    getHint(vi, nxt, field, combed, hintt);
     if (!combed && field != -1 && n != nfrms) use += 2;
     if (use > 0)
     {
@@ -143,8 +143,8 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     }
   }
   if (display) writeDisplay(dst, vi, n, fieldSrc);
-  if (usehints) putHint(dst, fieldSrc, hint);
-  else destroyHint(dst, hint);
+  if (usehints) putHint(vi, dst, fieldSrc, hint);
+  else destroyHint(vi, dst, hint);
   return dst;
 }
 
@@ -906,9 +906,19 @@ void cubicDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
 }
 
 
-void TFMPP::destroyHint(PVideoFrame &dst, unsigned int hint)
+void TFMPP::destroyHint(const VideoInfo& vi, PVideoFrame& dst, unsigned int hint)
 {
-  uint8_t *p = dst->GetWritePtr(PLANAR_Y), i;
+  if (vi.ComponentSize() == 1)
+    destroyHint_core<uint8_t>(dst, hint);
+  else
+    destroyHint_core<uint16_t>(dst, hint);
+}
+
+template<typename pixel_t>
+void TFMPP::destroyHint_core(PVideoFrame &dst, unsigned int hint)
+{
+  pixel_t* p = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_Y));
+  uint8_t i;
   if (hint & 0x80)
   {
     hint >>= 8;
@@ -930,9 +940,18 @@ void TFMPP::destroyHint(PVideoFrame &dst, unsigned int hint)
   }
 }
 
-void TFMPP::putHint(PVideoFrame &dst, int field, unsigned int hint)
+void TFMPP::putHint(const VideoInfo & vi, PVideoFrame& dst, int field, unsigned int hint)
 {
-  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
+  if (vi.ComponentSize() == 1)
+    return putHint_core<uint8_t>(dst, field, hint);
+  else
+    return putHint_core<uint16_t>(dst, field, hint);
+}
+
+template<typename pixel_t>
+void TFMPP::putHint_core(PVideoFrame &dst, int field, unsigned int hint)
+{
+  pixel_t *p = reinterpret_cast<pixel_t *>(dst->GetWritePtr(PLANAR_Y));
   unsigned int i;
   hint &= (D2VFILM | 0xFF80);
   if (field == 1)
@@ -953,10 +972,19 @@ void TFMPP::putHint(PVideoFrame &dst, int field, unsigned int hint)
   }
 }
 
-bool TFMPP::getHint(PVideoFrame &src, int &field, bool &combed, unsigned int &hint)
+bool TFMPP::getHint(const VideoInfo& vi, PVideoFrame& src, int& field, bool& combed, unsigned int& hint)
+{
+  if (vi.ComponentSize() == 1)
+    return getHint_core<uint8_t>(src, field, combed, hint);
+  else
+    return getHint_core<uint16_t>(src, field, combed, hint);
+}
+
+template<typename pixel_t>
+bool TFMPP::getHint_core(PVideoFrame &src, int &field, bool &combed, unsigned int &hint)
 {
   field = -1; combed = false; hint = 0;
-  const uint8_t *srcp = src->GetReadPtr(PLANAR_Y);
+  const pixel_t *srcp = reinterpret_cast<const pixel_t *>(src->GetReadPtr(PLANAR_Y));
   unsigned int i, magic_number = 0;
   for (i = 0; i < 32; ++i)
   {

@@ -112,7 +112,7 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
       return src;
     }
   }
-  if (mode == 0 && hints && TDeinterlace::getHint(src, passHint, hintField) == 0 && !found)
+  if (mode == 0 && hints && TDeinterlace::getHint(vi, src, passHint, hintField) == 0 && !found)
   {
     if (debug)
     {
@@ -355,7 +355,7 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
     }
   }
   if (map != 1 && map != 2)
-    TDeinterlace::putHint(dst, passHint, field);
+    TDeinterlace::putHint(vi, dst, passHint, field);
   if (debug)
   {
     sprintf(buf, "TDeint2:  frame %d:  field = %s (%d)  order = %s (%d)\n", n,

@@ -53,7 +53,7 @@ PVideoFrame __stdcall TSwitch::GetFrame(int n, IScriptEnvironment *env)
   PVideoFrame src = child->GetFrame(n, env);
   unsigned int hint;
   int htype;
-  int ret = getHint(src, hint, htype);
+  int ret = getHint(vi, src, hint, htype);
   if (ret < 0)
     env->ThrowError("TSwitch:  no hint detected in stream!");
   PVideoFrame dst;
@@ -78,13 +78,22 @@ PVideoFrame __stdcall TSwitch::GetFrame(int n, IScriptEnvironment *env)
   else
     env->ThrowError("TSwitch:  internal error!");
   env->MakeWritable(&dst);
-  putHint(dst, hint, htype);
+  putHint(vi, dst, hint, htype);
   return dst;
 }
 
-int TSwitch::getHint(PVideoFrame &src, unsigned int &hint, int &htype)
+int TSwitch::getHint(const VideoInfo& vi, PVideoFrame& src, unsigned int& hint, int& htype)
 {
-  const uint8_t *srcp = src->GetReadPtr(PLANAR_Y);
+  if (vi.ComponentSize() == 1)
+    return getHint_core<uint8_t>(src, hint, htype);
+  else
+    return getHint_core<uint16_t>(src, hint, htype);
+}
+
+template<typename pixel_t>
+int TSwitch::getHint_core(PVideoFrame &src, unsigned int &hint, int &htype)
+{
+  const pixel_t *srcp = reinterpret_cast<const pixel_t *>(src->GetReadPtr(PLANAR_Y));
   unsigned int i, magic_number = 0;
   hint = 0;
   for (i = 0; i < 32; ++i)
@@ -110,9 +119,18 @@ int TSwitch::getHint(PVideoFrame &src, unsigned int &hint, int &htype)
   return 0;
 }
 
-void TSwitch::putHint(PVideoFrame &dst, unsigned int hint, int htype)
+void TSwitch::putHint(const VideoInfo& vi, PVideoFrame& dst, unsigned int hint, int htype)
 {
-  uint8_t *p = dst->GetWritePtr(PLANAR_Y);
+  if (vi.ComponentSize() == 1)
+    putHint_core<uint8_t>(dst, hint, htype);
+  else
+    putHint_core<uint16_t>(dst, hint, htype);
+}
+
+template<typename pixel_t>
+void TSwitch::putHint_core(PVideoFrame &dst, unsigned int hint, int htype)
+{
+  pixel_t* p = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_Y));
   unsigned int i;
   if (htype == 1)
   {
