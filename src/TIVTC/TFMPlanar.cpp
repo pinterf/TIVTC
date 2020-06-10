@@ -48,23 +48,193 @@ template void FillCombedPlanarUpdateCmaskByUV<420>(PlanarFrame* cmask);
 template void FillCombedPlanarUpdateCmaskByUV<422>(PlanarFrame* cmask);
 template void FillCombedPlanarUpdateCmaskByUV<444>(PlanarFrame* cmask);
 
-
-/*
-//FIXME: see similar
-// template<int planarType>
-// void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask);
-// very similar core to
+//FIXME: once to make it common with TDeInterlace::CheckedCombedPlanar
+//similar, but cmask is real PVideoFrame there
 template<typename pixel_t>
-void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame& src, int& MICount,
-  int& b_over, int& c_over, IScriptEnvironment* env)
-  and TDeInterlace CheckedCombedPlanar
-*/
-bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
-  int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh)
+void checkCombedPlanarAnalyze_core(const VideoInfo& vi, int cthresh, bool chroma, int cpuFlags, int metric, PVideoFrame& src, PlanarFrame* cmask)
 {
-  typedef uint8_t pixel_t; // until high bit depth
-  typedef typename std::conditional<sizeof(pixel_t) == 1, int, int64_t> ::type safeint_t;
+  const int bits_per_pixel = vi.BitsPerComponent();
 
+  const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
+  const bool use_sse4 = (cpuFlags & CPUF_SSE4_1) ? true : false;
+  // cthresh: Area combing threshold used for combed frame detection.
+  // This essentially controls how "strong" or "visible" combing must be to be detected.
+  // Good values are from 6 to 12. If you know your source has a lot of combed frames set 
+  // this towards the low end(6 - 7). If you know your source has very few combed frames set 
+  // this higher(10 - 12). Going much lower than 5 to 6 or much higher than 12 is not recommended.
+
+  const int scaled_cthresh = cthresh << (bits_per_pixel - 8);
+
+  const int cthresh6 = scaled_cthresh * 6;
+
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
+  const int stop = chroma ? np : 1;
+  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+
+  for (int b = 0; b < stop; ++b)
+  {
+    const int plane = planes[b];
+
+    const pixel_t* srcp = reinterpret_cast<const pixel_t*>(src->GetReadPtr(plane));
+    const int src_pitch = src->GetPitch(plane) / sizeof(pixel_t);
+
+    const int Width = src->GetRowSize(plane) / sizeof(pixel_t);
+    const int Height = src->GetHeight(plane);
+
+    const pixel_t* srcpp = srcp - src_pitch;
+    const pixel_t* srcppp = srcpp - src_pitch;
+    const pixel_t* srcpn = srcp + src_pitch;
+    const pixel_t* srcpnn = srcpn + src_pitch;
+
+    uint8_t* cmkp = cmask->GetPtr(b);
+    const int cmk_pitch = cmask->GetPitch(b);
+
+    if (scaled_cthresh < 0) {
+      memset(cmkp, 255, Height * cmk_pitch); // mask. Always 8 bits 
+      continue;
+    }
+    memset(cmkp, 0, Height * cmk_pitch);
+
+    if (metric == 0)
+    {
+      // top 1 
+      for (int x = 0; x < Width; ++x)
+      {
+        const int sFirst = srcp[x] - srcpn[x];
+        if (sFirst > scaled_cthresh || sFirst < -scaled_cthresh)
+        {
+          if (abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpn[x] + srcpn[x]))) > cthresh6)
+            cmkp[x] = 0xFF;
+        }
+      }
+      srcppp += src_pitch;
+      srcpp += src_pitch;
+      srcp += src_pitch;
+      srcpn += src_pitch;
+      srcpnn += src_pitch;
+      cmkp += cmk_pitch;
+      // top #2
+      for (int x = 0; x < Width; ++x)
+      {
+        const int sFirst = srcp[x] - srcpp[x];
+        const int sSecond = srcp[x] - srcpn[x];
+        if ((sFirst > scaled_cthresh && sSecond > scaled_cthresh) || (sFirst < -scaled_cthresh && sSecond < -scaled_cthresh))
+        {
+          if (abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
+            cmkp[x] = 0xFF;
+        }
+      }
+      srcppp += src_pitch;
+      srcpp += src_pitch;
+      srcp += src_pitch;
+      srcpn += src_pitch;
+      srcpnn += src_pitch;
+      cmkp += cmk_pitch;
+      // middle Height - 4
+      const int lines_to_process = Height - 4;
+      if (use_sse2 && sizeof(pixel_t) == 1)
+        check_combing_SSE2((const uint8_t*)srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, scaled_cthresh);
+      else if (use_sse4 && sizeof(pixel_t) == 2)
+        check_combing_uint16_SSE4((const uint16_t*)srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, scaled_cthresh);
+      else
+        check_combing_c<pixel_t, false>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, scaled_cthresh);
+      srcppp += src_pitch * lines_to_process;
+      srcpp += src_pitch * lines_to_process;
+      srcp += src_pitch * lines_to_process;
+      srcpn += src_pitch * lines_to_process;
+      srcpnn += src_pitch * lines_to_process;
+      cmkp += cmk_pitch * lines_to_process;
+      // bottom #-2
+      for (int x = 0; x < Width; ++x)
+      {
+        const int sFirst = srcp[x] - srcpp[x];
+        const int sSecond = srcp[x] - srcpn[x];
+        if ((sFirst > scaled_cthresh && sSecond > scaled_cthresh) || (sFirst < -scaled_cthresh && sSecond < -scaled_cthresh))
+        {
+          if (abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
+            cmkp[x] = 0xFF;
+        }
+      }
+      srcppp += src_pitch;
+      srcpp += src_pitch;
+      srcp += src_pitch;
+      srcpn += src_pitch;
+      srcpnn += src_pitch;
+      cmkp += cmk_pitch;
+      // bottom #-1
+      for (int x = 0; x < Width; ++x)
+      {
+        const int sFirst = srcp[x] - srcpp[x];
+        if (sFirst > scaled_cthresh || sFirst < -scaled_cthresh)
+        {
+          if (abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpp[x]))) > cthresh6)
+            cmkp[x] = 0xFF;
+        }
+      }
+    }
+    else
+    {
+      // metric == 1: squared
+      typedef typename std::conditional<sizeof(pixel_t) == 1, int, int64_t> ::type safeint_t;
+      const safeint_t cthreshsq = (safeint_t)scaled_cthresh * scaled_cthresh;
+      // top #1
+      for (int x = 0; x < Width; ++x)
+      {
+        if ((safeint_t)(srcp[x] - srcpn[x]) * (srcp[x] - srcpn[x]) > cthreshsq)
+          cmkp[x] = 0xFF;
+      }
+      srcpp += src_pitch;
+      srcp += src_pitch;
+      srcpn += src_pitch;
+      cmkp += cmk_pitch;
+      // middle Height - 2
+      const int lines_to_process = Height - 2;
+      if (use_sse2)
+      {
+        if constexpr (sizeof(pixel_t) == 1)
+          check_combing_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
+        else
+          check_combing_c_Metric1<pixel_t, false, safeint_t>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
+        // fixme: write SIMD? later. int64 inside.
+        // check_combing_uint16_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
+      }
+      else
+      {
+        check_combing_c_Metric1<pixel_t, false, safeint_t>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
+      }
+      srcpp += src_pitch * lines_to_process;
+      srcp += src_pitch * lines_to_process;
+      srcpn += src_pitch * lines_to_process;
+      cmkp += cmk_pitch * lines_to_process;
+      // Bottom
+      for (int x = 0; x < Width; ++x)
+      {
+        if ((safeint_t)(srcp[x] - srcpp[x]) * (srcp[x] - srcpp[x]) > cthreshsq)
+          cmkp[x] = 0xFF;
+      }
+    }
+  }
+
+  // next block is for mask, no hbd needed
+  // Includes chroma combing in the decision about whether a frame is combed.
+  if (chroma)
+  {
+    if (vi.Is420()) FillCombedPlanarUpdateCmaskByUV<420>(cmask);
+    else if (vi.Is422()) FillCombedPlanarUpdateCmaskByUV<422>(cmask);
+    else if (vi.Is444()) FillCombedPlanarUpdateCmaskByUV<444>(cmask);
+    else if (vi.IsYV411()) FillCombedPlanarUpdateCmaskByUV<411>(cmask);
+  }
+  // till now now it's the same as in TFMPlanar::checkCombedPlanar
+}
+
+// instantiate
+template void checkCombedPlanarAnalyze_core<uint8_t>(const VideoInfo& vi, int cthresh, bool chroma, int cpuFlags, int metric, PVideoFrame& src, PlanarFrame* cmask);
+template void checkCombedPlanarAnalyze_core<uint16_t>(const VideoInfo& vi, int cthresh, bool chroma, int cpuFlags, int metric, PVideoFrame& src, PlanarFrame* cmask);
+
+
+bool TFM::checkCombedPlanar(const VideoInfo& vi, PVideoFrame& src, int n, IScriptEnvironment* env, int match,
+  int* blockN, int& xblocksi, int* mics, bool ddebug, bool chroma, int cthresh)
+{
   if (mics[match] != -20)
   {
     if (mics[match] > MI)
@@ -86,164 +256,22 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
     return false;
   }
 
-  // fixme: put here template<typename pixel_t> from TDeinterlacePlanar
-  // static void do_checkCombedPlanar<pixel_t>(PVideoFrame & src, int& MIC, int bits_per_pixel, bool chroma, int cthresh, PVideoFrame & cmask, int cpuFlags, const VideoInfo & vi_saved, int metric, IScriptEnvironment * env)
-  // difference: cmask is here PlanarFrame, in TDeinterlace: PVideoFrame
-
-  bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
-
-  const int cthresh6 = cthresh * 6;
-
-  // fix in v15:  U and V index inconsistency between PlanarFrames and PVideoFrame
-  const int stop = chroma ? 3 : 1;
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    const uint8_t *srcp = src->GetReadPtr(plane);
-    const int src_pitch = src->GetPitch(plane);
-    const int Width = src->GetRowSize(plane);
-    const int Height = src->GetHeight(plane);
-    const uint8_t *srcpp = srcp - src_pitch;
-    const uint8_t *srcppp = srcpp - src_pitch;
-    const uint8_t *srcpn = srcp + src_pitch;
-    const uint8_t *srcpnn = srcpn + src_pitch;
-    uint8_t *cmkp = cmask->GetPtr(b);
-    const int cmk_pitch = cmask->GetPitch(b);
-    if (cthresh < 0) { 
-      memset(cmkp, 255, Height*cmk_pitch); 
-      continue; 
-    }
-    memset(cmkp, 0, Height*cmk_pitch);
-    if (metric == 0)
-    {
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpn[x];
-        if (sFirst > cthresh || sFirst < -cthresh)
-        {
-          if (abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpn[x] + srcpn[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-      srcppp += src_pitch;
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      srcpnn += src_pitch;
-      cmkp += cmk_pitch;
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpp[x];
-        const int sSecond = srcp[x] - srcpn[x];
-        if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
-        {
-          if (abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-      srcppp += src_pitch;
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      srcpnn += src_pitch;
-      cmkp += cmk_pitch;
-      // middle
-      if (use_sse2)
-      {
-        check_combing_SSE2(srcp, cmkp, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
-      }
-      else
-      {
-        check_combing_c<uint8_t, false>(srcp, cmkp, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
-      }
-      srcppp += src_pitch * (Height - 4);
-      srcpp += src_pitch * (Height - 4);
-      srcp += src_pitch * (Height - 4);
-      srcpn += src_pitch * (Height - 4);
-      srcpnn += src_pitch * (Height - 4);
-      cmkp += cmk_pitch * (Height - 4);
-
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpp[x];
-        const int sSecond = srcp[x] - srcpn[x];
-        if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
-        {
-          if (abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-      srcppp += src_pitch;
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      srcpnn += src_pitch;
-      cmkp += cmk_pitch;
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpp[x];
-        if (sFirst > cthresh || sFirst < -cthresh)
-        {
-          if (abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpp[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-    }
-    else
-    {
-      // metric == 1
-      const int cthreshsq = cthresh*cthresh;
-      // top
-      for (int x = 0; x < Width; ++x)
-      {
-        if ((srcp[x] - srcpn[x])*(srcp[x] - srcpn[x]) > cthreshsq)
-          cmkp[x] = 0xFF;
-      }
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      cmkp += cmk_pitch;
-      // middle
-      const int lines_to_process = Height - 2;
-      if (use_sse2)
-      {
-        if constexpr (sizeof(pixel_t) == 1)
-          check_combing_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
-        else
-          check_combing_c_Metric1<pixel_t, false, safeint_t>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
-        // fixme: write SIMD? later. int64 inside.
-        // check_combing_uint16_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
-      }
-      else
-      {
-        check_combing_c_Metric1<pixel_t, false, safeint_t>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
-      }
-      srcpp += src_pitch * lines_to_process;
-      srcp += src_pitch * lines_to_process;
-      srcpn += src_pitch * lines_to_process;
-      cmkp += cmk_pitch * lines_to_process;
-      // bottom
-      for (int x = 0; x < Width; ++x)
-      {
-        if ((srcp[x] - srcpp[x])*(srcp[x] - srcpp[x]) > cthreshsq)
-          cmkp[x] = 0xFF;
-      }
-    }
+  const int bits_per_pixel = vi.BitsPerComponent();
+  if (vi.ComponentSize() == 1) {
+    checkCombedPlanarAnalyze_core<uint8_t>(vi, cthresh, chroma, cpuFlags, metric, src, cmask);
+    return checkCombedPlanar_core<uint8_t>(src, n, env, match, blockN, xblocksi, mics, ddebug, bits_per_pixel);
   }
-
-  // next block is for mask, no hbd needed
-  if (chroma)
-  {
-    if (vi.Is420())
-      FillCombedPlanarUpdateCmaskByUV<420>(cmask);
-    else if (vi.Is422())
-      FillCombedPlanarUpdateCmaskByUV<422>(cmask);
-    else if (vi.Is444())
-      FillCombedPlanarUpdateCmaskByUV<444>(cmask);
-    else if (vi.IsYV411())
-      FillCombedPlanarUpdateCmaskByUV<411>(cmask);
+  else {
+    checkCombedPlanarAnalyze_core<uint16_t>(vi, cthresh, chroma, cpuFlags, metric, src, cmask);
+    return checkCombedPlanar_core<uint16_t>(src, n, env, match, blockN, xblocksi, mics, ddebug, bits_per_pixel);
   }
+}
+
+template<typename pixel_t>
+bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
+  int *blockN, int &xblocksi, int *mics, bool ddebug, int bits_per_pixel)
+{
+  const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const int cmk_pitch = cmask->GetPitch(0);
   const uint8_t *cmkp = cmask->GetPtr(0) + cmk_pitch;
@@ -253,10 +281,10 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
   const int Height = cmask->GetHeight(0);
   const int xblocks = ((Width + xhalf) >> xshift) + 1;
   const int xblocks4 = xblocks << 2;
-  xblocksi = xblocks4;
   const int yblocks = ((Height + yhalf) >> yshift) + 1;
   const int arraysize = (xblocks*yblocks) << 2;
   memset(cArray, 0, arraysize * sizeof(int));
+
   int Heighta = (Height >> (yshift - 1)) << (yshift - 1);
   if (Heighta == Height) Heighta = Height - yhalf;
   const int Widtha = (Width >> (xshift - 1)) << (xshift - 1);
@@ -408,11 +436,27 @@ bool TFM::checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, in
   return false;
 }
 
+template<typename pixel_t>
 void TFM::buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
   uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, IScriptEnvironment *env)
+  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment *env)
 {
-  buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
-  AnalyzeDiffMask_Planar<uint8_t, 8>(dstp, dst_pitch, tbuffer, tpitch, Width, Height);
+  buildABSDiffMask<pixel_t>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
+  switch (bits_per_pixel) {
+  case 8: AnalyzeDiffMask_Planar<uint8_t, 8>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
+  case 10: AnalyzeDiffMask_Planar<uint16_t, 10>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
+  case 12: AnalyzeDiffMask_Planar<uint16_t, 12>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
+  case 14: AnalyzeDiffMask_Planar<uint16_t, 14>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
+  case 16: AnalyzeDiffMask_Planar<uint16_t, 16>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
+  }
 }
+
+// instantiate
+template void TFM::buildDiffMapPlane_Planar<uint8_t>(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment* env);
+template void TFM::buildDiffMapPlane_Planar<uint16_t>(const uint8_t* prvp, const uint8_t* nxtp,
+  uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
+  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment* env);
+
 

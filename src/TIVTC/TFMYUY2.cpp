@@ -124,7 +124,7 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
       }
       else
       {
-        check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
+        check_combing_YUY2LumaOnly_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
         srcppp += src_pitch * (Height - 4);
         srcpp += src_pitch * (Height - 4);
         srcp += src_pitch * (Height - 4);
@@ -214,7 +214,6 @@ bool TFM::checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int 
     {
       // C version
       // no top, no bottom
-      // fixme: to check_combing_c_M1 and check_combing_c_Luma_M1
       // chroma: inc=1 lumaonly: inc=2
       for (int y = 1; y < Height - 1; ++y)
       {
@@ -240,9 +239,6 @@ cjump:
   if (chroma)
   {
     uint8_t *cmkp = cmask->GetPtr() + cmk_pitch;
- /* fixme PF 20200404: TDeint does this:
-  uint8_t *cmkp = cmask->GetWritePtr() + cmk_pitch;
-*/
  
     uint8_t *cmkpp = cmkp - cmk_pitch;
     uint8_t *cmkpn = cmkp + cmk_pitch;
@@ -423,7 +419,7 @@ void TFM::buildDiffMapPlaneYUY2(const uint8_t *prvp, const uint8_t *nxtp,
   uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
   int Width, int tpitch, IScriptEnvironment *env)
 {
-  buildABSDiffMask(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
+  buildABSDiffMask<uint8_t>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
   AnalyzeDiffMask_YUY2(dstp, dst_pitch, tbuffer, tpitch, Width, Height, mChroma);
 }
 

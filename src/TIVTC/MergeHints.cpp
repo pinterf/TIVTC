@@ -33,10 +33,9 @@ MergeHints::MergeHints(PClip _child, PClip _hintClip, bool _debug, IScriptEnviro
   if (vi.width * vi.height < 64)
     env->ThrowError("MergeHints:  total frame size must be at least 64 pixels!");
 
-  if (vi.BitsPerComponent() > 8)
-    env->ThrowError("MergeHints:  only 8 bit formats supported!");
-  if (vi.IsY())
-    env->ThrowError("MergeHints:  Greyscale format not supported!");
+  if (vi.BitsPerComponent() > 16)
+    env->ThrowError("MergeHints:  only 8-16 bit formats supported!");
+
   if (!vi.IsYUV())
     env->ThrowError("MergeHints:  only YUV input supported!");
   child->SetCacheHints(CACHE_NOTHING, 0);
@@ -56,10 +55,18 @@ MergeHints::~MergeHints()
 PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env)
 {
   PVideoFrame hnt = hintClip->GetFrame(n, env);
-  const uint8_t *hntp = hnt->GetReadPtr(PLANAR_Y);
   unsigned int i, magic_number = 0, hint = 0;
-  for (i = 0; i < 32; ++i) magic_number |= ((*hntp++ & 1) << i);
-  for (i = 0; i < 32; ++i) hint |= ((*hntp++ & 1) << i);
+  if (vi.ComponentSize() == 1) {
+    const uint8_t* hntp = hnt->GetReadPtr(PLANAR_Y);
+    for (i = 0; i < 32; ++i) magic_number |= ((*hntp++ & 1) << i);
+    for (i = 0; i < 32; ++i) hint |= ((*hntp++ & 1) << i);
+  }
+  else {
+    // 10-16 bits
+    const uint16_t* hntp = reinterpret_cast<const uint16_t *>(hnt->GetReadPtr(PLANAR_Y));
+    for (i = 0; i < 32; ++i) magic_number |= ((*hntp++ & 1) << i);
+    for (i = 0; i < 32; ++i) hint |= ((*hntp++ & 1) << i);
+  }
   if (debug)
   {
     sprintf(buf, "MergeHints:  identifier = %#x (%s)  hint = %#x\n", magic_number,
@@ -69,16 +76,31 @@ PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env)
   }
   PVideoFrame src = child->GetFrame(n, env);
   env->MakeWritable(&src);
-  uint8_t *dstp = src->GetWritePtr(PLANAR_Y);
-  for (i = 0; i < 32; ++i)
-  {
-    *dstp &= ~1;
-    *dstp++ |= ((magic_number & (1 << i)) >> i);
+  if (vi.ComponentSize() == 1) {
+    uint8_t* dstp = src->GetWritePtr(PLANAR_Y);
+    for (i = 0; i < 32; ++i)
+    {
+      *dstp &= ~1;
+      *dstp++ |= ((magic_number & (1 << i)) >> i);
+    }
+    for (i = 0; i < 32; ++i)
+    {
+      *dstp &= ~1;
+      *dstp++ |= ((hint & (1 << i)) >> i);
+    }
   }
-  for (i = 0; i < 32; ++i)
-  {
-    *dstp &= ~1;
-    *dstp++ |= ((hint & (1 << i)) >> i);
+  else {
+    uint16_t* dstp = reinterpret_cast<uint16_t *>(src->GetWritePtr(PLANAR_Y));
+    for (i = 0; i < 32; ++i)
+    {
+      *dstp &= ~1;
+      *dstp++ |= ((magic_number & (1 << i)) >> i);
+    }
+    for (i = 0; i < 32; ++i)
+    {
+      *dstp &= ~1;
+      *dstp++ |= ((hint & (1 << i)) >> i);
+    }
   }
   return src;
 }

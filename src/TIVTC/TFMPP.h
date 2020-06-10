@@ -55,8 +55,8 @@ void blendDeintMask_SSE2(const uint8_t* srcp, uint8_t* dstp,
   const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
-template<bool with_mask>
-void blendDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+template<typename pixel_t, bool with_mask>
+void blendDeintMask_C(const pixel_t* srcp, pixel_t* dstp,
   const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
@@ -65,8 +65,8 @@ void cubicDeintMask_SSE2(const uint8_t* srcp, uint8_t* dstp,
   const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
-template<bool with_mask>
-void cubicDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+template<typename pixel_t, int bits_per_pixel, bool with_mask>
+void cubicDeintMask_C(const pixel_t* srcp, pixel_t* dstp,
   const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height);
 
@@ -93,10 +93,12 @@ private:
   PlanarFrame *mmask;
 
   void buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-    PlanarFrame *mask, int use, int np, IScriptEnvironment *env);
-  void BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst,
-    bool nomask, const VideoInfo& vi, IScriptEnvironment *env);
+    PlanarFrame *mask, int use, const VideoInfo& vi, IScriptEnvironment *env);
+  template<typename pixel_t>
+  void buildMotionMask_core(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+    PlanarFrame* mask, int use, const VideoInfo& vi, IScriptEnvironment* env);
   void maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
+
     PVideoFrame &dst, const VideoInfo& vi, IScriptEnvironment *env);
 
   void putHint(const VideoInfo& vi, PVideoFrame& dst, int field, unsigned int hint);
@@ -107,8 +109,7 @@ private:
   bool getHint_core(PVideoFrame& src, int& field, bool& combed, unsigned int& hint);
 
   void getSetOvr(int n);
-  
-  // fixme check: similar (but not same) in TDeInterlace
+
   void denoiseYUY2(PlanarFrame *mask);
   void denoisePlanar(PlanarFrame *mask);
 
@@ -120,11 +121,21 @@ private:
   template<typename pixel_t>
   void destroyHint_core(PVideoFrame& dst, unsigned int hint);
 
+  void BlendDeint(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst,
+    bool nomask, const VideoInfo& vi, IScriptEnvironment* env);
+  template<typename pixel_t>
+  void BlendDeint_core(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst,
+    bool nomask, const VideoInfo& vi, IScriptEnvironment* env);
+
   void CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
     int field, const VideoInfo &vi, IScriptEnvironment *env);
-  void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);
+  template<typename pixel_t, int bits_per_pixel>
+  void CubicDeint_core(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst, bool nomask,
+    int field, const VideoInfo& vi, IScriptEnvironment* env);
 
+  void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);
   // not the same as in tdeinterlace.
+  template<typename pixel_t, int bits_per_pixel>
   void elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);
   void elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field);
 

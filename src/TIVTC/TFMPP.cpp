@@ -46,7 +46,6 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     destroyHint(vi, src, hint);
     return src;
   }
-  int np = vi.IsPlanar() ? 3 : 1;
   getSetOvr(n);
   PVideoFrame dst;
   if (PP > 4)
@@ -62,7 +61,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     if (use > 0)
     {
       dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
-      buildMotionMask(prv, src, nxt, mmask, use, np, env);
+      buildMotionMask(prv, src, nxt, mmask, use, vi, env);
       if (uC2) {
         PVideoFrame frame = clip2->GetFrame(n, env);
         maskClip2(src, frame, mmask, dst, vi, env);
@@ -148,36 +147,57 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
   return dst;
 }
 
-void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-  PlanarFrame *mask, int use, int np, IScriptEnvironment *env)
+void TFMPP::buildMotionMask(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+  PlanarFrame* mask, int use, const VideoInfo& vi, IScriptEnvironment* env)
+{
+  if (vi.ComponentSize() == 1)
+    buildMotionMask_core<uint8_t>(prv, src, nxt, mask, use, vi, env);
+  else
+    buildMotionMask_core<uint16_t>(prv, src, nxt, mask, use, vi, env);
+}
+
+template<typename pixel_t>
+void TFMPP::buildMotionMask_core(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
+  PlanarFrame *mask, int use, const VideoInfo &vi, IScriptEnvironment *env)
 {
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
+  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const uint8_t *prvpp = prv->GetReadPtr(plane);
-    const int prv_pitch = prv->GetPitch(plane);
-    const uint8_t *prvp = prvpp + prv_pitch;
-    const uint8_t *prvpn = prvp + prv_pitch;
-    const uint8_t *srcpp = src->GetReadPtr(plane);
-    const int src_pitch = src->GetPitch(plane);
-    const int width = src->GetRowSize(plane);
+    const pixel_t *prvpp = reinterpret_cast<const pixel_t *>(prv->GetReadPtr(plane));
+    const int prv_pitch = prv->GetPitch(plane) / sizeof(pixel_t);
+    const pixel_t*prvp = prvpp + prv_pitch;
+    const pixel_t*prvpn = prvp + prv_pitch;
+
+    const pixel_t *srcpp = reinterpret_cast<const pixel_t*>(src->GetReadPtr(plane));
+    const int src_pitch = src->GetPitch(plane) / sizeof(pixel_t);
+    
+    const int width = src->GetRowSize(plane) / sizeof(pixel_t);
     const int height = src->GetHeight(plane);
-    const uint8_t *srcp = srcpp + src_pitch;
-    const uint8_t *srcpn = srcp + src_pitch;
-    const uint8_t *nxtpp = nxt->GetReadPtr(plane);
-    const int nxt_pitch = nxt->GetPitch(plane);
-    const uint8_t *nxtp = nxtpp + nxt_pitch;
-    const uint8_t *nxtpn = nxtp + nxt_pitch;
+
+    const pixel_t *srcp = srcpp + src_pitch;
+    const pixel_t *srcpn = srcp + src_pitch;
+
+    const pixel_t *nxtpp = reinterpret_cast<const pixel_t*>(nxt->GetReadPtr(plane));
+    const int nxt_pitch = nxt->GetPitch(plane) / sizeof(pixel_t);
+    const pixel_t *nxtp = nxtpp + nxt_pitch;
+    const pixel_t *nxtpn = nxtp + nxt_pitch;
+
     uint8_t *maskw = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
+
     maskw += msk_pitch;
+    
+    const int mthresh_scaled = mthresh << (vi.BitsPerComponent() - 8);
+
     if (use == 1)
     {
-      if (use_sse2)
-        buildMotionMask1_SSE2(srcp, prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpuFlags);
+      // fixme: hbd SIMD
+      if (sizeof(pixel_t) == 1 && use_sse2)
+        buildMotionMask1_SSE2((const uint8_t *)srcp, (const uint8_t*)prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpuFlags);
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -185,8 +205,8 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
         {
           for (int x = 0; x < width; ++x)
           {
-            if (!(abs(prvpp[x] - srcpp[x]) > mthresh || abs(prvp[x] - srcp[x]) > mthresh ||
-              abs(prvpn[x] - srcpn[x]) > mthresh)) maskw[x] = 0;
+            if (!(abs(prvpp[x] - srcpp[x]) > mthresh_scaled || abs(prvp[x] - srcp[x]) > mthresh_scaled ||
+              abs(prvpn[x] - srcpn[x]) > mthresh_scaled)) maskw[x] = 0;
           }
           prvpp += prv_pitch;
           prvp += prv_pitch;
@@ -200,8 +220,9 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     }
     else if (use == 2)
     {
-      if (use_sse2)
-        buildMotionMask1_SSE2(srcp, nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
+      // fixme: hbd SIMD
+      if (sizeof(pixel_t) == 1 && use_sse2)
+        buildMotionMask1_SSE2((const uint8_t*)srcp, (const uint8_t*)nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -209,8 +230,8 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
         {
           for (int x = 0; x < width; ++x)
           {
-            if (!(abs(nxtpp[x] - srcpp[x]) > mthresh || abs(nxtp[x] - srcp[x]) > mthresh ||
-              abs(nxtpn[x] - srcpn[x]) > mthresh)) maskw[x] = 0;
+            if (!(abs(nxtpp[x] - srcpp[x]) > mthresh_scaled || abs(nxtp[x] - srcp[x]) > mthresh_scaled ||
+              abs(nxtpn[x] - srcpn[x]) > mthresh_scaled)) maskw[x] = 0;
           }
           srcpp += src_pitch;
           srcp += src_pitch;
@@ -224,10 +245,11 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
     }
     else
     {
+      // fixme: hbd SIMD
       // use not 1 or 2
-      if (use_sse2)
+      if (sizeof(pixel_t) == 1 && use_sse2)
       {
-        buildMotionMask2_SSE2(prvp, srcp, nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
+        buildMotionMask2_SSE2((const uint8_t*)prvp, (const uint8_t*)srcp, (const uint8_t*)nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
         for (int y = 1; y < height; ++y)
         {
           for (int x = 0; x < width; ++x)
@@ -250,14 +272,14 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
         {
           for (int x = 0; x < width; ++x)
           {
-            if (!(((abs(prvp[x] - srcp[x]) > mthresh) && (abs(nxtpp[x] - srcpp[x]) > mthresh ||
-              abs(nxtp[x] - srcp[x]) > mthresh || abs(nxtpn[x] - srcpn[x]) > mthresh)) ||
-              ((abs(nxtp[x] - srcp[x]) > mthresh) && (abs(prvpp[x] - srcpp[x]) > mthresh ||
-                abs(prvp[x] - srcp[x]) > mthresh || abs(prvpn[x] - srcpn[x]) > mthresh)) ||
-                (abs(prvpp[x] - srcpp[x]) > mthresh && abs(prvpn[x] - srcpn[x]) > mthresh &&
-              (abs(nxtpp[x] - srcpp[x]) > mthresh || abs(nxtpn[x] - srcpn[x]) > mthresh)) ||
-                  ((abs(prvpp[x] - srcpp[x]) > mthresh || abs(prvpn[x] - srcpn[x]) > mthresh) &&
-                    abs(nxtpp[x] - srcpp[x]) > mthresh && abs(nxtpn[x] - srcpn[x]) > mthresh)))
+            if (!(((abs(prvp[x] - srcp[x]) > mthresh_scaled) && (abs(nxtpp[x] - srcpp[x]) > mthresh_scaled ||
+              abs(nxtp[x] - srcp[x]) > mthresh_scaled || abs(nxtpn[x] - srcpn[x]) > mthresh_scaled)) ||
+              ((abs(nxtp[x] - srcp[x]) > mthresh_scaled) && (abs(prvpp[x] - srcpp[x]) > mthresh_scaled ||
+                abs(prvp[x] - srcp[x]) > mthresh_scaled || abs(prvpn[x] - srcpn[x]) > mthresh_scaled)) ||
+                (abs(prvpp[x] - srcpp[x]) > mthresh_scaled && abs(prvpn[x] - srcpn[x]) > mthresh_scaled &&
+              (abs(nxtpp[x] - srcpp[x]) > mthresh_scaled || abs(nxtpn[x] - srcpn[x]) > mthresh_scaled)) ||
+                  ((abs(prvpp[x] - srcpp[x]) > mthresh_scaled || abs(prvpn[x] - srcpn[x]) > mthresh_scaled) &&
+                    abs(nxtpp[x] - srcpp[x]) > mthresh_scaled && abs(nxtpn[x] - srcpn[x]) > mthresh_scaled)))
               maskw[x] = 0;
           }
           prvpp += prv_pitch;
@@ -274,7 +296,7 @@ void TFMPP::buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt
       }
     }
   }
-  if (np == 3)
+  if (vi.IsPlanar())
   {
     denoisePlanar(mask);
     if (vi.Is420())
@@ -564,29 +586,43 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
   }
 }
 
-void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
+void TFMPP::BlendDeint(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst, bool nomask,
+  const VideoInfo& vi, IScriptEnvironment* env)
+{
+  if (vi.BitsPerComponent() == 8)
+    BlendDeint_core<uint8_t>(src, mask, dst, nomask, vi, env);
+  else
+    BlendDeint_core<uint16_t>(src, mask, dst, nomask, vi, env);
+}
+
+template<typename pixel_t>
+void TFMPP::BlendDeint_core(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
   const VideoInfo& vi, IScriptEnvironment *env)
 {
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
-  const int pixelsize = vi.ComponentSize();
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const uint8_t *srcp = src->GetReadPtr(plane);
-    const int src_pitch = src->GetPitch(plane);
+    const pixel_t *srcp = reinterpret_cast<const pixel_t *>(src->GetReadPtr(plane));
+    const int src_pitch = src->GetPitch(plane) / sizeof(pixel_t);
+
     const int rowsize = src->GetRowSize(plane);
-    const int width = rowsize / pixelsize;
+    const int width = rowsize / sizeof(pixel_t);
     const int height = src->GetHeight(plane);
-    const uint8_t *srcpp = srcp - src_pitch;
-    const uint8_t *srcpn = srcp + src_pitch;
-    uint8_t *dstp = dst->GetWritePtr(plane);
-    const int dst_pitch = dst->GetPitch(plane);
+
+    const pixel_t* srcpp = srcp - src_pitch;
+    const pixel_t* srcpn = srcp + src_pitch;
+
+    pixel_t *dstp = reinterpret_cast<pixel_t*>(dst->GetWritePtr(plane));
+    const int dst_pitch = dst->GetPitch(plane) / sizeof(pixel_t);
+
     const uint8_t *maskp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b);
+    
     // top line
     for (int x = 0; x < width; ++x)
       dstp[x] = (srcp[x] + srcpn[x] + 1) >> 1;
@@ -598,18 +634,19 @@ void TFMPP::BlendDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     const int lines_to_process = height - 2;
     if (nomask)
     {
-      if (use_sse2)
-        blendDeintMask_SSE2<false>(srcp, dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
+      // fixme: hbd SIMD
+      if (sizeof(pixel_t) == 1 && use_sse2)
+        blendDeintMask_SSE2<false>((const uint8_t *)srcp, (uint8_t*)dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
       else
-        blendDeintMask_C<false>(srcp, dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
+        blendDeintMask_C<pixel_t, false>(srcp, dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
     }
     else
     {
       // with mask
-      if (use_sse2)
-        blendDeintMask_SSE2<true>(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
+      if (sizeof(pixel_t) == 1 && use_sse2)
+        blendDeintMask_SSE2<true>((const uint8_t*)srcp, (uint8_t*)dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
       else
-        blendDeintMask_C<true>(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
+        blendDeintMask_C<pixel_t, true>(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
     }
     srcpp += src_pitch * lines_to_process;
     srcp += src_pitch * lines_to_process;
@@ -669,14 +706,14 @@ void blendDeintMask_SSE2(const uint8_t *srcp, uint8_t *dstp,
   }
 }
 
-template<bool with_mask>
-void blendDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+template<typename pixel_t, bool with_mask>
+void blendDeintMask_C(const pixel_t* srcp, pixel_t* dstp,
   const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
 {
   while (height--) {
-    const uint8_t* srcpp = srcp - src_pitch;
-    const uint8_t* srcpn = srcp + src_pitch;
+    const pixel_t* srcpp = srcp - src_pitch;
+    const pixel_t* srcpn = srcp + src_pitch;
     for (int x = 0; x < width; ++x)
     {
       if (!with_mask || (with_mask && maskp[x] == 0xFF))
@@ -691,39 +728,62 @@ void blendDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
   }
 }
 
-void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
+void TFMPP::CubicDeint(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst, bool nomask,
+  int field, const VideoInfo& vi, IScriptEnvironment* env)
+{
+  if (vi.IsYUY2())
+    CubicDeint_core<uint8_t, 8>(src, mask, dst, nomask, field, vi, env);
+  else {
+    switch (vi.BitsPerComponent()) {
+    case 8: CubicDeint_core<uint8_t, 8>(src, mask, dst, nomask, field, vi, env); break;
+    case 10: CubicDeint_core<uint16_t, 10>(src, mask, dst, nomask, field, vi, env); break;
+    case 12: CubicDeint_core<uint16_t, 12>(src, mask, dst, nomask, field, vi, env); break;
+    case 14: CubicDeint_core<uint16_t, 14>(src, mask, dst, nomask, field, vi, env); break;
+    case 16: CubicDeint_core<uint16_t, 16>(src, mask, dst, nomask, field, vi, env); break;
+    }
+  }
+}
+
+template<typename pixel_t, int bits_per_pixel>
+void TFMPP::CubicDeint_core(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
   int field, const VideoInfo& vi, IScriptEnvironment *env)
 {
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
-  const int pixelsize = vi.ComponentSize();
 
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    const uint8_t *srcp = src->GetReadPtr(plane);
-    const int src_pitch = src->GetPitch(plane) * 2; // !!;
+
+    const pixel_t *srcp = reinterpret_cast<const pixel_t *>(src->GetReadPtr(plane));
+    // !! yes, double;
+    const int src_pitch = src->GetPitch(plane) * 2 / sizeof(pixel_t);
+
     const int rowsize = src->GetRowSize(plane);
-    const int width = rowsize / pixelsize;
+    const int width = rowsize / sizeof(pixel_t);
     const int height = src->GetHeight(plane);
-    uint8_t *dstp = dst->GetWritePtr(plane);
-    const int dst_pitch = dst->GetPitch(plane) << 1;
+
+    pixel_t *dstp = reinterpret_cast<pixel_t*>(dst->GetWritePtr(plane));
+    const int dst_pitch = (dst->GetPitch(plane) << 1) / sizeof(pixel_t);
+
     const uint8_t *maskp = mask->GetPtr(b);
     const int msk_pitch = mask->GetPitch(b) << 1;
+    
     srcp += (src_pitch >> 1)*(3 - field);
     dstp += (dst_pitch >> 1)*(2 - field);
     maskp += (msk_pitch >> 1)*(2 - field);
-    const uint8_t *srcpp = srcp - src_pitch;
-    const uint8_t *srcppp = srcpp - src_pitch;
-    const uint8_t *srcpn = srcp + src_pitch;
-    const uint8_t *srcr = srcp - (src_pitch >> 1);
+
+    const pixel_t *srcpp = srcp - src_pitch;
+    const pixel_t *srcppp = srcpp - src_pitch;
+    const pixel_t* srcpn = srcp + src_pitch;
+    const pixel_t*srcr = srcp - (src_pitch >> 1);
 
     // top orphan
     if (field == 0)
-      env->BitBlt(dst->GetWritePtr(plane), dst_pitch >> 1,
-        src->GetReadPtr(plane) + (src_pitch >> 1), src_pitch >> 1, rowsize, 1);
+      env->BitBlt(dst->GetWritePtr(plane), (dst_pitch >> 1) * sizeof(pixel_t),
+        src->GetReadPtr(plane) + (src_pitch >> 1) * sizeof(pixel_t), (src_pitch >> 1) * sizeof(pixel_t), rowsize, 1);
     
     if (nomask)
     {
@@ -737,14 +797,14 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
       dstp += dst_pitch;
       // middle
       const int lines_to_process = height / 2 - 3;
-      if (use_sse2)
+      if (bits_per_pixel == 8 && use_sse2)
       {
         // false: no mask
-        cubicDeintMask_SSE2<false>(srcp, dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
+        cubicDeintMask_SSE2<false>((const uint8_t *)srcp, (uint8_t*)dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
       }
       else
       {
-        cubicDeintMask_C<false>(srcp, dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
+        cubicDeintMask_C<pixel_t, bits_per_pixel, false>(srcp, dstp, nullptr, src_pitch, dst_pitch, 0, width, lines_to_process);
       }
       srcppp += src_pitch * lines_to_process;
       srcpp += src_pitch * lines_to_process;
@@ -774,15 +834,16 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
       dstp += dst_pitch;
       // middle
       const int lines_to_process = height / 2 - 3;
-      if (use_sse2)
+      if (bits_per_pixel == 8 && use_sse2)
       {
+        // fixme: hbd SIMD sse2 for 10+ bits
         // true: with_mask
-        cubicDeintMask_SSE2<true>(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
+        cubicDeintMask_SSE2<true>((const uint8_t*)srcp, (uint8_t*)dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
       }
       else
       {
         //for (int y = 4 - field; y < height - 3; y += 2)
-        cubicDeintMask_C<true>(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
+        cubicDeintMask_C<pixel_t, bits_per_pixel, true>(srcp, dstp, maskp, src_pitch, dst_pitch, msk_pitch, width, lines_to_process);
       }
       srcppp += src_pitch * lines_to_process;
       srcpp += src_pitch * lines_to_process;
@@ -802,8 +863,8 @@ void TFMPP::CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bo
     }
     // bottom orphan
     if (field == 1)
-      env->BitBlt(dst->GetWritePtr(plane) + (height - 1)*(dst_pitch >> 1), dst_pitch >> 1,
-        src->GetReadPtr(plane) + (height - 2)*(src_pitch >> 1), src_pitch >> 1, rowsize, 1);
+      env->BitBlt(dst->GetWritePtr(plane) + (height - 1)*(dst_pitch >> 1) * sizeof(pixel_t), (dst_pitch >> 1) * sizeof(pixel_t),
+        src->GetReadPtr(plane) + (height - 2)*(src_pitch >> 1) * sizeof(pixel_t), (src_pitch >> 1) * sizeof(pixel_t), rowsize, 1);
   }
 }
 
@@ -878,21 +939,21 @@ void cubicDeintMask_SSE2(const uint8_t *srcp, uint8_t *dstp,
   }
 }
 
-template<bool with_mask>
-void cubicDeintMask_C(const uint8_t* srcp, uint8_t* dstp,
+template<typename pixel_t, int bits_per_pixel, bool with_mask>
+void cubicDeintMask_C(const pixel_t* srcp, pixel_t* dstp,
   const uint8_t* maskp, int src_pitch, int dst_pitch, int msk_pitch,
   int width, int height)
 {
   while (height--) {
-    const uint8_t* srcppp = srcp - src_pitch * 2;
-    const uint8_t* srcpp = srcp - src_pitch;
-    const uint8_t* srcpn = srcp + src_pitch;
-    const uint8_t* srcr = srcp - (src_pitch >> 1); // came doubled
+    const pixel_t* srcppp = srcp - src_pitch * 2;
+    const pixel_t* srcpp = srcp - src_pitch;
+    const pixel_t* srcpn = srcp + src_pitch;
+    const pixel_t* srcr = srcp - (src_pitch >> 1); // came doubled
     for (int x = 0; x < width; ++x)
     {
       if (!with_mask || (with_mask && maskp[x] == 0xFF))
       {
-        const int temp = cubicInt<8>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
+        const int temp = cubicInt<bits_per_pixel>(srcppp[x], srcpp[x], srcp[x], srcpn[x]);
         dstp[x] = temp;
       }
       else 
@@ -1054,35 +1115,48 @@ void TFMPP::writeDisplay(PVideoFrame &dst, const VideoInfo &vi, int n, int field
   Draw(dst, 0, 2, buf, vi);
 }
 
-void TFMPP::elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi)
+void TFMPP::elaDeint(PVideoFrame& dst, PlanarFrame* mask, PVideoFrame& src, bool nomask, int field, const VideoInfo& vi)
 {
-  if (!vi.IsYUY2()) 
-    elaDeintPlanar(dst, mask, src, nomask, field, vi);
-  else 
+  if (!vi.IsYUY2()) {
+    switch (vi.BitsPerComponent()) {
+    case 8: elaDeintPlanar<uint8_t, 8>(dst, mask, src, nomask, field, vi); break;
+    case 10: elaDeintPlanar<uint16_t, 10>(dst, mask, src, nomask, field, vi); break;
+    case 12: elaDeintPlanar<uint16_t, 12>(dst, mask, src, nomask, field, vi); break;
+    case 14: elaDeintPlanar<uint16_t, 14>(dst, mask, src, nomask, field, vi); break;
+    case 16: elaDeintPlanar<uint16_t, 16>(dst, mask, src, nomask, field, vi); break;
+    }
+  }
+  else
     elaDeintYUY2(dst, mask, src, nomask, field);
 }
 
+// totally different from TDeinterlace ELADeintPlanar
+template<typename pixel_t, int bits_per_pixel>
 void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi)
 {
-  const uint8_t *srcpY = src->GetReadPtr(PLANAR_Y);
-  const uint8_t *srcpV = src->GetReadPtr(PLANAR_V);
-  const uint8_t *srcpU = src->GetReadPtr(PLANAR_U);
-  int src_pitchY = src->GetPitch(PLANAR_Y);
-  int src_pitchUV = src->GetPitch(PLANAR_V);
-  int WidthY = src->GetRowSize(PLANAR_Y);
-  int WidthUV = src->GetRowSize(PLANAR_V);
-  int HeightY = src->GetHeight(PLANAR_Y);
-  int HeightUV = src->GetHeight(PLANAR_V);
-  uint8_t *dstpY = dst->GetWritePtr(PLANAR_Y);
-  uint8_t *dstpV = dst->GetWritePtr(PLANAR_V);
-  uint8_t *dstpU = dst->GetWritePtr(PLANAR_U);
-  int dst_pitchY = dst->GetPitch(PLANAR_Y);
-  int dst_pitchUV = dst->GetPitch(PLANAR_V);
+  const pixel_t *srcpY = reinterpret_cast<const pixel_t *>(src->GetReadPtr(PLANAR_Y));
+  const pixel_t *srcpV = reinterpret_cast<const pixel_t*>(src->GetReadPtr(PLANAR_V));
+  const pixel_t *srcpU = reinterpret_cast<const pixel_t*>(src->GetReadPtr(PLANAR_U));
+  int src_pitchY = src->GetPitch(PLANAR_Y) / sizeof(pixel_t);
+  int src_pitchUV = src->GetPitch(PLANAR_V) / sizeof(pixel_t);
+  
+  const int WidthY = src->GetRowSize(PLANAR_Y) / sizeof(pixel_t);
+  const int WidthUV = src->GetRowSize(PLANAR_V) / sizeof(pixel_t);
+  const int HeightY = src->GetHeight(PLANAR_Y);
+  const int HeightUV = src->GetHeight(PLANAR_V);
+  
+  pixel_t *dstpY = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_Y));
+  pixel_t *dstpV = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_V));
+  pixel_t *dstpU = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_U));
+  int dst_pitchY = dst->GetPitch(PLANAR_Y) / sizeof(pixel_t);
+  int dst_pitchUV = dst->GetPitch(PLANAR_V) / sizeof(pixel_t);
+
   const uint8_t *maskpY = mask->GetPtr(0);
   const uint8_t *maskpV = mask->GetPtr(2);
   const uint8_t *maskpU = mask->GetPtr(1);
   int mask_pitchY = mask->GetPitch(0);
   int mask_pitchUV = mask->GetPitch(2);
+
   srcpY += src_pitchY*(3 - field);
   srcpV += src_pitchUV*(3 - field);
   srcpU += src_pitchUV*(3 - field);
@@ -1098,20 +1172,35 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
   dst_pitchUV <<= 1;
   mask_pitchY <<= 1;
   mask_pitchUV <<= 1;
-  const uint8_t *srcppY = srcpY - src_pitchY;
-  const uint8_t *srcpppY = srcppY - src_pitchY;
-  const uint8_t *srcpnY = srcpY + src_pitchY;
-  const uint8_t *srcppV = srcpV - src_pitchUV;
-  const uint8_t *srcpppV = srcppV - src_pitchUV;
-  const uint8_t *srcpnV = srcpV + src_pitchUV;
-  const uint8_t *srcppU = srcpU - src_pitchUV;
-  const uint8_t *srcpppU = srcppU - src_pitchUV;
-  const uint8_t *srcpnU = srcpU + src_pitchUV;
+
+  const pixel_t *srcppY = srcpY - src_pitchY;
+  const pixel_t *srcpppY = srcppY - src_pitchY;
+  const pixel_t *srcpnY = srcpY + src_pitchY;
+  const pixel_t *srcppV = srcpV - src_pitchUV;
+  const pixel_t *srcpppV = srcppV - src_pitchUV;
+  const pixel_t *srcpnV = srcpV + src_pitchUV;
+  const pixel_t *srcppU = srcpU - src_pitchUV;
+  const pixel_t *srcpppU = srcppU - src_pitchUV;
+  const pixel_t *srcpnU = srcpU + src_pitchUV;
   int stopx = WidthY;
-  int startxuv = 0, x, y;
+  int startxuv = 0;
+  int x, y;
   int stopxuv = WidthUV;
-  int Iy1, Iy2, Iye, Ix1, Ix2, edgeS1, edgeS2, sum, sumsq, temp, temp1, temp2, minN, maxN;
+  int Iy1, Iy2, Iye;
+  int Ix1, Ix2;
+  int edgeS1, edgeS2;
+  int sum, sumsq;
+  int temp, temp1, temp2;
+  int minN, maxN;
   double dir1, dir2, dir, dirF;
+
+  constexpr int bitshift_to_8 = (bits_per_pixel - 8);
+
+  auto square = [](int i)
+  {
+    return i * i;
+  };
+
   for (y = 2 - field; y < HeightY - 1; y += 2)
   {
     for (x = 0; x < stopx; ++x)
@@ -1120,26 +1209,34 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
       {
         if (y > 2 && y < HeightY - 3 && x>3 && x < WidthY - 4)
         {
-          Iy1 = -srcpY[x - 1] - srcpY[x] - srcpY[x] - srcpY[x + 1] + srcpppY[x - 1] + srcpppY[x] + srcpppY[x] + srcpppY[x + 1];
-          Iy2 = -srcpnY[x - 1] - srcpnY[x] - srcpnY[x] - srcpnY[x + 1] + srcppY[x - 1] + srcppY[x] + srcppY[x] + srcppY[x + 1];
-          Ix1 = srcpppY[x + 1] + srcppY[x + 1] + srcppY[x + 1] + srcpY[x + 1] - srcpppY[x - 1] - srcppY[x - 1] - srcppY[x - 1] - srcpY[x - 1];
-          Ix2 = srcppY[x + 1] + srcpY[x + 1] + srcpY[x + 1] + srcpnY[x + 1] - srcppY[x - 1] - srcpY[x - 1] - srcpY[x - 1] - srcpnY[x - 1];
-          edgeS1 = Ix1*Ix1 + Iy1*Iy1;
-          edgeS2 = Ix2*Ix2 + Iy2*Iy2;
+          // stay in safe 32 bit int by using 8 bit normalized data
+          Iy1 = (-srcpY[x - 1] - srcpY[x] - srcpY[x] - srcpY[x + 1] + srcpppY[x - 1] + srcpppY[x] + srcpppY[x] + srcpppY[x + 1]) >> bitshift_to_8;
+          Iy2 = (-srcpnY[x - 1] - srcpnY[x] - srcpnY[x] - srcpnY[x + 1] + srcppY[x - 1] + srcppY[x] + srcppY[x] + srcppY[x + 1]) >> bitshift_to_8;
+          Ix1 = (srcpppY[x + 1] + srcppY[x + 1] + srcppY[x + 1] + srcpY[x + 1] - srcpppY[x - 1] - srcppY[x - 1] - srcppY[x - 1] - srcpY[x - 1]) >> bitshift_to_8;
+          Ix2 = (srcppY[x + 1] + srcpY[x + 1] + srcpY[x + 1] + srcpnY[x + 1] - srcppY[x - 1] - srcpY[x - 1] - srcpY[x - 1] - srcpnY[x - 1]) >> bitshift_to_8;
+          edgeS1 = Ix1 * Ix1 + Iy1 * Iy1;
+          edgeS2 = Ix2 * Ix2 + Iy2 * Iy2;
           if (edgeS1 < 1600 && edgeS2 < 1600)
           {
             dstpY[x] = (srcppY[x] + srcpY[x] + 1) >> 1;
             continue;
           }
-          if (abs(srcppY[x] - srcpY[x]) < 10 && (edgeS1 < 1600 || edgeS2 < 1600))
+          constexpr int Const10 = 10 << bitshift_to_8;
+          if (abs(srcppY[x] - srcpY[x]) < Const10 && (edgeS1 < 1600 || edgeS2 < 1600))
           {
             dstpY[x] = (srcppY[x] + srcpY[x] + 1) >> 1;
             continue;
           }
-          sum = srcppY[x - 1] + srcppY[x] + srcppY[x + 1] + srcpY[x - 1] + srcpY[x] + srcpY[x + 1];
-          sumsq = srcppY[x - 1] * srcppY[x - 1] + srcppY[x] * srcppY[x] + srcppY[x + 1] * srcppY[x + 1] +
-            srcpY[x - 1] * srcpY[x - 1] + srcpY[x] * srcpY[x] + srcpY[x + 1] * srcpY[x + 1];
-          if ((6 * sumsq - sum*sum) < 432)
+          // stay in safe 32 bit int by using 8 bit normalized data
+          sum = (srcppY[x - 1] + srcppY[x] + srcppY[x + 1] + srcpY[x - 1] + srcpY[x] + srcpY[x + 1]) >> bitshift_to_8;
+          sumsq =
+            square(srcppY[x - 1] >> bitshift_to_8) +
+            square(srcppY[x] >> bitshift_to_8) +
+            square(srcppY[x + 1] >> bitshift_to_8) +
+            square(srcpY[x - 1] >> bitshift_to_8) +
+            square(srcpY[x] >> bitshift_to_8) +
+            square(srcpY[x + 1] >> bitshift_to_8);
+          if (6 * sumsq - square(sum) < 432)
           {
             dstpY[x] = (srcppY[x] + srcpY[x] + 1) >> 1;
             continue;
@@ -1169,7 +1266,8 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
           {
             if (edgeS1 >= 5000 && edgeS2 >= 5000)
             {
-              Iye = -srcpY[x - 1] - srcpY[x] - srcpY[x] - srcpY[x + 1] + srcppY[x - 1] + srcppY[x] + srcppY[x] + srcppY[x + 1];
+              // stay in safe 32 bit int by using 8 bit normalized data
+              Iye = (-srcpY[x - 1] - srcpY[x] - srcpY[x] - srcpY[x + 1] + srcppY[x - 1] + srcppY[x] + srcppY[x] + srcppY[x + 1]) >> bitshift_to_8;
               if ((Iy1*Iye > 0) && (Iy2*Iye < 0)) dir = dir1;
               else if ((Iy1*Iye < 0) && (Iy2*Iye > 0)) dir = dir2;
               else
@@ -1200,7 +1298,7 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
                     else
                     {
                       temp1 = temp2 = srcpY[x];
-                      temp = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+                      temp = cubicInt<bits_per_pixel>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
                     }
                   }
                   else
@@ -1250,7 +1348,7 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
                     else
                     {
                       temp1 = temp2 = srcpY[x];
-                      temp = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+                      temp = cubicInt<bits_per_pixel>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
                     }
                   }
                   else
@@ -1281,20 +1379,29 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
               temp = (int)((-dirF)*(srcppY[x - 1] + srcpY[x + 1]) + (0.5f + dirF)*(srcppY[x] + srcpY[x]) + 0.5f);
             }
           }
-          minN = std::min(srcppY[x], srcpY[x]) - 25;
-          maxN = std::max(srcppY[x], srcpY[x]) + 25;
-          if (abs(temp1 - temp2) > 20 || abs(srcppY[x] + srcpY[x] - temp - temp) > 60 || temp < minN || temp > maxN)
+
+          constexpr int Const20 = 20 << bitshift_to_8;
+          constexpr int Const25 = 25 << bitshift_to_8;
+          constexpr int Const60 = 60 << bitshift_to_8;
+
+          minN = std::min(srcppY[x], srcpY[x]) - Const25;
+          maxN = std::max(srcppY[x], srcpY[x]) + Const25;
+          if (abs(temp1 - temp2) > Const20 || abs(srcppY[x] + srcpY[x] - temp - temp) > Const60 || temp < minN || temp > maxN)
           {
-            temp = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+            temp = cubicInt<bits_per_pixel>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
           }
-          if (temp > 255) temp = 255;
-          else if (temp < 0) temp = 0;
+          else {
+            // clamp to valid. cubicint clamps O.K.
+            constexpr int max_pixel_value = (1 << bits_per_pixel) - 1;
+            if (temp > max_pixel_value) temp = max_pixel_value;
+            else if (temp < 0) temp = 0;
+          }
           dstpY[x] = temp;
         }
         else
         {
           if (y<3 || y>HeightY - 4) dstpY[x] = ((srcpY[x] + srcppY[x] + 1) >> 1);
-          else dstpY[x] = cubicInt<8>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
+          else dstpY[x] = cubicInt<bits_per_pixel>(srcpppY[x], srcppY[x], srcpY[x], srcpnY[x]);
         }
       }
     }
@@ -1312,12 +1419,12 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
       if (nomask || maskpV[x] == 0xFF)
       {
         if (y<3 || y>HeightUV - 4) dstpV[x] = ((srcpV[x] + srcppV[x] + 1) >> 1);
-        else dstpV[x] = cubicInt<8>(srcpppV[x], srcppV[x], srcpV[x], srcpnV[x]);
+        else dstpV[x] = cubicInt<bits_per_pixel>(srcpppV[x], srcppV[x], srcpV[x], srcpnV[x]);
       }
       if (nomask || maskpU[x] == 0xFF)
       {
         if (y<3 || y>HeightUV - 4) dstpU[x] = ((srcpU[x] + srcppU[x] + 1) >> 1);
-        else dstpU[x] = cubicInt<8>(srcpppU[x], srcppU[x], srcpU[x], srcpnU[x]);
+        else dstpU[x] = cubicInt<bits_per_pixel>(srcpppU[x], srcppU[x], srcpU[x], srcpnU[x]);
       }
     }
     srcpppV = srcppV;
@@ -1559,6 +1666,7 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
   }
 }
 
+// hbd ready
 void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
   PVideoFrame &dst, const VideoInfo& vi, IScriptEnvironment *env)
 {
@@ -1596,7 +1704,7 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
     if (pixelsize == 1) {
       if (use_sse4)
         maskClip2_fn = maskClip2_SSE4<uint8_t>;
-      if (use_sse2)
+      else if (use_sse2)
         maskClip2_fn = maskClip2_SSE2;
       else
         maskClip2_fn = maskClip2_C<uint8_t>;
@@ -1608,7 +1716,7 @@ void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
         maskClip2_fn = maskClip2_C<uint16_t>;
     }
     else {
-      maskClip2_fn = nullptr; // n/a no float support
+      return; // n/a no float support
     }
 
     maskClip2_fn(srcp, dntp, maskp, dstp, src_pitch, dnt_pitch, msk_pitch, dst_pitch, width, height);
@@ -1709,10 +1817,8 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   cpuFlags = env->GetCPUFlags();
   if (opt == 0) cpuFlags = 0;
 
-  if (vi.BitsPerComponent() > 8)
-    env->ThrowError("TFMPP:  only 8 bit formats supported!");
-  if (vi.IsY())
-    env->ThrowError("TFMPP:  Greyscale format not supported!");
+  if (vi.BitsPerComponent() > 16)
+    env->ThrowError("TFMPP:  only 8-16 bit formats supported!");
   if (!vi.IsYUV())
     env->ThrowError("TFMPP:  YUV data only!");
   if (vi.height & 1 || vi.width & 1)
@@ -1727,8 +1833,6 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
     const VideoInfo &vi2 = clip2->GetVideoInfo();
     if (vi2.BitsPerComponent() != vi.BitsPerComponent())
       env->ThrowError("TFMPP:  clip2 bit depth do not match input clip!!");
-    if (vi2.IsY())
-      env->ThrowError("TFMPP:  clip2 Greyscale format not supported!");
     if (!vi2.IsYUV())
       env->ThrowError("TFMPP:  clip2 must be in YUV colorspace!");
     if (!vi.IsSameColorspace(vi2))
@@ -1744,7 +1848,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
 
   child->SetCacheHints(CACHE_GENERIC, 3); // fixed to diameter (07/30/2005)
 
-  mmask = new PlanarFrame(vi, true, cpuFlags);
+  mmask = new PlanarFrame(vi, true, cpuFlags); // true: packed yuy2
   nfrms = vi.num_frames - 1;
   PP_origSaved = PP;
   mthresh_origSaved = mthresh;

@@ -35,26 +35,30 @@
 #ifndef TFMPP_INCLUDED
 #include "TFMPP.h"
 #endif
-#define ISP 0x00000000 // p
-#define ISC 0x00000001 // c
-#define ISN 0x00000002 // n
-#define ISB 0x00000003 // b
-#define ISU 0x00000004 // u
-#define ISDB 0x00000005 // l
-#define ISDT 0x00000006 // h
+constexpr int ISP = 0x00000000; // p
+constexpr int ISC = 0x00000001; // c
+constexpr int ISN = 0x00000002; // n
+constexpr int ISB = 0x00000003; // b
+constexpr int ISU = 0x00000004; // u
+constexpr int ISDB = 0x00000005; // l = (deinterlaced c bottom field)
+constexpr int ISDT = 0x00000006; // h = (deinterlaced c top field)
+
 #define MTC(n) n == 0 ? 'p' : n == 1 ? 'c' : n == 2 ? 'n' : n == 3 ? 'b' : n == 4 ? 'u' : \
 			   n == 5 ? 'l' : n == 6 ? 'h' : 'x'
-#define TOP_FIELD 0x00000008
-#define COMBED 0x00000010
-#define D2VFILM 0x00000020
-#define MAGIC_NUMBER (0xdeadfeed)
-#define MAGIC_NUMBER_2 (0xdeadbeef)
-#define FILE_COMBED 0x00000030
-#define FILE_NOTCOMBED 0x00000020
-#define FILE_ENTRY 0x00000080
-#define FILE_D2V 0x00000008
-#define D2VARRAY_DUP_MASK 0x03
-#define D2VARRAY_MATCH_MASK 0x3C
+
+constexpr int TOP_FIELD = 0x00000008;
+constexpr int COMBED = 0x00000010;
+constexpr int D2VFILM = 0x00000020;
+
+constexpr uint32_t MAGIC_NUMBER = 0xdeadfeed;
+constexpr uint32_t MAGIC_NUMBER_2 = 0xdeadbeef;
+
+constexpr int FILE_COMBED = 0x00000030;
+constexpr int FILE_NOTCOMBED = 0x00000020;
+constexpr int FILE_ENTRY = 0x00000080;
+constexpr int FILE_D2V = 0x00000008;
+constexpr int D2VARRAY_DUP_MASK = 0x03;
+constexpr int D2VARRAY_MATCH_MASK = 0x3C;
 
 #ifdef VERSION
 #undef VERSION
@@ -63,6 +67,9 @@
 
 template<int planarType>
 void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask);
+
+template<typename pixel_t>
+void checkCombedPlanarAnalyze_core(const VideoInfo& vi, int cthresh, bool chroma, int cpuFlags, int metric, PVideoFrame& src, PlanarFrame* cmask);
 
 struct MTRACK {
   int frame, match;
@@ -134,32 +141,52 @@ private:
   PlanarFrame* map;
   PlanarFrame *cmask;
 
+  template<typename pixel_t>
   void buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-    int Width, int tpitch, IScriptEnvironment *env);
+    int Width, int tpitch, int bits_per_pixel, IScriptEnvironment *env);
   void buildDiffMapPlaneYUY2(const uint8_t *prvp, const uint8_t *nxtp,
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
     int Width, int tpitch, IScriptEnvironment *env);
+  
+  template<typename pixel_t>
   void buildDiffMapPlane2(const uint8_t *prvp, const uint8_t *nxtp,
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-    int Width, IScriptEnvironment *env);
+    int Width, int bits_per_pixel, IScriptEnvironment *env);
+
   void fileOut(int match, int combed, bool d2vfilm, int n, int MICount, int mics[5]);
+
   int compareFields(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
-    int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env);
+    int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, const VideoInfo &vi, int n, IScriptEnvironment *env);
+  template<typename pixel_t>
+  int compareFields_core(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, int match1,
+    int match2, int& norm1, int& norm2, int& mtn1, int& mtn2, const VideoInfo& vi, int n, IScriptEnvironment* env);
+
   int compareFieldsSlow(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
-    int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env);
-  int compareFieldsSlow2(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int match1,
-    int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, int np, int n, IScriptEnvironment *env);
+    int match2, int &norm1, int &norm2, int &mtn1, int &mtn2, const VideoInfo &vi, int n, IScriptEnvironment *env);
+  template<typename pixel_t>
+  int compareFieldsSlow_core(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, int match1,
+    int match2, int& norm1, int& norm2, int& mtn1, int& mtn2, const VideoInfo& vi, int n, IScriptEnvironment* env);
+  template<typename pixel_t>
+  int compareFieldsSlow2_core(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, int match1,
+    int match2, int& norm1, int& norm2, int& mtn1, int& mtn2, const VideoInfo& vi, int n, IScriptEnvironment* env);
+
   void createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
-    PVideoFrame &nxt, IScriptEnvironment *env, int match, int &cfrm, int np);
+    PVideoFrame &nxt, IScriptEnvironment *env, int match, int &cfrm, const VideoInfo &vi);
+  
   bool getMatchOvr(int n, int &match, int &combed, bool &d2vmatch, bool isSC);
   void getSettingOvr(int n);
-  bool checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, int np, int match,
+  
+  bool checkCombed(PVideoFrame &src, int n, IScriptEnvironment *env, const VideoInfo &vi, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh);
-  bool checkCombedPlanar(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
+  bool checkCombedPlanar(const VideoInfo &vi, PVideoFrame &src, int n, IScriptEnvironment *env, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma, int cthresh);
+  template<typename pixel_t>
+  bool checkCombedPlanar_core(PVideoFrame& src, int n, IScriptEnvironment* env, int match,
+    int* blockN, int& xblocksi, int* mics, bool ddebug, int bits_per_pixel);
   bool checkCombedYUY2(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
     int *blockN, int &xblocksi, int *mics, bool ddebug, bool chroma,int cthresh);
+  
   void writeDisplay(PVideoFrame &dst, const VideoInfo &vi_disp, int n, int fmatch, int combed, bool over,
     int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
@@ -181,16 +208,22 @@ private:
   bool checkD2VCase(int check);
   bool checkInPatternD2V(int *array, int i);
   int fillTrimArray(IScriptEnvironment *env, int frames);
-  bool checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-    IScriptEnvironment *env, int n);
+
+  bool checkSceneChange(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, int n);
+  template<typename pixel_t>
+  bool checkSceneChange_core(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+    int n, int bits_per_pixel);
+
   void micChange(int n, int m1, int m2, PVideoFrame &dst, PVideoFrame &prv,
-    PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env, int np, int &fmatch,
+    PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env, const VideoInfo &vi, int &fmatch,
     int &combed, int &cfrm);
   void checkmm(int &cmatch, int m1, int m2, PVideoFrame &dst, int &dfrm, PVideoFrame &tmp, int &tfrm,
-    PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env, int np, int n,
+    PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env, const VideoInfo &vi, int n,
     int *blockN, int &xblocks, int *mics);
 
   // O.K. common parts with TDeint
+  // fixme: hbd!
+  template<typename pixel_t>
   void buildABSDiffMask(const uint8_t *prvp, const uint8_t *nxtp,
     int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
 

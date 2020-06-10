@@ -41,11 +41,8 @@ FieldDiff::FieldDiff(PClip _child, int _nt, bool _chroma, bool _display, bool _d
   cpuFlags = env->GetCPUFlags();
   if (opt == 0) cpuFlags = 0;
 
-  if (vi.BitsPerComponent() > 8)
-    env->ThrowError("FieldDiff:  only 8 bit formats supported!");
-  if (vi.IsY())
-    env->ThrowError("FieldDiff:  Greyscale format not supported!");
-
+  if (vi.BitsPerComponent() > 16)
+    env->ThrowError("FieldDiff:  Only 8-16 bit clip data supported!");
   if (!vi.IsYUV())
     env->ThrowError("FieldDiff:  only YUV input supported!");
   if (vi.height & 1)

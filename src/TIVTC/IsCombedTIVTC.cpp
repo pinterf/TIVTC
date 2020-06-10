@@ -32,12 +32,11 @@ AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
-  int np = vi.IsPlanar() ? 3 : 1;
   int xblocks;
   int mics[5] = { -20, -20, -20, -20, -20 };
   int blockN[5] = { -20, -20, -20, -20, -20 };
   PVideoFrame frame = child->GetFrame(n, env);
-  return checkCombed(frame, n, env, np, 1, blockN, xblocks, mics, false, chroma, cthresh);
+  return checkCombed(frame, n, env, vi, 1, blockN, xblocks, mics, false, chroma, cthresh);
 }
 
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env)
@@ -75,8 +74,10 @@ private:
   void fillCombedYUY2(PVideoFrame &src, int &MICount,
     int &b_over, int &c_over, IScriptEnvironment *env);
 
+  void fillCombedPlanar(const VideoInfo &vi, PVideoFrame& src, int& MICount, int& b_over, int& c_over, IScriptEnvironment* env);
+
   template<typename pixel_t>
-  void fillCombedPlanar(PVideoFrame &src, int &MICount, int &b_over, int &c_over, IScriptEnvironment *env);
+  void fillCombedPlanar_core(PVideoFrame &src, int &MICount, int &b_over, int &c_over, int bits_per_pixel, IScriptEnvironment *env);
 
 
 public:
@@ -104,10 +105,8 @@ ShowCombedTIVTC::ShowCombedTIVTC(PClip _child, int _cthresh, bool _chroma, int _
   cpuFlags = env->GetCPUFlags();
   if (opt == 0) cpuFlags = 0;
 
-  if (vi.BitsPerComponent() > 8)
-    env->ThrowError("ShowCombedTIVTC:  only 8 bit formats supported!");
-  if (vi.IsY())
-    env->ThrowError("ShowCombedTIVTC:  Greyscale format not supported!");
+  if (vi.BitsPerComponent() > 16)
+    env->ThrowError("ShowCombedTIVTC:  only 8-16 bit formats supported!");
   if (!vi.IsYUV())
     env->ThrowError("ShowCombedTIVTC:  only YUV input supported!");
   if (vi.height & 1)
@@ -169,15 +168,9 @@ PVideoFrame __stdcall ShowCombedTIVTC::GetFrame(int n, IScriptEnvironment *env)
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
   PVideoFrame src = child->GetFrame(n, env);
-  int MICount, b_over, c_over, np = vi.IsPlanar() ? 3 : 1;
-  if (vi.IsPlanar()) {
-    if (vi.BitsPerComponent() == 8)
-      fillCombedPlanar<uint8_t>(src, MICount, b_over, c_over, env);
-    else if (vi.BitsPerComponent() <= 16)
-      fillCombedPlanar<uint16_t>(src, MICount, b_over, c_over, env);
-    else
-      env->ThrowError("ShowCombedTIVTC: no 32 bit clip support");
-  }
+  int MICount, b_over, c_over;
+  if (vi.IsPlanar())
+    fillCombedPlanar(vi, src, MICount, b_over, c_over, env);
   else
     fillCombedYUY2(src, MICount, b_over, c_over, env);
 
@@ -275,7 +268,7 @@ void ShowCombedTIVTC::fillCombedYUY2(PVideoFrame &src, int &MICount,
       if (chroma) // YUY2 luma-chroma in one pass
         check_combing_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
       else
-        check_combing_SSE2_Luma(srcp, cmkw, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
+        check_combing_YUY2LumaOnly_SSE2(srcp, cmkw, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
       srcppp += src_pitch * (Height - 4);
       srcpp += src_pitch * (Height - 4);
       srcp += src_pitch * (Height - 4);
@@ -474,166 +467,25 @@ cjump:
 }
 
 
-// fixme: hdb
-template<typename pixel_t>
-void ShowCombedTIVTC::fillCombedPlanar(PVideoFrame &src, int &MICount,
-  int &b_over, int &c_over, IScriptEnvironment *env)
+void ShowCombedTIVTC::fillCombedPlanar(const VideoInfo& vi, PVideoFrame& src, int& MICount,
+  int& b_over, int& c_over, IScriptEnvironment* env)
 {
-  const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
   const int bits_per_pixel = vi.BitsPerComponent();
-
-  const int cthresh6 = cthresh * 6;
-
-  const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
-  const int stop = chroma ? np : 1;
-  const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
-  for (int b = 0; b < stop; ++b)
-  {
-    const int plane = planes[b];
-    const uint8_t *srcp = src->GetReadPtr(plane);
-    const int src_pitch = src->GetPitch(plane);
-    const int Width = src->GetRowSize(plane);
-    const int Height = src->GetHeight(plane);
-    const uint8_t *srcpp = srcp - src_pitch;
-    const uint8_t *srcppp = srcpp - src_pitch;
-    const uint8_t *srcpn = srcp + src_pitch;
-    const uint8_t *srcpnn = srcpn + src_pitch;
-    uint8_t *cmkp = cmask->GetPtr(b);
-    const int cmk_pitch = cmask->GetPitch(b);
-    
-    if (cthresh < 0) 
-    {
-      memset(cmkp, 255, Height*cmk_pitch); 
-      continue; 
-    }
-    memset(cmkp, 0, Height*cmk_pitch);
-
-    if (metric == 0)
-    {
-      // top
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpn[x];
-        if (sFirst > cthresh || sFirst < -cthresh)
-        {
-          if (abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpn[x] + srcpn[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-      srcppp += src_pitch;
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      srcpnn += src_pitch;
-      cmkp += cmk_pitch;
-      // top2
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpp[x];
-        const int sSecond = srcp[x] - srcpn[x];
-        if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
-        {
-          if (abs(srcpnn[x] + (srcp[x] << 2) + srcpnn[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-      srcppp += src_pitch;
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      srcpnn += src_pitch;
-      cmkp += cmk_pitch;
-      // middle
-      if (use_sse2)
-      {
-        check_combing_SSE2(srcp, cmkp, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
-      }
-      else
-      {
-        check_combing_c<uint8_t, false>(srcp, cmkp, Width, Height - 4, src_pitch, cmk_pitch, cthresh);
-      }
-      srcppp += src_pitch * (Height - 4);
-      srcpp += src_pitch * (Height - 4);
-      srcp += src_pitch * (Height - 4);
-      srcpn += src_pitch * (Height - 4);
-      srcpnn += src_pitch * (Height - 4);
-      cmkp += cmk_pitch * (Height - 4);
-      // bottom2
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpp[x];
-        const int sSecond = srcp[x] - srcpn[x];
-        if ((sFirst > cthresh && sSecond > cthresh) || (sFirst < -cthresh && sSecond < -cthresh))
-        {
-          if (abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpn[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-      srcppp += src_pitch;
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      srcpnn += src_pitch;
-      cmkp += cmk_pitch;
-      // bottom1
-      for (int x = 0; x < Width; ++x)
-      {
-        const int sFirst = srcp[x] - srcpp[x];
-        if (sFirst > cthresh || sFirst < -cthresh)
-        {
-          if (abs(srcppp[x] + (srcp[x] << 2) + srcppp[x] - (3 * (srcpp[x] + srcpp[x]))) > cthresh6)
-            cmkp[x] = 0xFF;
-        }
-      }
-    }
-    else
-    {
-      // metric == 1
-      const int cthreshsq = cthresh*cthresh; // fixme hbd uint64_t
-      // top
-      for (int x = 0; x < Width; ++x)
-      {
-        if ((srcp[x] - srcpn[x])*(srcp[x] - srcpn[x]) > cthreshsq)
-          cmkp[x] = 0xFF;
-      }
-      srcpp += src_pitch;
-      srcp += src_pitch;
-      srcpn += src_pitch;
-      cmkp += cmk_pitch;
-      // middle
-      if (use_sse2)
-      {
-        check_combing_SSE2_Metric1(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
-      }
-      else
-      {
-        check_combing_c_Metric1<uint8_t, false, int>(srcp, cmkp, Width, Height - 2, src_pitch, cmk_pitch, cthreshsq);
-      }
-      srcpp += src_pitch * (Height - 2);
-      srcp += src_pitch * (Height - 2);
-      srcpn += src_pitch * (Height - 2);
-      cmkp += cmk_pitch * (Height - 2);
-      // bottom
-      for (int x = 0; x < Width; ++x)
-      {
-        if ((srcp[x] - srcpp[x])*(srcp[x] - srcpp[x]) > cthreshsq)
-          cmkp[x] = 0xFF;
-      }
-    }
+  if (vi.ComponentSize() == 1) {
+    checkCombedPlanarAnalyze_core<uint8_t>(vi, cthresh, chroma, cpuFlags, metric, src, cmask);
+    fillCombedPlanar_core<uint8_t>(src, MICount, b_over, c_over, bits_per_pixel, env);
   }
-  
-  // next block is for mask, no hbd needed
-  if (chroma)
-  {
-    if (vi.Is420())
-      FillCombedPlanarUpdateCmaskByUV<420>(cmask);
-    else if (vi.Is422())
-      FillCombedPlanarUpdateCmaskByUV<422>(cmask);
-    else if (vi.Is444())
-      FillCombedPlanarUpdateCmaskByUV<444>(cmask);
-    else if (vi.IsYV411())
-      FillCombedPlanarUpdateCmaskByUV<411>(cmask);
+  else {
+    checkCombedPlanarAnalyze_core<uint16_t>(vi, cthresh, chroma, cpuFlags, metric, src, cmask);
+    fillCombedPlanar_core<uint16_t>(src, MICount, b_over, c_over, bits_per_pixel, env);
   }
+}
+
+
+template<typename pixel_t>
+void ShowCombedTIVTC::fillCombedPlanar_core(PVideoFrame &src, int &MICount,
+  int &b_over, int &c_over, int bits_per_pixel, IScriptEnvironment *env)
+{
 
   const int cmk_pitch = cmask->GetPitch(0);
   const uint8_t *cmkp = cmask->GetPtr(0) + cmk_pitch;

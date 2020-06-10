@@ -26,9 +26,8 @@
 #include "TFMasm.h"
 #include "emmintrin.h"
 
-// fixme: hbd, diff to uint64_t
-void checkSceneChangeYV12_1_SSE2(const uint8_t *prvp, const uint8_t *srcp,
-  int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
+void checkSceneChangePlanar_1_SSE2(const uint8_t *prvp, const uint8_t *srcp,
+  int height, int width, int prv_pitch, int src_pitch, uint64_t &diffp)
 {
   __m128i sum = _mm_setzero_si128();
   while (height--) {
@@ -47,9 +46,9 @@ void checkSceneChangeYV12_1_SSE2(const uint8_t *prvp, const uint8_t *srcp,
 }
 
 
-void checkSceneChangeYV12_2_SSE2(const uint8_t *prvp, const uint8_t *srcp,
+void checkSceneChangePlanar_2_SSE2(const uint8_t *prvp, const uint8_t *srcp,
   const uint8_t *nxtp, int height, int width, int prv_pitch, int src_pitch,
-  int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
+  int nxt_pitch, uint64_t &diffp, uint64_t &diffn)
 {
   __m128i sump = _mm_setzero_si128();
   __m128i sumn = _mm_setzero_si128();
@@ -76,7 +75,7 @@ void checkSceneChangeYV12_2_SSE2(const uint8_t *prvp, const uint8_t *srcp,
 
 
 void checkSceneChangeYUY2_1_SSE2(const uint8_t *prvp, const uint8_t *srcp,
-  int height, int width, int prv_pitch, int src_pitch, unsigned long &diffp)
+  int height, int width, int prv_pitch, int src_pitch, uint64_t &diffp)
 {
   __m128i sum = _mm_setzero_si128();
   __m128i lumaMask = _mm_set1_epi16(0x00FF);
@@ -100,7 +99,7 @@ void checkSceneChangeYUY2_1_SSE2(const uint8_t *prvp, const uint8_t *srcp,
 
 void checkSceneChangeYUY2_2_SSE2(const uint8_t *prvp, const uint8_t *srcp,
   const uint8_t *nxtp, int height, int width, int prv_pitch, int src_pitch,
-  int nxt_pitch, unsigned long &diffp, unsigned long &diffn)
+  int nxt_pitch, uint64_t &diffp, uint64_t &diffn)
 {
   __m128i sump = _mm_setzero_si128();
   __m128i sumn = _mm_setzero_si128();

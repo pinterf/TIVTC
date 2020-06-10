@@ -2345,7 +2345,7 @@ void TDecimate::init_mode_5(IScriptEnvironment* env) {
   prevM.maxFrame = currM.maxFrame = nextM.maxFrame = nfrms;
   bool vid, prevVid;
   int i, h, w, firstkv, countprev, filmC, videoC, longestT, longestV, countVT;
-  int count, b, np = vi.IsYUY2() || vi.IsY() ? 1 : 3, passThrough = 0;
+  int count, b, passThrough = 0;
 twopassrun:
   ++passThrough;
 #if 0
@@ -2684,10 +2684,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   cpuFlags = env->GetCPUFlags();
   if (opt == 0) cpuFlags = 0;
 
-  if (vi.BitsPerComponent() > 8)
-    env->ThrowError("TDecimate:  only 8 bit formats supported!");
-  if (vi.IsY())
-    env->ThrowError("TDecimate:  Greyscale format not supported!");
+  if (vi.BitsPerComponent() > 16)
+    env->ThrowError("TDecimate:  only 8-16 bit formats supported!");
   if (!vi.IsYUV())
     env->ThrowError("TDecimate:  YUV colorspaces only!");
   if (mode < 0 || mode > 7)
@@ -2750,10 +2748,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  clip2 must have the same number of frames as the input clip!");
   if (clip2 && !clip2->GetVideoInfo().IsYUV())
     env->ThrowError("TDecimate:  clip2 must be YUV colorspace!");
-  if (clip2 && clip2->GetVideoInfo().BitsPerComponent() > 8)
-    env->ThrowError("TDecimate:  clip2: only 8 bit formats supported!");
-  if (clip2 && clip2->GetVideoInfo().IsY())
-    env->ThrowError("TDecimate:  clip2: Greyscale format not supported!");
+  if (clip2 && clip2->GetVideoInfo().BitsPerComponent() > 16)
+    env->ThrowError("TDecimate:  clip2: only 8-16 bit formats supported!");
   if (clip2)
   {
     clip2->SetCacheHints(CACHE_GENERIC, 2);
