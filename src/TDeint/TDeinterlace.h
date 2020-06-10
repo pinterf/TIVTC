@@ -48,8 +48,6 @@
 #define TDEINT_VERSION "v1.5"
 #define TDEINT_DATE "05/13/2020"
 
-// fixme: put in separate file, common TDeint TIVTC?
-// fixme: check for all, if they are the same as in TIVTC
 void dispatch_smartELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, const VideoInfo& vi);
 template<typename pixel_t, int bits_per_pixel>
 void smartELADeintPlanar(PVideoFrame& dst, PVideoFrame& mask, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt);

@@ -71,6 +71,7 @@ void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
           absDiff_c(srcp1, srcp2, dstp, src1_pitch, src2_pitch, dst_pitch, width, height, mthresh, mthresh);
       }
       else if (pixelsize == 2) {
+        // fixme: hbd SIMD
         absDiff_uint16_c(srcp1, srcp2, dstp, src1_pitch, src2_pitch, dst_pitch, width, height, mthresh);
       }
     }

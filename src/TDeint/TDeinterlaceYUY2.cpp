@@ -547,7 +547,7 @@ bool TDeinterlace::checkCombedYUY2(PVideoFrame &src, int &MIC, bool chroma, int 
       }
       else
       {
-        check_combing_SSE2_Luma(srcp, cmkw, Width, lines_to_process, src_pitch, cmk_pitch, cthresh);
+        check_combing_YUY2LumaOnly_SSE2(srcp, cmkw, Width, lines_to_process, src_pitch, cmk_pitch, cthresh);
       }
     }
     else

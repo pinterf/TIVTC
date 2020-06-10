@@ -1132,6 +1132,7 @@ static void do_checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pixel,
   PVideoFrame &cmask,
   int cpuFlags, const VideoInfo &vi_saved, int metric, IScriptEnvironment *env)
 {
+  // vi_saved: original vi, not a possible stacked one (some modes change height for debug)
   const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
   const bool use_sse4 = (cpuFlags & CPUF_SSE4_1) ? true : false;
   // cthresh: Area combing threshold used for combed frame detection.
@@ -1150,15 +1151,17 @@ static void do_checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pixel,
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
+
     const pixel_t *srcp = reinterpret_cast<const pixel_t *>(src->GetReadPtr(plane));
     const int src_pitch = src->GetPitch(plane) / sizeof(pixel_t);
+
     const int Width = src->GetRowSize(plane) / sizeof(pixel_t);
     const int Height = src->GetHeight(plane);
 
-    const pixel_t*srcpp = srcp - src_pitch;
-    const pixel_t*srcppp = srcpp - src_pitch;
-    const pixel_t*srcpn = srcp + src_pitch;
-    const pixel_t*srcpnn = srcpn + src_pitch;
+    const pixel_t* srcpp = srcp - src_pitch;
+    const pixel_t* srcppp = srcpp - src_pitch;
+    const pixel_t* srcpn = srcp + src_pitch;
+    const pixel_t* srcpnn = srcpn + src_pitch;
 
     uint8_t *cmkp = cmask->GetWritePtr(plane);
     const int cmk_pitch = cmask->GetPitch(plane);
@@ -1270,7 +1273,7 @@ static void do_checkCombedPlanar(PVideoFrame &src, int &MIC, int bits_per_pixel,
           check_combing_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
         else
           check_combing_c_Metric1<pixel_t, false, safeint_t>(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
-        // fixme: write SIMD? later. int64 inside.
+        // fixme: hbd SIMD? int64 inside.
         // check_combing_uint16_SSE2_Metric1(srcp, cmkp, Width, lines_to_process, src_pitch, cmk_pitch, cthreshsq);
       }
       else
@@ -1502,7 +1505,7 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
   VideoInfo &vi_map, int &aPn, int &aNn, int &aPm, int &aNm, int fieldt, int ordert,
   bool d2, int _slow, IScriptEnvironment *env)
 {
-  const int bits_per_pixel = vi.BitsPerComponent(); // not of the mask, that is 8 bits always
+  const int bits_per_pixel = vi.BitsPerComponent(); // not of the mask, mask is 8 bits always
 
   if (_slow == 1)
     return subtractFields1<pixel_t>(prv, src, nxt, vi_map,
@@ -1516,10 +1519,13 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
   PVideoFrame map = env->NewVideoFrame(vi_map);
   const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
+
   uint64_t accumPns = 0, accumNns = 0;
   uint64_t accumPms = 0, accumNms = 0;
+  
   aPn = aNn = 0;
   aPm = aNm = 0;
+  
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
@@ -2850,9 +2856,9 @@ void smartELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
                   {
                     if (dirF <= 2.50f)
                     {
-                      temp1 = srcppY[x + 4]; // fixme: reuse temp1 and temp2
+                      temp1 = srcppY[x + 4];
                       temp2 = srcpnY[x - 4];
-                      temp = (srcppY[x + 4] + srcpnY[x - 4] + 1) >> 1;
+                      temp = (temp1 + temp2 + 1) >> 1;
                     }
                     else
                     {
@@ -2902,7 +2908,7 @@ void smartELADeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
                     {
                       temp1 = srcppY[x - 4];
                       temp2 = srcpnY[x + 4];
-                      temp = (srcppY[x - 4] + srcpnY[x + 4] + 1) >> 1;
+                      temp = (temp1 + temp2 + 1) >> 1;
                     }
                     else
                     {

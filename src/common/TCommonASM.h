@@ -57,7 +57,7 @@ void check_combing_c_Metric1(const pixel_t* srcp, uint8_t* dstp, int width, int 
 void check_combing_SSE2(const uint8_t *srcp, uint8_t *dstp,
   int width, int height, int src_pitch, int dst_pitch, int cthresh);
 
-void check_combing_SSE2_Luma(const uint8_t *srcp, uint8_t *dstp,
+void check_combing_YUY2LumaOnly_SSE2(const uint8_t *srcp, uint8_t *dstp,
   int width, int height, int src_pitch, int dst_pitch, int cthresh);
 
 #if defined(GCC) || defined(CLANG)

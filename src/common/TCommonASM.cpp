@@ -187,11 +187,8 @@ void buildABSDiffMask_c(const uint8_t* prvp, const uint8_t* nxtp,
 
   if constexpr (YUY2_LumaOnly) {
     // 8 bit only
-    // TFM would use with ignoreYUY2chroma == true
-    // where (vi.IsYUY2() && !mChroma)
-    // Why: C version is quicker if dealing with every second (luma) pixel
-    // (remark in 2020: only if compiler would not vectorize it
-    // SSE2: no template because with omitting chroma is slower.
+    // C version is quicker if dealing with every second (luma) pixel
+    // SSE2: no luma-nonluma difference because with omitting chroma is slower.
     // YUY2: YUYVYUYV... skip U and V
     for (int y = 0; y < height; ++y)
     {
@@ -275,13 +272,13 @@ void do_buildABSDiffMask2(const uint8_t* prvp, const uint8_t* nxtp, uint8_t* dst
       buildABSDiffMask2_c<pixel_t, true>(
         prvp + mod8Width * sizeof(pixel_t),
         nxtp + mod8Width * sizeof(pixel_t),
-        dstp + mod8Width * sizeof(pixel_t),
+        dstp + mod8Width,
         prv_pitch, nxt_pitch, dst_pitch, width - mod8Width, height, bits_per_pixel);
     else
       buildABSDiffMask2_c<pixel_t, false>(
         prvp + mod8Width * sizeof(pixel_t), 
         nxtp + mod8Width * sizeof(pixel_t),
-        dstp + mod8Width,
+        dstp + mod8Width, // dstp is really 8 bits
         prv_pitch, nxt_pitch, dst_pitch, width - mod8Width, height, bits_per_pixel);
   }
   else {
@@ -840,7 +837,6 @@ template void check_combing_c_Metric1<uint16_t, false, int64_t>(const uint16_t* 
 
 
 
-// fixme: also in tfmasm
 template<bool with_luma_mask>
 static void check_combing_SSE2_generic(const uint8_t *srcp, uint8_t *dstp, int width,
   int height, int src_pitch, int dst_pitch, int cthresh)
@@ -940,7 +936,7 @@ void check_combing_SSE2(const uint8_t *srcp, uint8_t *dstp, int width, int heigh
   check_combing_SSE2_generic<false>(srcp, dstp, width, height, src_pitch, dst_pitch, cthresh);
 }
 
-void check_combing_SSE2_Luma(const uint8_t *srcp, uint8_t *dstp, int width, int height, int src_pitch, int dst_pitch, int cthresh)
+void check_combing_YUY2LumaOnly_SSE2(const uint8_t *srcp, uint8_t *dstp, int width, int height, int src_pitch, int dst_pitch, int cthresh)
 {
   // with luma masking
   check_combing_SSE2_generic<true>(srcp, dstp, width, height, src_pitch, dst_pitch, cthresh);
@@ -1037,6 +1033,8 @@ void check_combing_uint16_SSE4(const uint16_t* srcp, uint8_t* dstp, int width, i
         auto res_part2 = _mm_packs_epi32(cmp_lo, cmp_hi);
 
         auto res = _mm_and_si128(res_part1, res_part2);
+        // mask is 8 bits
+        res = _mm_packs_epi16(res, res);
         _mm_storel_epi64(reinterpret_cast<__m128i*>(dstp + x), res);
       }
     }
