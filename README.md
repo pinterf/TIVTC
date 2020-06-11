@@ -1,4 +1,3 @@
-* * WORK IN PROGRESS * * 
 # TIVTC v1.0.19 (20200611) 
 # TDeInt v1.6 (20200611)
 
