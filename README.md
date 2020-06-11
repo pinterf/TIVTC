@@ -1,11 +1,11 @@
 * * WORK IN PROGRESS * * 
-# TIVTC v1.0.19 (20200610) 
-# TDeInt v1.6 (20200610)
+# TIVTC v1.0.19 (20200611) 
+# TDeInt v1.6 (20200611)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
 # TDeint (see change log of TIVTC later) 
-** TDeInt v1.6 (20200610) - pinterf
+** TDeInt v1.6 (20200611) - pinterf
 - Frame hints 10-16 bits
 - Proper 16 bit combing detection
 
@@ -38,13 +38,12 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.19 (20200610):
+# TIVTC v1.0.19 (20200611):
 
-**v1.0.19
+**v1.0.19 (20200611)**
 - TIVTC filter: overall greyscale and 10-16 bit support
 - "display" works for all colorspaces (not only for YUY2 and YV12)
-
-**v1.0.18
+  (v1.0.18 - no release)
 - Fix: TFM: possible crash on YV16 for chroma=true (checkComb)
 - Fix: TDecimate: fix mode=5 crash at the initializing stage due to an unallocated metric buffer (old bug)
 - Fix: TFM: y0 (and y1) banding exclusion parameters are properly handled 
