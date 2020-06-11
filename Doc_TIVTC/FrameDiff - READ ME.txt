@@ -1,12 +1,12 @@
 
 
-                            FrameDiff v1.6  -  HELP FILE  (11/21/2007)
+                            FrameDiff v1.7  -  HELP FILE  (20200611)
 
 
 GENERAL INFO:
 
 
-     ** Currently FrameDiff only supports 8 bit planar YUV and YUY2 colorspaces!
+      Supports 8-16 bit Y, planar YUV (4:1:1, 4:2:0, 4:2:2, 4:4:4) and YUY2 colorspaces.
 
       FrameDiff exposes tdecimate's metric calculation routines to allow for some
    interesting operations and visualizations. There is also a version of FrameDiff
@@ -138,7 +138,7 @@ PARAMETERS:
          frame metrics and make it easier to tell the difference between duplicates and
          non-duplicates).  It also works very well for sources with lots of dotcrawl
          because the denoising effectively cancels all dot-crawl.  Using denoising
-         will slow things down somewhat, but it is MMX optimized and pretty fast.
+         will slow things down somewhat, but it is SIMD optimized and pretty fast.
 
            true - use denoising
            false - don't
@@ -188,7 +188,10 @@ PARAMETERS:
 
 CHANGE LIST:
 
-   (same number) (20200508 - pinterf)
+   v1.7 - (20200611 - pinterf)
+
+      - 10-16 bit and greyscale support
+          (20200508 - pinterf)
       - opt = 1 and opt = 2 is like opt = 3
       - add all planar YUV support (422, 444, 411) besides 420
 

@@ -58,7 +58,7 @@ AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnv
 #undef VERSION
 #endif
 
-#define VERSION "v1.2"
+#define VERSION "v1.3"
 
 class ShowCombedTIVTC : public GenericVideoFilter
 {

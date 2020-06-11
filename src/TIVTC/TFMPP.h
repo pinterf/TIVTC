@@ -31,7 +31,7 @@
 #ifdef VERSION
 #undef VERSION
 #endif
-#define VERSION "v1.0.2"
+#define VERSION "v1.0.3"
 
 template<typename pixel_t>
 void maskClip2_C(const uint8_t* srcp, const uint8_t* dntp,

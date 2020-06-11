@@ -1,6 +1,6 @@
 
 
-                       RequestLinear v1.2  -  HELP FILE  (11/21/2007)
+                       RequestLinear v1.3  -  HELP FILE  (20200611)
 
 
 GENERAL INFO:
@@ -133,6 +133,9 @@ EXAMPLE SCENARIOS:
 
 CHANGE LIST:
 
+   v1.3   (20200611)
+
+      - filter reports MT_SERIALIZED mt mode for Avisynth+
 
    v1.2   (11/21/2007)
 

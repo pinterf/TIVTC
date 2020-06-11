@@ -1,12 +1,12 @@
 
 
-                            FieldDiff v1.3  -  HELP FILE  (03/23/2006)
+                            FieldDiff v1.4  -  HELP FILE  (20200611)
 
 
 GENERAL INFO:
 
 
-     ** Currently FieldDiff only supports 8 bit planar YUV and YUY2 colorspaces!
+      FieldDiff supports 8-16 bit Y, planar YUV (4:1:1, 4:2:0, 4:2:2, 4:4:4) and YUY2 colorspaces.
 
       FieldDiff calculates a field difference metric using the 5 point metric that TFM
    uses and then outputs it via the debug or display options. It operates on full frames
@@ -80,7 +80,12 @@ PARAMETERS:
 
 CHANGE LIST:
 
+   v1.4 - (20200611 - pinterf)
+
+      - 10-16 bit and greyscale support
+
    (same number) (20200508 - pinterf)
+
       - opt = 1 and opt = 2 is like opt = 3
       - add all planar YUV support (422, 444, 411) besides 420
 

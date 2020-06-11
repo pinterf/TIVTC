@@ -1,6 +1,6 @@
 
 
-                                  TFM v1.0.4  -  HELP FILE  (01/17/2008)
+                                  TFM v1.0.5  -  HELP FILE  (20200611)
 
 
 
@@ -21,7 +21,7 @@ CONTENTS OF FILE:
 A.)  GENERAL INFO:
 
 
-     * Currently TFM only supports 8 bit planar YUV and YUY2 colorspaces!
+      Supports 8-16 bit Y, planar YUV (4:1:1, 4:2:0, 4:2:2, 4:4:4) and YUY2 colorspaces.
 
       TFM is a field matching filter that recovers the original progressive frames from a
    telecined stream.  It does not decimate the resulting duplicate frames though, so to
@@ -899,17 +899,21 @@ F.)  OVERRIDES:
 
 G.)  CHANGE LIST:
 
-   20200522 (part of v1.0.18 package)
-      - Fix: TFM: possible crash on YV16 for chroma=true (checkComb) (un-YV12 project was not 100%)
-      - Fix: TFM: y0 (and y1) banding exclusion parameters are properly handled 
-        (by knowing that a frame is processed between 2 and (y0-2) for internal algorithmic reasons)
+    20200611  v1.0.5 (part of v1.0.19 package - pinterf)
 
-   20200508
-      - Fix regression: TFMPP clip2 colorspace similarity check failed
+        - 10-16 bit and greyscale support
+        - Fix: TFM: possible crash on YV16 for chroma=true (checkComb) (v1.0.15 un-YV12 project was not 100%)
+        - Fix: TFM: y0 (and y1) banding exclusion parameters are properly handled 
+          (by knowing that a frame is processed between 2 and (y0-2) for internal algorithmic reasons)
 
-   20200508 - pinterf
-      - opt = 1 and opt = 2 is like opt = 3
-      - add all planar YUV support (422, 444, 411) besides 420
+    20200508  (part of v1.0.16 package - pinterf)
+
+        - Fix v1.0.15 regression: TFMPP clip2 colorspace similarity check failed
+
+    20200508  (part of v1.0.15 package - pinterf)
+
+        - opt = 1 and opt = 2 is like opt = 3
+        - add all planar YUV support (422, 444, 411) besides 420
 
     01/17/2008  v1.0.4
 

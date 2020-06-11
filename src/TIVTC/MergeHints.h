@@ -25,7 +25,7 @@
 
 #include <stdio.h>
 #include "internal.h"
-#define VERSION "v1.2"
+#define VERSION "v1.3"
 
 class MergeHints : public GenericVideoFilter
 {

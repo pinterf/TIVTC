@@ -32,7 +32,7 @@
 #undef VERSION
 #endif
 
-#define VERSION "v1.3"
+#define VERSION "v1.4"
 
 class FieldDiff : public GenericVideoFilter
 {

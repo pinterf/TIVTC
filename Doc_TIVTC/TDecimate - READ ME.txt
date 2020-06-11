@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.3.1  -  HELP FILE  (12/26/2017)
+                              TDecimate v1.0.4  -  HELP FILE  (20200611)
 
 
 
@@ -21,9 +21,9 @@ CONTENTS OF FILE:
 A.)  GENERAL INFO:
 
 
-     * Currently TDecimate only supports 8 bit planar YUV and YUY2 colorspaces!
+      Supports 8-16 bit Y, planar YUV (4:1:1, 4:2:0, 4:2:2, 4:4:4) and YUY2 colorspaces.
 
-      TDecimate is a decimaton filter intended to remove duplicates from a video
+      TDecimate is a decimation filter intended to remove duplicates from a video
    stream.  It supports a couple types of operation which include M-in-N decimation
    and an arbitrary framerate decimation scheme that can support ratios not achievable
    with M-in-N. It also includes special handling for hybrid material such as
@@ -220,10 +220,13 @@ C.)  ADVANCED PARAMETERS:
         This sets the threshold for duplicate detection.  This setting is used in mode 1
         and also in modes 3 and 5 if vfrDec = 1.  If the difference metric for a frame is less
         than or equal to this value then it is declared a duplicate.  NOTE:  metrics will be
-        slightly different between YV12 and YUY2 processing if chroma=true... the metrics have
-        been normalized so they should match closely, but on average the YUY2 metrics tend to be
-        slightly higher (5-10%) than the YV12 metrics for the same frame when chroma=true.
-        When chroma=false YV12 and YUY2 metrics will be the same, however chroma=false metrics
+        slightly different between YV12 (4:2:0) or YV24 (4:4:4) and YUY2 processing if 
+        chroma=true. 
+        The metrics have been normalized so they should match closely, but on average the YUY2 
+        metrics tend to be slightly higher (5-10%) than the YV12 metrics for the same frame
+        when chroma=true.
+        For YV16 and YUY2 the metrics are the same.
+        When chroma=false planar YUV and YUY2 metrics will be the same, however chroma=false metrics
         will be higher than chroma=true metrics so if you set chroma=false be sure to account
         for this.  This value is a % of maximum change for a block defined by the blockx and
         blocky values.... so 1.1 means 1.1% of maximal possible change.
@@ -773,15 +776,19 @@ F.)  OVERRIDES:
 
 G.)  CHANGE LIST:
 
-    (20200522) (in v1.0.18 pack)
+    (20200611) (v1.0.4, in v1.0.19 pack - pinterf)
+
+         - 10-16 bit and greyscale support
          - fix mode=5 crash at the initializing stage due to an unallocated metric buffer (old bug)
 
-    (20200512) (in v1.0.17 pack)
-         - fix regression on metric calculation
+    (20200512) (in v1.0.17 pack - pinterf)
+
+         - fix v1.0.16 regression on metric calculation
          - fix incorrect clip2 colorspace check (introduced in v1.0.15)
 
     (20200508) (same number - pinterf)
-         - opt = 1 and opt = 2 is like opt = 3
+
+         - opt = 1 and opt = 2 is like opt = 3 (CPU flags)
          - add all planar YUV support (422, 444, 411) besides 420
 
     26/12/2017  v1.0.3.1
