@@ -1,6 +1,6 @@
 
 
-                                  TFM v1.0.5  -  HELP FILE  (20200611)
+                                  TFM v1.0.5  -  HELP FILE  (20200622)
 
 
 
@@ -898,6 +898,9 @@ F.)  OVERRIDES:
 
 
 G.)  CHANGE LIST:
+
+    20200622  v1.0.6 (part of v1.0.20 package - pinterf)
+        - fix PP=1 and display=true crash (v19 regression)
 
     20200611  v1.0.5 (part of v1.0.19 package - pinterf)
 

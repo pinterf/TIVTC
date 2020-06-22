@@ -1,4 +1,4 @@
-# TIVTC v1.0.19 (20200611) 
+# TIVTC v1.0.20 (20200622) 
 # TDeInt v1.6 (20200611)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -37,7 +37,9 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.19 (20200611):
+# TIVTC v1.0.20 (20200622):
+**v1.0.20 (20200622)**
+- TFM: fix crash when PP=1 and display=true (v19 regression)
 
 **v1.0.19 (20200611)**
 - TIVTC filter: overall greyscale and 10-16 bit support
