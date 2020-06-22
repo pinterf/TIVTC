@@ -281,6 +281,7 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
   const int Height = cmask->GetHeight(0);
   const int xblocks = ((Width + xhalf) >> xshift) + 1;
   const int xblocks4 = xblocks << 2;
+  xblocksi = xblocks4;
   const int yblocks = ((Height + yhalf) >> yshift) + 1;
   const int arraysize = (xblocks*yblocks) << 2;
   memset(cArray, 0, arraysize * sizeof(int));
