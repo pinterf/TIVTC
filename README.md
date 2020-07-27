@@ -1,4 +1,4 @@
-# TIVTC v1.0.20 (20200622) 
+# TIVTC v1.0.21 (20200727) 
 # TDeInt v1.6 (20200611)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -37,7 +37,11 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.20 (20200622):
+# TIVTC v1.0.20 (20200727):
+**v1.0.21 (20200727)**
+- TDecimate, FrameDiff: fix x-block size usage in metric calculation (v15 regression)
+  (report and fix by 299792458m)
+
 **v1.0.20 (20200622)**
 - TFM: fix crash when PP=1 and display=true (v19 regression)
 

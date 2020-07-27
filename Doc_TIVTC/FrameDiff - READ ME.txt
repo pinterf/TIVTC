@@ -1,6 +1,6 @@
 
 
-                            FrameDiff v1.7  -  HELP FILE  (20200611)
+                            FrameDiff v1.8  -  HELP FILE  (20200727)
 
 
 GENERAL INFO:
@@ -187,6 +187,8 @@ PARAMETERS:
 
 
 CHANGE LIST:
+   v1.8 - (20200727)
+         - fix x-block size usage in metric calculation (v1.0.15 regression) 
 
    v1.7 - (20200611 - pinterf)
 

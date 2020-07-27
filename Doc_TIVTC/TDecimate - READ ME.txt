@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.4  -  HELP FILE  (20200611)
+                              TDecimate v1.0.5  -  HELP FILE  (20200727)
 
 
 
@@ -775,6 +775,9 @@ F.)  OVERRIDES:
 
 
 G.)  CHANGE LIST:
+
+    (20200727) (v1.0.5, in v1.0.21 pack - pinterf)
+         - fix x-block size usage in metric calculation (v1.0.15 regression) 
 
     (20200611) (v1.0.4, in v1.0.19 pack - pinterf)
 
