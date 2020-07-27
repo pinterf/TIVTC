@@ -361,7 +361,7 @@ void FrameDiff::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const VideoIn
   d.vi = vi;
   d.chroma = chroma;
   d.cpuFlags = cpuFlags;
-  d.blockx_half = blockx;
+  d.blockx = blockx;
   d.blockx_half = blockx_half;
   d.blockx_shift = blockx_shift;
   d.blocky = blocky;

@@ -1003,7 +1003,7 @@ uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const Vid
   d.vi = vit;
   d.chroma = chroma;
   d.cpuFlags = cpuFlags;
-  d.blockx_half = blockx;
+  d.blockx = blockx;
   d.blockx_half = blockx_half;
   d.blockx_shift = blockx_shift;
   d.blocky = blocky;
@@ -1143,7 +1143,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
     d.vi = vit;
     d.chroma = chroma;
     d.cpuFlags = cpuFlags;
-    d.blockx_half = blockx;
+    d.blockx = blockx;
     d.blockx_half = blockx_half;
     d.blockx_shift = blockx_shift;
     d.blocky = blocky;
