@@ -1092,7 +1092,7 @@ static void calcDiff_SADorSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr
         SAD_fn = calcSSD_SSE2_8xN<16>;
       else if (xsubsampling == 1 && ysubsampling == 1) // YV12
         SAD_fn = calcSSD_SSE2_8xN<8>;
-      else if (xsubsampling == 1 && ysubsampling == 0) // YV411
+      else if (xsubsampling == 2 && ysubsampling == 0) // YV411
         SAD_fn = calcSSD_SSE2_4xN<16>;
     }
     // other formats are forbidden and were pre-checked
