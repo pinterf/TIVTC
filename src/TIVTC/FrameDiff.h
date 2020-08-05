@@ -34,7 +34,7 @@
 #undef VERSION
 #endif
 
-#define VERSION "v1.8"
+#define VERSION "v1.9"
 
 class FrameDiff : public GenericVideoFilter
 {
