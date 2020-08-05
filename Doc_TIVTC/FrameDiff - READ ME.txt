@@ -1,6 +1,6 @@
 
 
-                            FrameDiff v1.8  -  HELP FILE  (20200727)
+                            FrameDiff v1.9  -  HELP FILE  (20200805)
 
 
 GENERAL INFO:
@@ -187,6 +187,9 @@ PARAMETERS:
 
 
 CHANGE LIST:
+   v1.9 - (20200805)
+         - fix SAD metric calculation for block size 32 (v1.0.15 regression) 
+
    v1.8 - (20200727)
          - fix x-block size usage in metric calculation (v1.0.15 regression) 
 
