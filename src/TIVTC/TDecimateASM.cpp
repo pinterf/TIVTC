@@ -323,8 +323,6 @@ void calcSAD_SSE2_16xN(const uint8_t* ptr1, const uint8_t* ptr2,
     xmm1 = _mm_add_epi32(tmp3, tmp4);
     tmpsum = _mm_add_epi32(tmpsum, xmm0);
     tmpsum = _mm_add_epi32(tmpsum, xmm1);
-    ptr1 += pitch1 * 2;
-    ptr2 += pitch2 * 2;
   }
   __m128i sum = _mm_add_epi32(tmpsum, _mm_srli_si128(tmpsum, 8)); // add lo, hi
   sad = _mm_cvtsi128_si32(sum);
