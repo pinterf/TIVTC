@@ -2246,6 +2246,7 @@ void TDeinterlace::mapMergePlanar(PVideoFrame &dst, PVideoFrame &mask,
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
+    // mask is a special clip, always 8 bits
     const uint8_t *maskp = mask->GetReadPtr(plane);
     const int mask_pitch = mask->GetPitch(plane);
     
@@ -2316,15 +2317,16 @@ void TDeinterlace::eDeintPlanar(PVideoFrame &dst, PVideoFrame &mask,
 
     const pixel_t *nxtp = reinterpret_cast<const pixel_t*>(nxt->GetReadPtr(plane));
     const int nxt_pitch = nxt->GetPitch(plane);
-    
+
+    // mask is a special clip, always 8 bits
     const uint8_t *maskp = mask->GetReadPtr(plane);
     const int mask_pitch = mask->GetPitch(plane);
 
     const pixel_t *efrmp = reinterpret_cast<const pixel_t*>(efrm->GetReadPtr(plane));
-    const int efrm_pitch = efrm->GetPitch(plane);
+    const int efrm_pitch = efrm->GetPitch(plane) / sizeof(pixel_t);
 
     pixel_t *dstp = reinterpret_cast<pixel_t*>(dst->GetWritePtr(plane));
-    const int dst_pitch = dst->GetPitch(plane);
+    const int dst_pitch = dst->GetPitch(plane) / sizeof(pixel_t);
 
     for (int y = 0; y < height; ++y)
     {
