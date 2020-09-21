@@ -1,9 +1,12 @@
 # TIVTC v1.0.22 (20200805) 
-# TDeInt v1.6 (20200611)
+# TDeInt v1.7 (20200921)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
 # TDeint (see change log of TIVTC later) 
+** TDeInt v1.7 (20200921) - pinterf
+- Fix: TDeint: crash when edeint is a 10+ bit clip
+
 ** TDeInt v1.6 (20200611) - pinterf
 - Frame hints 10-16 bits
 - Proper 16 bit combing detection
