@@ -1,4 +1,4 @@
-# TIVTC v1.0.22 (20200805) 
+# TIVTC v1.0.23 (20201020) 
 # TDeInt v1.7 (20200921)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -40,7 +40,11 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.22 (20200805)
+# TIVTC v1.0.23 (20201020)
+
+**v1.0.23 (20201020)**
+- RequestLinear: fix: initial large frame number difference out of order frame requests
+  caused by heavy multithreading could result in "internal error - frame not in cache"
 
 **v1.0.22 (20200805)**
 - TDecimate, FrameDiff: further fix of SAD based metric calculation for block size 32 (v15 regression)
