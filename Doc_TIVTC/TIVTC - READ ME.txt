@@ -1,5 +1,5 @@
 
-                           TIVTC v1.0.22   HELP FILE - (05 August, 2020)
+                           TIVTC v1.0.23   HELP FILE - (20 October, 2020)
 
 INFO:
    Based on TIVTC v1.0.5   HELP FILE - (08 January, 2008)
@@ -27,7 +27,7 @@ INFO:
                             FieldDiff       v1.4       (23 March 2006 - 11 June 2020)
                             FrameDiff       v1.9       (21 November 2007 - 5 August 2020)
                             ShowcombedTIVTC v1.3       (23 March 2006 - 11 June 2020)
-                            RequestLinear   v1.3       (21 November 2007 - 11 June 2020)
+                            RequestLinear   v1.4       (21 November 2007 - 20 October 2020)
                             TFMPP           v1.0.3     (refreshed 11 June 2020)
   
   

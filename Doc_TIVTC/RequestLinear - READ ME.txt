@@ -1,6 +1,6 @@
 
 
-                       RequestLinear v1.3  -  HELP FILE  (20200611)
+                       RequestLinear v1.4  -  HELP FILE  (20201020)
 
 
 GENERAL INFO:
@@ -132,6 +132,13 @@ EXAMPLE SCENARIOS:
 
 
 CHANGE LIST:
+
+   v1.4   (20201020)
+
+      - fix: initial large frame number difference out of order frame requests
+             e.g. 24, 25, 26, 6 (caused by heavy multithreading) could result in
+             internal error - frame not in cache
+             
 
    v1.3   (20200611)
 
