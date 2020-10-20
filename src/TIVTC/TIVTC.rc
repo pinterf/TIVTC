@@ -53,8 +53,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,22,0
- PRODUCTVERSION 1,0,22,0
+ FILEVERSION 1,0,23,0
+ PRODUCTVERSION 1,0,23,0
  FILEFLAGSMASK 0x18L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -69,10 +69,10 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "FileDescription", "TIVTC v1.0.22 for Avisynth"
-            VALUE "FileVersion", "1, 0, 22, 0"
+            VALUE "FileDescription", "TIVTC v1.0.23 for Avisynth"
+            VALUE "FileVersion", "1, 0, 23, 0"
             VALUE "LegalCopyright", "Copyright (C) 2004-2008  Kevin Stone, 2018 8day, 2017-2020 pinterf"
-            VALUE "ProductVersion", "1, 0, 22, 0"
+            VALUE "ProductVersion", "1, 0, 23, 0"
         END
     END
     BLOCK "VarFileInfo"

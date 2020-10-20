@@ -25,7 +25,7 @@
 
 #include <stdio.h>
 #include "internal.h"
-#define VERSION "v1.3"
+#define VERSION "v1.4"
 
 class RFrame
 {
