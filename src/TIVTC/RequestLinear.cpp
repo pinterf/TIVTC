@@ -35,7 +35,7 @@ PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
     sprintf(buf, "RequestLinear:  frame %d -- last_request = %d\n", n, last_request);
     OutputDebugString(buf);
   }
-  if (clim <= 0)
+  if (clim <= 0) // no cache
   {
     if (n > last_request && n - last_request <= rlim)
     {
@@ -61,6 +61,39 @@ PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
     last_request = n;
     return requestFrame(n, env);
   }
+  // we have cache of size clim
+
+  /*
+  other parameters
+
+     rlim -
+
+         If the current frame request if greater than the last delivered frame
+         and the difference between the two is less than or equal to rlim, then
+         all frames between the last request and the current request will be
+         requested.  If the current request is less than or equal to the
+         last request then the distance is measured from 0 to the current
+         request. rlim must be >= 0.
+
+         Default:  50  (int)
+
+  elim -
+
+    If the current frame ends up being requested without the previous frames
+    being requested(due to rlim not being large enough, clim not being large
+      enough, etc...), elim sets the number of frames prior to the current frame
+    to request in linear order prior to requesting the current frame.
+
+    Default:  5  (int)
+
+    rall -
+
+         If true, it is the same as if rlim is set to infinity.  If false,
+         it does nothing.
+
+         Default:  false  (bool)
+
+  */
   if (n > last_request)
   {
     if (n - last_request <= rlim || rall)
@@ -71,8 +104,15 @@ PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
     else
     {
       clearCache(n, env);
-      for (int i = std::max(0, n - elim); i <= n; ++i)
-        insertCacheFrame(i, env);
+      if (last_request == -2098) {
+        // do not leave holes at the beginning of the cache when called for the first time
+        for (int i = std::max(0, n - clim); i <= n; ++i)
+          insertCacheFrame(i, env);
+      }
+      else {
+        for (int i = std::max(0, n - elim); i <= n; ++i)
+          insertCacheFrame(i, env);
+      }
     }
     last_request = n;
     return findCachedFrame(n, env);
@@ -153,7 +193,7 @@ void RequestLinear::clearCache(int n, IScriptEnvironment *env)
 {
   if (debug)
   {
-    sprintf(buf, "RequestLinear:  clearing cache (%d)\n", n);
+    sprintf(buf, "RequestLinear:  clearing cache (%d) of size clim=%d\n", n, clim);
     OutputDebugString(buf);
   }
   PVideoFrame nframe;
