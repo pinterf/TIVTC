@@ -1071,12 +1071,14 @@ void TFMPP::getSetOvr(int n)
   if (setArray == NULL || setArraySize <= 0) return;
   mthresh = mthresh_origSaved;
   PP = PP_origSaved;
+  uC2 = uC2_origSaved;
   for (int x = 0; x < setArraySize; x += 4)
   {
     if (n >= setArray[x + 1] && n <= setArray[x + 2])
     {
       if (setArray[x] == 80) PP = setArray[x + 3]; // P
       else if (setArray[x] == 77) mthresh = setArray[x + 3]; // M
+      else if (setArray[x] == 81) {PP = setArray[x + 3]; uC2 = false;} // Q
     }
   }
 }
@@ -1852,6 +1854,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   nfrms = vi.num_frames - 1;
   PP_origSaved = PP;
   mthresh_origSaved = mthresh;
+  uC2_origSaved = uC2;
   setArraySize = 0;
   i = 0;
   if (*ovr)
@@ -1864,7 +1867,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
           continue;
         linep = linein;
-        while (*linep != 'M' && *linep != 'P' && *linep != 0) linep++;
+        while (*linep != 'M' && *linep != 'P' && *linep != 'Q' && *linep != 0) linep++;
         if (*linep != 0) ++countOvrS;
       }
       fclose(f);
@@ -1894,7 +1897,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
             }
             if (*linet == 0) { continue; }
             linep++;
-            if (*linep == 'M' || *linep == 'P')
+            if (*linep == 'M' || *linep == 'P' || *linep == 'Q')
             {
               sscanf(linein, "%d", &z);
               if (z<0 || z>nfrms)
@@ -1908,7 +1911,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
               if (*linep != 0)
               {
                 linep++;
-                if (*linep == 'P' || *linep == 'M')
+                if (*linep == 'P' || *linep == 'M' || *linep == 'Q')
                 {
                   q = *linep;
                   linep++;
@@ -1921,7 +1924,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
                     f = NULL;
                     env->ThrowError("TFMPP:  ovr input error (bad PP value)!");
                   }
-                  else if (q != 80 && q != 77) continue;
+                  else if (q != 80 && q != 77 && q != 81) continue;
                   setArray[i] = q; ++i;
                   setArray[i] = z; ++i;
                   setArray[i] = z; ++i;
@@ -1935,7 +1938,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
             while (*linep != ' ' && *linep != 0) linep++;
             if (*linep == 0) continue;
             linep++;
-            if (*linep == 'P' || *linep == 'M')
+            if (*linep == 'P' || *linep == 'M' || *linep == 'Q')
             {
               sscanf(linein, "%d,%d", &z, &w);
               if (w == 0) w = nfrms;
@@ -1950,7 +1953,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
               if (*linep != 0)
               {
                 linep++;
-                if (*linep == 'M' || *linep == 'P')
+                if (*linep == 'M' || *linep == 'P' || *linep == 'Q')
                 {
                   q = *linep;
                   linep++;
@@ -1963,7 +1966,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
                     f = NULL;
                     env->ThrowError("TFMPP:  ovr input error (bad PP value)!");
                   }
-                  else if (q != 77 && q != 80) continue;
+                  else if (q != 77 && q != 80 && q != 81) continue;
                   setArray[i] = q; ++i;
                   setArray[i] = z; ++i;
                   setArray[i] = w; ++i;

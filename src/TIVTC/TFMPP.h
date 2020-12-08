@@ -87,6 +87,7 @@ private:
   bool uC2; // use clip2
   int PP_origSaved;
   int mthresh_origSaved;
+  bool uC2_origSaved;
   int nfrms;
   int setArraySize;
   int* setArray;
