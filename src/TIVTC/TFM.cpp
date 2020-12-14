@@ -2854,7 +2854,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     // tbuffer is 8 or 16 bits wide
     const int pixelsize = vi.ComponentSize();
     tpitchy = AlignNumber(vi.width * pixelsize, ALIGN_BUF);
-    const int widthUV = vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U);
+    const int widthUV = !vi.IsY() && !vi.IsRGB() ? vi.width >> vi.GetPlaneWidthSubsampling(PLANAR_U) : 0;
     tpitchuv = AlignNumber(widthUV * pixelsize, ALIGN_BUF);
   }
   else { // YUY2
