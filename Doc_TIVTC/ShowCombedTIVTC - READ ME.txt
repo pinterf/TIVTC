@@ -1,6 +1,6 @@
 
 
-                            ShowCombedTIVTC v1.3  -  HELP FILE  (20200611)
+                            ShowCombedTIVTC v1.4  -  HELP FILE  (20201214)
 
 
 
@@ -70,6 +70,7 @@ PARAMETERS:
          causing problems for the combed frame detection with chroma enabled.  Actually,
          setting this to false is usually a good idea unless there is chroma only combing
          in the source.
+         Parameter is ignored and treated as false for greyscale input.
 
             true = chroma is included
             false = chroma is not included
@@ -188,6 +189,10 @@ PARAMETERS:
 
 
 CHANGE LIST:
+   v1.4 - (20201214 - pinterf)
+
+      - parameter 'chroma' ignored and treated as false for greyscale input
+
 
    v1.3 - (20200611 - pinterf)
 

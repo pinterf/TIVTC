@@ -1,5 +1,5 @@
 
-                           TIVTC v1.0.24   HELP FILE - (14 December, 2020)
+                           TIVTC v1.0.25   HELP FILE - (14 December, 2020)
 
 INFO:
    Based on TIVTC v1.0.5   HELP FILE - (08 January, 2008)
@@ -22,11 +22,11 @@ INFO:
 
 
   current filter versions:  TFM             v1.0.7     (17 January 2008 - 14 December 2020)
-                            TDecimate       v1.0.6     (28 September 2007 - 5 August 2020)
+                            TDecimate       v1.0.7     (28 September 2007 - 14 December 2020)
                             MergeHints      v1.3       (22 October 2006 - 11 June 2020)
-                            FieldDiff       v1.4       (23 March 2006 - 11 June 2020)
-                            FrameDiff       v1.9       (21 November 2007 - 5 August 2020)
-                            ShowcombedTIVTC v1.3       (23 March 2006 - 11 June 2020)
+                            FieldDiff       v1.5       (23 March 2006 - 14 December 2020)
+                            FrameDiff       v1.10       (21 November 2007 - 14 December 2020)
+                            ShowcombedTIVTC v1.4       (23 March 2006 - 14 December 2020)
                             RequestLinear   v1.4       (21 November 2007 - 20 October 2020)
                             TFMPP           v1.0.3     (refreshed 11 June 2020)
   

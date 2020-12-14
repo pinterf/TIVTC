@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.6  -  HELP FILE  (20200805)
+                              TDecimate v1.0.7  -  HELP FILE  (20201214)
 
 
 
@@ -420,6 +420,7 @@ C.)  ADVANCED PARAMETERS:
         Sets whether or not chroma is considered when calculating frame difference metrics.
         Setting this to false can give a speed up... it a quality vs speed setting (though
         in some cases setting chroma=false can improve operation).
+        Parameter is ignored and treated as false for greyscale input.
 
             true - consider chroma
             false - don't
@@ -775,6 +776,9 @@ F.)  OVERRIDES:
 
 
 G.)  CHANGE LIST:
+
+    (20201214) (v1.0.7, in v1.0.25 pack - pinterf)
+         - parameter 'chroma' ignored and treated as false for greyscale input
 
     (20200805) (v1.0.6, in v1.0.22 pack - pinterf)
          - fix SAD metric calculation for block size 32 (v1.0.15 regression) 

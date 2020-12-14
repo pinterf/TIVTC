@@ -1,6 +1,6 @@
 
 
-                            FrameDiff v1.9  -  HELP FILE  (20200805)
+                            FrameDiff v1.10  -  HELP FILE  (20201214)
 
 
 GENERAL INFO:
@@ -77,6 +77,7 @@ PARAMETERS:
      chroma -
 
          Sets whether or not chroma is considered in the metric calculations.
+         parameter is ignored and treated as false for greyscale input.
 
          Default:  false  (bool)
 
@@ -187,6 +188,9 @@ PARAMETERS:
 
 
 CHANGE LIST:
+   v1.10 - (20201214)
+         - parameter 'chroma' ignored and treated as false for greyscale input
+
    v1.9 - (20200805)
          - fix SAD metric calculation for block size 32 (v1.0.15 regression) 
 

@@ -1,6 +1,6 @@
 
 
-                            FieldDiff v1.4  -  HELP FILE  (20200611)
+                            FieldDiff v1.5  -  HELP FILE  (20201214)
 
 
 GENERAL INFO:
@@ -35,6 +35,7 @@ PARAMETERS:
      chroma -
 
          Disables or enables chroma processing.
+         Parameter is ignored and treated as false for greyscale input.
 
          Default:  true  (bool)
 
@@ -79,6 +80,9 @@ PARAMETERS:
 
 
 CHANGE LIST:
+   v1.5 - (20201214 - pinterf)
+
+      - parameter 'chroma' ignored and treated as false for greyscale input
 
    v1.4 - (20200611 - pinterf)
 

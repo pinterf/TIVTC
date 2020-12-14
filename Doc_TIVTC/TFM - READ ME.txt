@@ -310,6 +310,8 @@ C.)  ADVANCED PARAMETERS:
          using chroma=false is usually more reliable, except for the case that there
          is chroma only combing in the source.
 
+         For greyscale input parameter is ignored, chroma is always treated as false.
+
             true = chroma is included
             false = chroma is not included
 
@@ -899,8 +901,9 @@ F.)  OVERRIDES:
 
 G.)  CHANGE LIST:
 
-    20201214  v1.0.7 (part of v1.0.24 package - pinterf)
-        - Fix: TFM: do not give error on greyscale clip
+    20201214  v1.0.7 (part of v1.0.25 package - pinterf)
+        - For greyscale input 'chroma' parameter is ignored, and always treated as false.
+        - Fix: TFM and others: do not give error on greyscale clip
 
     20200622  v1.0.6 (part of v1.0.20 package - pinterf)
         - fix PP=1 and display=true crash (v19 regression)

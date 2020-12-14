@@ -1,9 +1,12 @@
-# TIVTC v1.0.24 (20201214) 
-# TDeInt v1.7 (20200921)
+# TIVTC v1.0.25 (20201214) 
+# TDeInt v1.8 (20201214)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
 
 # TDeint (see change log of TIVTC later) 
+** TDeInt v1.8 (20201214) - pinterf
+- Fix: TDeint: ignore parameter 'chroma' and treat as false for greyscale input
+
 ** TDeInt v1.7 (20200921) - pinterf
 - Fix: TDeint: crash when edeint is a 10+ bit clip
 
@@ -40,7 +43,10 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.24 (20201214)
+# TIVTC v1.0.25 (20201214)
+
+**v1.0.25 (20201214)**
+- Fix: TFM, TDecimate and others: treat parameter 'chroma' as "false" for greyscale clips
 
 **v1.0.24 (20201214)**
 - Fix: TFM: do not give error on greyscale clip
