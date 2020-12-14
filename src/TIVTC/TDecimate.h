@@ -57,7 +57,7 @@ constexpr int VIDEO = 0x00000008; // ovr array - bit 4
 constexpr int ISMATCH = 0x00000070; // ovr array - bits 5-7
 constexpr int ISD2VFILM = 0x00000080; // ovr array - bit 8
 
-#define VERSION "v1.0.6"
+#define VERSION "v1.0.7"
 
 #define cfps(n) n == 1 ? "119.880120" : n == 2 ? "59.940060" : n == 3 ? "39.960040" : \
 				n == 4 ? "29.970030" : n == 5 ? "23.976024" : "unknown"

@@ -45,8 +45,13 @@ AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnv
   if (!cnt.IsInt())
     env->ThrowError("IsCombedTIVTC:  This filter can only be used within ConditionalFilter!");
   int n = cnt.AsInt();
+
+  bool chroma = args[3].AsBool(false);
+  VideoInfo vi = args[0].AsClip()->GetVideoInfo();
+  if (vi.IsY()) chroma = false;
+
   TFM *f = new TFM(args[0].AsClip(), -1, -1, 1, 5, "", "", "", "", false, false, false, false,
-    15, args[1].AsInt(9), args[2].AsInt(80), args[3].AsBool(false), args[4].AsInt(16),
+    15, args[1].AsInt(9), args[2].AsInt(80), chroma, args[4].AsInt(16),
     args[5].AsInt(16), 0, 0, "", 0, 0, 12.0, 0, 0, "", false, args[6].AsInt(0), false, false, false,
     args[7].AsInt(4), env);
   AVSValue IsCombedTIVTC = f->ConditionalIsCombedTIVTC(n, env);
@@ -58,7 +63,7 @@ AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnv
 #undef VERSION
 #endif
 
-#define VERSION "v1.3"
+#define VERSION "v1.4"
 
 class ShowCombedTIVTC : public GenericVideoFilter
 {
@@ -562,7 +567,11 @@ void ShowCombedTIVTC::fillCombedPlanar_core(PVideoFrame &src, int &MICount,
 
 AVSValue __cdecl Create_ShowCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-  return new ShowCombedTIVTC(args[0].AsClip(), args[1].AsInt(9), args[2].AsBool(false),
+  bool chroma = args[2].AsBool(false);
+  VideoInfo vi = args[0].AsClip()->GetVideoInfo();
+  if (vi.IsY()) chroma = false;
+
+  return new ShowCombedTIVTC(args[0].AsClip(), args[1].AsInt(9), chroma,
     args[3].AsInt(80), args[4].AsInt(16), args[5].AsInt(16), args[6].AsInt(0),
     args[7].AsBool(false), args[8].AsInt(3), args[9].AsBool(false), args[10].AsInt(4), env);
 }

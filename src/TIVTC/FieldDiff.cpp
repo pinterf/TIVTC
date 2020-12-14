@@ -327,7 +327,12 @@ AVSValue __cdecl Create_CFieldDiff(AVSValue args, void* user_data, IScriptEnviro
   if (!cnt.IsInt())
     env->ThrowError("CFieldDiff:  This filter can only be used within ConditionalFilter!");
   int n = cnt.AsInt();
-  FieldDiff *f = new FieldDiff(args[0].AsClip(), args[1].AsInt(3), args[2].AsBool(true),
+
+  bool chroma = args[2].AsBool(true);
+  VideoInfo vi = args[0].AsClip()->GetVideoInfo();
+  if (vi.IsY()) chroma = false;
+
+  FieldDiff *f = new FieldDiff(args[0].AsClip(), args[1].AsInt(3), chroma,
     false, args[3].AsBool(false), args[4].AsBool(false), args[5].AsInt(4), env);
   AVSValue CFieldDiff = f->ConditionalFieldDiff(n, env);
   delete f;
@@ -336,7 +341,11 @@ AVSValue __cdecl Create_CFieldDiff(AVSValue args, void* user_data, IScriptEnviro
 
 AVSValue __cdecl Create_FieldDiff(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-  return new FieldDiff(args[0].AsClip(), args[1].AsInt(3), args[2].AsBool(true),
+  bool chroma = args[2].AsBool(true);
+  VideoInfo vi = args[0].AsClip()->GetVideoInfo();
+  if (vi.IsY()) chroma = false;
+
+  return new FieldDiff(args[0].AsClip(), args[1].AsInt(3), chroma,
     args[3].AsBool(false), args[4].AsBool(false), args[5].AsBool(false),
     args[6].AsInt(4), env);
 }

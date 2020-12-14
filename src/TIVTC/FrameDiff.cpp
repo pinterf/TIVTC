@@ -520,7 +520,12 @@ AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnviro
   if (!cnt.IsInt())
     env->ThrowError("CFrameDiff:  This filter can only be used within ConditionalFilter!");
   int n = cnt.AsInt();
-  FrameDiff *f = new FrameDiff(args[0].AsClip(), args[1].AsInt(1), args[2].AsBool(true), args[3].AsInt(0),
+
+  bool chroma = args[2].AsBool(true);
+  VideoInfo vi = args[0].AsClip()->GetVideoInfo();
+  if (vi.IsY()) chroma = false;
+
+  FrameDiff *f = new FrameDiff(args[0].AsClip(), args[1].AsInt(1), chroma, args[3].AsInt(0),
     args[4].AsInt(32), args[5].AsInt(32), args[6].AsBool(false), 2.0, 0, args[7].AsBool(false),
     args[8].AsBool(true), args[9].AsBool(false), args[10].AsBool(false), args[11].AsBool(false),
     args[12].AsInt(4), env);
@@ -531,7 +536,11 @@ AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnviro
 
 AVSValue __cdecl Create_FrameDiff(AVSValue args, void* user_data, IScriptEnvironment* env)
 {
-  return new FrameDiff(args[0].AsClip(), args[1].AsInt(1), args[2].AsBool(true), args[3].AsInt(0),
+  bool chroma = args[2].AsBool(true);
+  VideoInfo vi = args[0].AsClip()->GetVideoInfo();
+  if (vi.IsY()) chroma = false;
+
+  return new FrameDiff(args[0].AsClip(), args[1].AsInt(1), chroma, args[3].AsInt(0),
     args[4].AsInt(32), args[5].AsInt(32), args[6].AsBool(false), args[7].AsFloat(2.0),
     args[8].AsInt(0), args[9].AsBool(false), args[10].AsBool(true), args[11].AsBool(false),
     args[12].AsBool(false), false, args[13].AsInt(4), env);
