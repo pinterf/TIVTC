@@ -784,7 +784,11 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
   bool hints = false;
   bool full = true;
   int cthresh = 6;
-  bool chroma = false;
+
+  bool chroma = args[17].AsBool(false);
+  if (args[0].AsClip()->GetVideoInfo().IsY())
+    chroma = false;
+
   int MI = 64;
   bool tryWeave = false;
   int link = 2;
@@ -819,7 +823,7 @@ AVSValue __cdecl Create_TDeinterlace(AVSValue args, void* user_data, IScriptEnvi
     args[3].AsInt(field), args[4].AsInt(mthreshL), args[5].AsInt(mthreshC), args[6].AsInt(map),
     args[7].AsString(ovr), args[8].AsInt(ovrDefault), args[9].AsInt(type), args[10].AsBool(debug),
     args[11].AsInt(mtnmode), args[12].AsBool(sharp), args[13].AsBool(hints), args[14].IsClip() ? v : NULL,
-    args[15].AsBool(full), args[16].AsInt(cthresh), args[17].AsBool(chroma), args[18].AsInt(MI),
+    args[15].AsBool(full), args[16].AsInt(cthresh), chroma, args[18].AsInt(MI),
     args[19].AsBool(tryWeave), args[20].AsInt(link), args[21].AsBool(denoise), args[22].AsInt(AP),
     args[23].AsInt(blockx), args[24].AsInt(blocky), args[25].AsInt(APType),
     args[26].IsClip() ? args[26].AsClip() : NULL, args[27].IsClip() ? args[27].AsClip() : NULL,
