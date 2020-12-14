@@ -1,4 +1,4 @@
-# TIVTC v1.0.23 (20201020) 
+# TIVTC v1.0.24 (20201214) 
 # TDeInt v1.7 (20200921)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
@@ -40,7 +40,10 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
 
-# TIVTC v1.0.23 (20201020)
+# TIVTC v1.0.24 (20201214)
+
+**v1.0.24 (20201214)**
+- Fix: TFM: do not give error on greyscale clip
 
 **v1.0.23 (20201020)**
 - RequestLinear: fix: initial large frame number difference out of order frame requests
