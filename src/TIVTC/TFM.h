@@ -63,7 +63,7 @@ constexpr int D2VARRAY_MATCH_MASK = 0x3C;
 #ifdef VERSION
 #undef VERSION
 #endif
-#define VERSION "v1.0.6"
+#define VERSION "v1.0.7"
 
 template<int planarType>
 void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask);
