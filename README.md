@@ -2,6 +2,7 @@
 # TDeInt v1.8 (20201214)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
+Since December 27th 2020 project can be built under Linux (x86/x64 only) as well. For build instructions see end of this readme.
 
 # TDeint (see change log of TIVTC later) 
 ** TDeInt v1.8 (20201214) - pinterf
@@ -144,3 +145,15 @@ Useful links:
 - This mod is based on the original code http://web.archive.org/web/20140420181748/http://bengal.missouri.edu/~kes25c/TIVTCv105.zip
 - Project source: https://github.com/pinterf/TIVTC
 - Doom9 topic: https://forum.doom9.org/showthread.php?t=82264
+
+Linux build instructions
+------------------------
+clone repo: https://github.com/pinterf/TIVTC
+cd TIVTC
+cd src
+mkdir build
+cd build
+cmake ..
+sudo make install
+
+libtivtc.so, libtdeint.so
