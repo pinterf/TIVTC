@@ -27,7 +27,10 @@
 #include "avisynth.h"
 #include "stdint.h"
 #include <inttypes.h>
+#ifdef _WIN32
 #include <windows.h> // OutputDebugString
+#endif
+#include "internal.h"
 #include <algorithm>
 
 void Cycle::setFrame(int frameIn)

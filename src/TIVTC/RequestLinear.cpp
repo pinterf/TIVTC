@@ -25,7 +25,9 @@
 
 #include "RequestLinear.h"
 #include <algorithm>
+#ifdef _WIN32
 #include "windows.h" // OutputDebugString
+#endif
 
 PVideoFrame __stdcall RequestLinear::GetFrame(int n, IScriptEnvironment *env)
 {

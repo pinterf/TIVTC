@@ -30,6 +30,7 @@
 #include <unordered_map>
 #include <array>
 #include <iomanip>
+#include <vector>
 
 class BitmapFont {
 

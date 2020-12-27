@@ -26,7 +26,6 @@
 #include <avs/win.h>
 #else
 #include <avs/posix.h>
-#include "parser/os/win32_string_compat.h"
 #endif
 
 #include <cassert>

@@ -137,7 +137,14 @@ private:
   
   MTRACK lastMatch;
   SCTRACK sclast;
-  char buf[4096], outputFull[270], outputCFull[270];
+  char buf[4096];
+#ifdef _WIN32
+  char outputFull[MAX_PATH + 1];
+  char outputCFull[MAX_PATH + 1];
+#else
+  char outputFull[PATH_MAX + 1];
+  char outputCFull[PATH_MAX + 1];
+#endif
   PlanarFrame* map;
   PlanarFrame *cmask;
 

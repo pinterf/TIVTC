@@ -24,11 +24,12 @@
 */
 
 #include "TDBuf.h"
+#include "internal.h"
 
 // always a 8 bit buffer
 TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size(_size)
 {
-  constexpr int FRAME_ALIGN = 64;
+  constexpr int MY_FRAME_ALIGN = 64;
   y = u = v = NULL;
   fnum.resize(size);
   // 400: greyscale
@@ -36,12 +37,12 @@ TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size
   {
     widthy = _width;
     heighty = _height;
-    lpitchy = ((widthy + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
+    lpitchy = ((widthy + (MY_FRAME_ALIGN - 1)) / MY_FRAME_ALIGN) * MY_FRAME_ALIGN;
     pitchy = lpitchy * size;
     if (_cp == 3) { // count of planes
       widthuv = planarType == 444 ? _width : planarType == 411 ? _width / 4 : _width / 2;
       heightuv = planarType == 420 ? _height / 2 : _height;
-      lpitchuv = ((widthuv + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
+      lpitchuv = ((widthuv + (MY_FRAME_ALIGN - 1)) / MY_FRAME_ALIGN) * MY_FRAME_ALIGN;
       pitchuv = lpitchuv * size;
     }
     else {
@@ -53,18 +54,18 @@ TDBuf::TDBuf(int _size, int _width, int _height, int _cp, int planarType) : size
     // YUY2
     widthy = _width * 2; // *2 row size, no chroma plane, interleaved YUYV YUYV...
     heighty = _height;
-    lpitchy = ((widthy + (FRAME_ALIGN - 1)) / FRAME_ALIGN) * FRAME_ALIGN;
+    lpitchy = ((widthy + (MY_FRAME_ALIGN - 1)) / MY_FRAME_ALIGN) * MY_FRAME_ALIGN;
     pitchy = lpitchy*size;
     heightuv = widthuv = pitchuv = lpitchuv = 0;
   }
   if (size)
   {
     for (int i = 0; i < size; ++i) fnum[i] = -999999999;
-    y = (uint8_t*)_aligned_malloc(pitchy*heighty, FRAME_ALIGN);
+    y = (uint8_t*)_aligned_malloc(pitchy*heighty, MY_FRAME_ALIGN);
     if (_cp == 3)
     {
-      u = (uint8_t*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
-      v = (uint8_t*)_aligned_malloc(pitchuv*heightuv, FRAME_ALIGN);
+      u = (uint8_t*)_aligned_malloc(pitchuv*heightuv, MY_FRAME_ALIGN);
+      v = (uint8_t*)_aligned_malloc(pitchuv*heightuv, MY_FRAME_ALIGN);
     }
   }
   spos = 0;

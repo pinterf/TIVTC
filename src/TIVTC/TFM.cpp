@@ -3516,7 +3516,11 @@ emptyovr:
   {
     if ((f = fopen(output, "w")) != NULL)
     {
+#ifdef _WIN32
       _fullpath(outputFull, output, MAX_PATH);
+#else
+      realpath(output, outputFull);
+#endif
       calcCRC(child, 15, outputCrc, env);
       fclose(f);
       f = NULL;
@@ -3543,7 +3547,11 @@ emptyovr:
   {
     if ((f = fopen(outputC, "w")) != NULL)
     {
+#ifdef _WIN32
       _fullpath(outputCFull, outputC, MAX_PATH);
+#else
+      realpath(outputC, outputCFull);
+#endif
       fclose(f);
       f = NULL;
       if (outArray == NULL)

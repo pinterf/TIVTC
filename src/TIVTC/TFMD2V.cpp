@@ -492,7 +492,7 @@ int TFM::D2V_get_output_filename(char wfile[])
   while (*p != 0) p++;
   while (*p != 46) p--;
   *p++ = '-'; *p++ = 'F'; *p++ = 'I'; *p++ = 'X'; *p++ = 'E'; *p++ = 'D';
-  *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = NULL;
+  *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = '\0';
   bool checking = true;
   int inT = 1;
   while (checking && inT < 100)
@@ -508,13 +508,13 @@ int TFM::D2V_get_output_filename(char wfile[])
       if (inT == 1)
       {
         *p++ = '_'; *p++ = inT + '0'; *p++ = '.'; *p++ = 'd';
-        *p++ = '2'; *p++ = 'v'; *p = NULL;
+        *p++ = '2'; *p++ = 'v'; *p = '\0';
       }
       else if (inT < 10)
       {
         p--;
         *p++ = inT + '0'; *p++ = '.'; *p++ = 'd';
-        *p++ = '2'; *p++ = 'v'; *p = NULL;
+        *p++ = '2'; *p++ = 'v'; *p = '\0';
       }
       else if (inT < 100)
       {
@@ -522,7 +522,7 @@ int TFM::D2V_get_output_filename(char wfile[])
         if (inT > 10) p--;
         *p++ = ((inT / 10) % 10) + '0';
         *p++ = (inT % 10) + '0';
-        *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = NULL;
+        *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = '\0';
       }
       else return 1;
       ++inT;
@@ -532,7 +532,12 @@ int TFM::D2V_get_output_filename(char wfile[])
   outd2v = fopen(wfile, "w");
   if (outd2v == NULL) return 2;
   fclose(outd2v);
+  // delete file
+#ifdef _WIN32
   _unlink(wfile);
+#else
+  unlink(wfile);
+#endif
   return 0;
 }
 

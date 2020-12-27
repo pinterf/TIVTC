@@ -2905,7 +2905,12 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   {
     if ((f = fopen(output, "w")) != NULL)
     {
+#ifdef _WIN32
       _fullpath(outputFull, output, MAX_PATH);
+#else
+      realpath(output, outputFull);
+#endif
+
       calcCRC(child, 15, outputCrc, env);
       fclose(f);
       f = NULL;

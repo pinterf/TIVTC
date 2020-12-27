@@ -24,6 +24,7 @@
 */
 
 #include <malloc.h>
+#include <stdint.h>
 #include <vector>
 
 class TDBuf

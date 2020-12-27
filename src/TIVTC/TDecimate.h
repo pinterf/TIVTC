@@ -151,7 +151,12 @@ private:
   uint8_t *ovrArray;
   int mode2_num, mode2_den, mode2_numCycles, mode2_cfs[10];
   FILE *mkvOutF;
-  char buf[8192], outputFull[270];
+  char buf[8192];
+#ifdef _WIN32
+  char outputFull[MAX_PATH + 1];
+#else
+  char outputFull[PATH_MAX + 1];
+#endif
 
   void init_mode_5(IScriptEnvironment* env);
   void rerunFromStart(int s, const VideoInfo& vi, IScriptEnvironment *env);
