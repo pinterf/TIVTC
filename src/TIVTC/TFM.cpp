@@ -2727,7 +2727,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   tbuffer = NULL;
   trimArray = NULL;
   map = cmask = NULL;
-  int z, w, q, b, i, count, last, fieldt, firstLine, qt;
+  int z, w, x, q, b, i, count, last, fieldt, firstLine, qt;
   int countOvrS, countOvrM;
   char linein[1024];
   char *linep, *linet;
@@ -2945,6 +2945,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
           }
           if (*linet == 0) { --firstLine; continue; }
           sscanf(linein, "%d", &z);
+          if(z < 0) z = x + 1;
+          x = z;
           linep = linein;
           while (*linep != 'p' && *linep != 'c' && *linep != 'n' && *linep != 'u' &&
             *linep != 'b' && *linep != 'l' && *linep != 'h' && *linep != 0) linep++;
@@ -2954,7 +2956,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             {
               fclose(f);
               f = NULL;
-              env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!");
+              env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!\n%s", linein);
             }
             linep = linein;
             while (*linep != ' ' && *linep != 0) linep++;
@@ -3101,6 +3103,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
         }
       }
       last = -1;
+      x = -1;
       fieldt = fieldO;
       firstLine = 0;
       i = 0;
@@ -3147,11 +3150,13 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             if (*linep == 'p' || *linep == 'c' || *linep == 'n' || *linep == 'b' || *linep == 'u' || *linep == 'l' || *linep == 'h')
             {
               sscanf(linein, "%d", &z);
+              if(z < 0) z = x + 1;
+              x = z;
               if (z<0 || z>nfrms || z <= last)
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TFM:  ovr file error (out of range or non-ascending frame #)!");
+                env->ThrowError("TFM:  ovr file error (out of range or non-ascending frame #)!\n%s", linein);
               }
               linep = linein;
               while (*linep != ' ' && *linep != 0) linep++;
@@ -3187,11 +3192,13 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             else if (*linep == '-' || *linep == '+')
             {
               sscanf(linein, "%d", &z);
+              if(z < 0) z = x + 1;
+              x = z;
               if (z<0 || z>nfrms)
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TFM:  ovr file error (out of range or non-ascending frame #)!");
+                env->ThrowError("TFM:  ovr file error (out of range or non-ascending frame #)!\n%s", linein);
               }
               linep = linein;
               while (*linep != ' ' && *linep != 0) linep++;
@@ -3221,6 +3228,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             else
             {
               sscanf(linein, "%d", &z);
+              if(z < 0) z = x + 1;
+              x = z;
               if (z<0 || z>nfrms)
               {
                 fclose(f);
@@ -3280,11 +3289,13 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             {
               sscanf(linein, "%d,%d", &z, &w);
               if (w == 0) w = nfrms;
+              if(z < 0) z = x + 1;
+              x = w;
               if (z<0 || z>nfrms || w<0 || w>nfrms || w < z || z <= last)
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!");
+                env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!\n%s", linein);
               }
               linep = linein;
               while (*linep != ' ' && *linep != 0) linep++;
@@ -3367,11 +3378,13 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             {
               sscanf(linein, "%d,%d", &z, &w);
               if (w == 0) w = nfrms;
+              if(z < 0) z = x + 1;
+              x = w;
               if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!");
+                env->ThrowError("TFM:  input file error (out of range or non-ascending frame #)!\n%s", linein);
               }
               linep = linein;
               while (*linep != ' ' && *linep != 0) linep++;
@@ -3449,11 +3462,13 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
             {
               sscanf(linein, "%d,%d", &z, &w);
               if (w == 0) w = nfrms;
+              if(z < 0) z = x + 1;
+              x = w;
               if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TFM: ovr input error (invalid frame range)!");
+                env->ThrowError("TFM: ovr input error (invalid frame range)!\n%s", linein);
               }
               linep = linein;
               while (*linep != ' ' && *linep != 0) linep++;

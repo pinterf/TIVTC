@@ -1808,7 +1808,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
 {
   setArray = NULL;
   mmask = NULL;
-  int w, i, z, b, q, countOvrS;
+  int w, i, z, x, b, q, countOvrS;
   char linein[1024], *linep, *linet;
   FILE *f = NULL;
 
@@ -1856,6 +1856,7 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   mthresh_origSaved = mthresh;
   uC2_origSaved = uC2;
   setArraySize = 0;
+  x = -1;
   i = 0;
   if (*ovr)
   {
@@ -1900,6 +1901,8 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
             if (*linep == 'M' || *linep == 'P' || *linep == 'Q')
             {
               sscanf(linein, "%d", &z);
+              if(z < 0) z = x + 1;
+              x = z;
               if (z<0 || z>nfrms)
               {
                 fclose(f);
@@ -1942,6 +1945,8 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
             {
               sscanf(linein, "%d,%d", &z, &w);
               if (w == 0) w = nfrms;
+              if(z < 0) z = x + 1;
+              x = z;
               if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
               {
                 fclose(f);

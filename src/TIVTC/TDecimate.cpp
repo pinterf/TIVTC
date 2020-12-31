@@ -3080,7 +3080,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         if (!batch || (mode != 5 && mode != 6)) memset(ovrArray, 112, vi.num_frames);
         else memset(ovrArray, 0, vi.num_frames);
       }
-      int q, w, z, count = 0;
+      int q, w, z, x = -1, count = 0;
       while (fgets(linein, 1024, f) != 0)
       {
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
@@ -3100,6 +3100,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           if (*linep == '-' || *linep == '+')
           {
             sscanf(linein, "%d", &z);
+            if(z < 0) z = x + 1;
+            x = z;
             if (z<0 || z>nfrms)
             {
               fclose(f);
@@ -3127,6 +3129,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           else if (*linep == 'f' || *linep == 'v')
           {
             sscanf(linein, "%d", &z);
+            if(z < 0) z = x + 1;
+            x = z;
             if (z<0 || z>nfrms)
             {
               fclose(f);
@@ -3161,6 +3165,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           {
             sscanf(linein, "%d,%d", &z, &w);
             if (w == 0) w = nfrms;
+            if(z < 0) z = x + 1;
+            x = w;
             if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
             {
               fclose(f);
@@ -3193,6 +3199,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           {
             sscanf(linein, "%d,%d", &z, &w);
             if (w == 0) w = nfrms;
+            if(z < 0) z = x + 1;
+            x = w;
             if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
             {
               fclose(f);
