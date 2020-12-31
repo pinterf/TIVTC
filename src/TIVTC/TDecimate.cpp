@@ -3106,7 +3106,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             {
               fclose(f);
               f = NULL;
-              env->ThrowError("TDecimate:  ovr file error (out of range frame #)!");
+              env->ThrowError("TDecimate:  ovr file error (out of range frame #)!\n%s", linein);
             }
             linep = linein;
             while (*linep != ' ' && *linep != 0) linep++;
@@ -3120,7 +3120,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TDecimate:  ovr file error (invalid specifier)!");
+                env->ThrowError("TDecimate:  ovr file error (invalid specifier)!\n%s", linein);
               }
               ovrArray[z] &= 0xFC;
               ovrArray[z] |= q;
@@ -3135,7 +3135,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             {
               fclose(f);
               f = NULL;
-              env->ThrowError("TDecimate:  ovr file error (out of range frame #)!");
+              env->ThrowError("TDecimate:  ovr file error (out of range frame #)!\n%s", linein);
             }
             linep = linein;
             while (*linep != ' ' && *linep != 0) linep++;
@@ -3149,7 +3149,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TDecimate:  ovr file error (invalid symbol)!");
+                env->ThrowError("TDecimate:  ovr file error (invalid symbol)!\n%s", linein);
               }
               ovrArray[z] &= 0xF3;
               ovrArray[z] |= q;
@@ -3171,7 +3171,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             {
               fclose(f);
               f = NULL;
-              env->ThrowError("TDecimate:  input file error (out of range frame #)!");
+              env->ThrowError("TDecimate:  input file error (out of range frame #)!\n%s", linein);
             }
             linep = linein;
             while (*linep != ' ' && *linep != 0) linep++;
@@ -3185,7 +3185,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TDecimate:  input file error (invalid specifier)!");
+                env->ThrowError("TDecimate:  input file error (invalid specifier)!\n%s", linein);
               }
               while (z <= w)
               {
@@ -3205,7 +3205,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             {
               fclose(f);
               f = NULL;
-              env->ThrowError("TDecimate:  input file error (out of range frame #)!");
+              env->ThrowError("TDecimate:  input file error (out of range frame #)!\n%s", linein);
             }
             linep = linein;
             while (*linep != ' ' && *linep != 0) linep++;
@@ -3222,7 +3222,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
                 {
                   fclose(f);
                   f = NULL;
-                  env->ThrowError("TDecimate:  input file error (invalid specifier)!");
+                  env->ThrowError("TDecimate:  input file error (invalid specifier)!\n%s", linein);
                 }
                 ovrArray[z + count] &= 0xFC;
                 ovrArray[z + count] |= q;
@@ -3245,7 +3245,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TDecimatee:  input file error (invalid specifier)!");
+                env->ThrowError("TDecimatee:  input file error (invalid specifier)!\n%s", linein);
               }
               while (z <= w)
               {
@@ -3315,7 +3315,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             {
               fclose(f);
               f = NULL;
-              env->ThrowError("TDecimate:  tfmIn file error (out of range frame #)!");
+              env->ThrowError("TDecimate:  tfmIn file error (out of range frame #)!\n%s", linein);
             }
             linep = linein;
             while (*linep != ' ' && *linep != 0) linep++;
@@ -3334,7 +3334,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               {
                 fclose(f);
                 f = NULL;
-                env->ThrowError("TDecimate:  tfmIn file error (invalid match specifier)!");
+                env->ThrowError("TDecimate:  tfmIn file error (invalid match specifier)!\n%s", linein);
               }
               if (fieldt != 0)
               {
@@ -3364,7 +3364,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
                 {
                   fclose(f);
                   f = NULL;
-                  env->ThrowError("TDecimate:  tfmIn file error (invalid specifier)!");
+                  env->ThrowError("TDecimate:  tfmIn file error (invalid specifier)!\n%s", linein);
                 }
               }
               if (!d2vmarked && !micmarked && *linep != 0 && *linep != 10)
