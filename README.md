@@ -1,37 +1,42 @@
-# TIVTC v1.0.25 (20201214) 
-# TDeInt v1.8 (20201214)
+# TIVTC v1.0.25 (20201214) & TDeInt v1.8 (20201214)
 
-This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf
+This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf.
+
+All credit goes to tritical, thanks for his work.
+
 Since December 27th 2020 project can be built under Linux (x86/x64 only) as well. For build instructions see end of this readme.
 
-# TDeint (see change log of TIVTC later) 
-** TDeInt v1.8 (20201214) - pinterf
+## TDeint
+**v1.8 (20201214) - pinterf**
 - Fix: TDeint: ignore parameter 'chroma' and treat as false for greyscale input
 
-** TDeInt v1.7 (20200921) - pinterf
+<details>
+    <summary>Click to expand more history</summary>
+
+**v1.7 (20200921) - pinterf**
 - Fix: TDeint: crash when edeint is a 10+ bit clip
 
-** TDeInt v1.6 (20200611) - pinterf
+**v1.6 (20200611) - pinterf**
 - Frame hints 10-16 bits
 - Proper 16 bit combing detection
 
-** TDeInt v1.5 (20200513) - pinterf
+**v1.5 (20200513) - pinterf**
 - Fix: mode=2 10-16 bit green screen
 - Fix: mode=2 right side artifact regression in v1.4 (SSE2)
 
-** TDeInt v1.4 (20200512) - pinterf
+**v1.4 (20200512) - pinterf**
 - 10-16 bit support
 - Greyscale support
 - Minor fixes on non-YV12 support
 - fix crash when mode=2 and map>=3 and slow>0
 - much more code clean and refactor
 
-** TDeInt v1.3 (20200508) **
+**v1.3 (20200508)**
 - Add YV411 support, now all 8 bit planar YUV formats supported (except on debug display modes)
 - more code clean and refactor
 - Give error on greyscale or 10+ bit videos
 
-** TDeInt v1.2 (20200505) **
+**v1.2 (20200505)**
 - Add AviSynth+ V8 interface support: passing frame properties
 - Add planar YV16 and YV24 color spaces (The Big Work)
   result: YV16 output is identical with YUY2 (but a bit slower at the moment)
@@ -43,11 +48,15 @@ Since December 27th 2020 project can be built under Linux (x86/x64 only) as well
 - Add some more SSE2 (MMX and ISSE code removed)
 - x64 version is compilable!
 - Add ClangCL, and XP configurations to the solutions.
+</details>
 
-# TIVTC v1.0.25 (20201214)
+## TIVTC
 
 **v1.0.25 (20201214)**
 - Fix: TFM, TDecimate and others: treat parameter 'chroma' as "false" for greyscale clips
+
+<details>
+    <summary>Click to expand more history</summary>
 
 **v1.0.24 (20201214)**
 - Fix: TFM: do not give error on greyscale clip
@@ -100,7 +109,7 @@ Since December 27th 2020 project can be built under Linux (x86/x64 only) as well
 - Fix: option slow=2 field<>0. Thanks to 299792458m. 
   Regression since 1.0.6 caused by bad assembly code reverse engineering. Tritical's original 1.0.5 was O.K.
 
-**v1.0.13** (skipped)
+**v1.0.13 (skipped)**
 **v1.0.12 (20190207)**
   (incomplete, 1.0.14 replaces)
 
@@ -134,26 +143,34 @@ Since December 27th 2020 project can be built under Linux (x86/x64 only) as well
 
 **v1.0.5 (2008) - tritical**
 - see old readmes
+</details>
 
-Future plans: support additional color spaces, now YV12 and YUY2 is supported
+## Future plans
 
-All credit goes to tritical, thanks for his work.
+Support additional color spaces, now YV12 and YUY2 is supported
 
-Useful links:
+## Useful links
 
 - General filter info: http://avisynth.nl/index.php/TIVTC
 - This mod is based on the original code http://web.archive.org/web/20140420181748/http://bengal.missouri.edu/~kes25c/TIVTCv105.zip
 - Project source: https://github.com/pinterf/TIVTC
 - Doom9 topic: https://forum.doom9.org/showthread.php?t=82264
 
-Linux build instructions
-------------------------
-clone repo: https://github.com/pinterf/TIVTC
-cd TIVTC
-cd src
-mkdir build
-cd build
-cmake ..
-sudo make install
+## Linux build instructions
 
-libtivtc.so, libtdeint.so
+* Clone repo
+    
+        git clone https://github.com/pinterf/TIVTC
+        cd TIVTC
+        cmake -B build -S .
+        cmake --build build
+
+* Find binaries at
+    
+        build/TIVTC/libtivtc.so
+        build/TDeint/libtdeint.so
+
+* Install binaries
+
+        cd build
+        sudo make install
