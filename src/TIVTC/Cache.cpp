@@ -25,6 +25,7 @@
 
 #include "Cache.h"
 #include <memory>
+#include <cstdlib>
 
 // used from TDecimate
 CacheFrame::CacheFrame()
