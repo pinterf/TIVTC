@@ -24,7 +24,7 @@
 #ifndef __PlanarFrame_H__
 #define __PlanarFrame_H__
 
-#include <malloc.h>
+#include <stdlib.h>
 #include "internal.h"
 
 #define MIN_ALIGNMENT 64

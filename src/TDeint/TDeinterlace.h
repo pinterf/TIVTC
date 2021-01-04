@@ -26,7 +26,7 @@
 #include <stdio.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include "internal.h"
 #define TDeint_included
 #ifndef TDHelper_included

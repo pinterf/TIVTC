@@ -24,7 +24,7 @@
 */
 
 #include <stdio.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <xmmintrin.h>
 #include "Font.h"
 #include "calcCRC.h"
