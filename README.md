@@ -161,7 +161,7 @@ Support additional color spaces, now YV12 and YUY2 is supported
 * Clone repo
     
         git clone https://github.com/pinterf/TIVTC
-        cd TIVTC
+        cd TIVTC/src
         cmake -B build -S .
         cmake --build build
 
