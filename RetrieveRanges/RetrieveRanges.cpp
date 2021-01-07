@@ -41,9 +41,18 @@
 **                                example if you only want 29.970 ranges or 23.976 ranges.
 */
 
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <math.h>
 #include <stdio.h>
+
+#ifdef _WIN32
+#include <string.h>
+#else
+#include <cstring> 
+#define _strnicmp strncasecmp
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -65,7 +74,7 @@ int main(int argc, char *argv[])
 	}
 	char line[1025], *p;
 	fgets(line, 1024, inFile);
-	if (strnicmp(line, "# timecode format v1", 20) != 0)
+	if (_strnicmp(line, "# timecode format v1", 20) != 0)
 	{
 		fclose(inFile);
 		printf("Error:  timecode file is of unsupported format!\n");
@@ -75,7 +84,7 @@ int main(int argc, char *argv[])
 	double rateA;
 	while (fgets(line, 1024, inFile) != 0)
 	{
-		if (strnicmp(line, "assume ", 7) == 0)
+		if (_strnicmp(line, "assume ", 7) == 0)
 		{
 			p = line;
 			while (*p++ != ' ');
