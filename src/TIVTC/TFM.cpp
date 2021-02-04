@@ -2702,7 +2702,7 @@ AVSValue __cdecl Create_TFM(AVSValue args, void* user_data, IScriptEnvironment* 
       catch (IScriptEnvironment::NotFound) {}
     }
     v = new TFMPP(v.AsClip(), args[4].AsInt(6), args[21].AsInt(5), args[5].AsString(""),
-      args[10].AsBool(false), (args[22].IsClip() ? args[22].AsClip() : NULL),
+      args[10].AsBool(false), (args[22].IsClip() ? args[22].AsClip() : NULL), (args[36].IsClip() ? args[36].AsClip() : NULL),
       args[30].AsBool(true), args[35].AsInt(4), env);
   }
   return v;

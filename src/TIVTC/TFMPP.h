@@ -82,6 +82,7 @@ private:
   const char* ovr;
   bool display;
   PClip clip2;
+  PClip clip3;
   bool usehints;
   int opt;
   bool uC2; // use clip2
@@ -151,7 +152,7 @@ private:
 
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;
-  TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _display, PClip _clip2,
+  TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _display, PClip _clip2, PClip _clip3,
     bool _usehints, int _opt, IScriptEnvironment* env);
   ~TFMPP();
 

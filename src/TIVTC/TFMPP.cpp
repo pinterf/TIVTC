@@ -63,7 +63,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
       dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
       buildMotionMask(prv, src, nxt, mmask, use, vi, env);
       if (uC2) {
-        PVideoFrame frame = clip2->GetFrame(n, env);
+        PVideoFrame frame = (fieldSrc == 1 && clip3 != NULL) ? clip3->GetFrame(n, env) : clip2->GetFrame(n, env);
         maskClip2(src, frame, mmask, dst, vi, env);
       }
       else
@@ -89,7 +89,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     {
       if (uC2)
       {
-        dst = clip2->GetFrame(n, env);
+        dst = (fieldSrc == 1 && clip3 != NULL) ? clip3->GetFrame(n, env) : clip2->GetFrame(n, env);
         env->MakeWritable(&dst);
       }
       else
@@ -118,7 +118,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     // PP <= 4
     if (uC2)
     {
-      dst = clip2->GetFrame(n, env);
+      dst = (fieldSrc == 1 && clip3 != NULL) ? clip3->GetFrame(n, env) : clip2->GetFrame(n, env);
       env->MakeWritable(&dst);
     }
     else
@@ -1802,8 +1802,8 @@ void maskClip2_SSE2(const uint8_t *srcp, const uint8_t *dntp,
 
 
 TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _display,
-  PClip _clip2, bool _usehints, int _opt, IScriptEnvironment* env) : GenericVideoFilter(_child),
-  PP(_PP), mthresh(_mthresh), ovr(_ovr), display(_display), clip2(_clip2),
+  PClip _clip2, PClip _clip3, bool _usehints, int _opt, IScriptEnvironment* env) : GenericVideoFilter(_child),
+  PP(_PP), mthresh(_mthresh), ovr(_ovr), display(_display), clip2(_clip2), clip3(_clip3),
   usehints(_usehints), opt(_opt)
 {
   setArray = NULL;
@@ -1847,6 +1847,22 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   }
   else 
     uC2 = false;
+
+  if (clip3)
+  {
+    const VideoInfo &vi2 = clip3->GetVideoInfo();
+    if (vi2.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TFMPP:  clip3 bit depth do not match input clip!!");
+    if (!vi2.IsYUV())
+      env->ThrowError("TFMPP:  clip3 must be in YUV colorspace!");
+    if (!vi.IsSameColorspace(vi2))
+      env->ThrowError("TFMPP:  clip3 colorspace must be the same as input clip!");
+    if (vi2.height != vi.height || vi2.width != vi.width)
+      env->ThrowError("TFMPP:  clip3 frame dimensions do not match input clip!");
+    if (vi2.num_frames != vi.num_frames)
+      env->ThrowError("TFMPP:  clip3 does not have the same number of frames as input clip!");
+    clip3->SetCacheHints(CACHE_NOTHING, 0);
+  }
 
   child->SetCacheHints(CACHE_GENERIC, 3); // fixed to diameter (07/30/2005)
 
