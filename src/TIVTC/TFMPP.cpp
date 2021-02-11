@@ -1881,6 +1881,10 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
       countOvrS = 0;
       while (fgets(linein, 1024, f) != 0)
       {
+          linep = linein;
+          while(*linep && *linep != '#' && *linep != ';') linep++;
+          *linep = 0;
+
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
           continue;
         linep = linein;
@@ -1900,6 +1904,10 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
       {
         while (fgets(linein, 1024, f) != NULL)
         {
+            linep = linein;
+            while(*linep && *linep != '#' && *linep != ';') linep++;
+            *linep = 0;
+
           if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
             continue;
           linep = linein;

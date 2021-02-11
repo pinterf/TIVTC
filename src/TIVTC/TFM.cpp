@@ -3048,6 +3048,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
       countOvrS = countOvrM = 0;
       while (fgets(linein, 1024, f) != 0)
       {
+          linep = linein;
+          while(*linep && *linep != '#' && *linep != ';') linep++;
+          *linep = 0;
+
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
           continue;
         linep = linein;
@@ -3117,6 +3121,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
         }
         while (fgets(linein, 1024, f) != NULL)
         {
+            linep = linein;
+            while(*linep && *linep != '#' && *linep != ';') linep++;
+            *linep = 0;
+
           if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
             continue;
           ++firstLine;
@@ -3152,7 +3160,7 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
               sscanf(linein, "%d", &z);
               if(z < 0) z = x + 1;
               x = z;
-              if (z<0 || z>nfrms || z <= last)
+              if (z<0 || z>nfrms|| z <= last)
               {
                 fclose(f);
                 f = NULL;
