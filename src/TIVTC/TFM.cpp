@@ -649,9 +649,21 @@ bool TFM::getMatchOvr(int n, int &match, int &combed, bool &d2vmatch, bool isSC)
         else if (match == 2) match = 4;
         else if (match == 3) match = 0;
         else if (match == 4) match = 2;
+        else if (match == 5) match = 6;
+        else if (match == 6) match = 5;
       }
-      if (match == 5) { combed = 5; match = 1; field = 0; }
-      else if (match == 6) { combed = 5; match = 1; field = 1; }
+      if (match == 5) 
+      {
+          combed = 5; 
+          match = 1; 
+          field = 1 - fieldO;
+      }
+      else if (match == 6)
+      {
+          combed = 5; 
+          match = 1; 
+          field = fieldO;
+      }
       return true;
     }
   }
@@ -3001,6 +3013,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                 else if (q == 2) q = 4;
                 else if (q == 3) q = 0;
                 else if (q == 4) q = 2;
+                else if (q == 5) q = 6;
+                else if (q == 6) q = 5;
               }
               if (!d2vmarked && !micmarked && qt != -1)
               {
@@ -3191,6 +3205,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                   else if (q == 2) q = 4;
                   else if (q == 3) q = 0;
                   else if (q == 4) q = 2;
+                  else if (q == 5) q = 6;
+                  else if (q == 6) q = 5;
                 }
                 ovrArray[z] |= 0x07;
                 ovrArray[z] &= (q | 0xF8);
@@ -3335,6 +3351,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                       else if (q == 2) q = 4;
                       else if (q == 3) q = 0;
                       else if (q == 4) q = 2;
+                      else if (q == 5) q = 6;
+                      else if (q == 6) q = 5;
                     }
                     ovrArray[z + count] |= 0x07;
                     ovrArray[z + count] &= (q | 0xF8);
@@ -3371,6 +3389,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
                     else if (q == 2) q = 4;
                     else if (q == 3) q = 0;
                     else if (q == 4) q = 2;
+                    else if (q == 5) q = 6;
+                    else if (q == 6) q = 5;
                   }
                   while (z <= w)
                   {
