@@ -1,4 +1,4 @@
-# TIVTC v1.0.25 (20201214) & TDeInt v1.8 (20201214)
+# TIVTC v1.0.26 (20210222) & TDeInt v1.8 (20201214)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf.
 
@@ -51,6 +51,9 @@ Since December 27th 2020 project can be built under Linux (x86/x64 only) as well
 </details>
 
 ## TIVTC
+
+**v1.0.26 (20210222)**
+- Fix: TDecimate YV16 possible crash in metrics calculation
 
 **v1.0.25 (20201214)**
 - Fix: TFM, TDecimate and others: treat parameter 'chroma' as "false" for greyscale clips

@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.7  -  HELP FILE  (20201214)
+                              TDecimate v1.0.8  -  HELP FILE  (20210222)
 
 
 
@@ -776,6 +776,9 @@ F.)  OVERRIDES:
 
 
 G.)  CHANGE LIST:
+
+    (20210222) (v1.0.8, in v1.0.26 pack - pinterf)
+         - Fix: TDecimate YV16 possible crash in metrics calculation
 
     (20201214) (v1.0.7, in v1.0.25 pack - pinterf)
          - parameter 'chroma' ignored and treated as false for greyscale input
