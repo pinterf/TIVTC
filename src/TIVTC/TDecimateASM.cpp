@@ -1144,8 +1144,8 @@ static void calcDiff_SADorSSD_32x32_SSE2(const uint8_t* ptr1, const uint8_t* ptr
     }
     for (y = heighta; y < heights; ++y)
     {
-      temp1 = (y >> (w_to_shift + 1)) * xblocks4; // y >> 5 or 4
-      temp2 = ((y + (1 << w_to_shift)) >> (w_to_shift + 1)) * xblocks4;
+      temp1 = (y >> (h_to_shift + 1)) * xblocks4; // y >> 5 or 4
+      temp2 = ((y + (1 << h_to_shift)) >> (h_to_shift + 1)) * xblocks4;
       for (x = 0; x < widths; ++x)
       {
         if constexpr (SAD)
