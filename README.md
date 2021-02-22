@@ -148,10 +148,6 @@ Since December 27th 2020 project can be built under Linux (x86/x64 only) as well
 - see old readmes
 </details>
 
-## Future plans
-
-Support additional color spaces, now YV12 and YUY2 is supported
-
 ## Useful links
 
 - General filter info: http://avisynth.nl/index.php/TIVTC
