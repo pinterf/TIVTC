@@ -26,6 +26,7 @@
 #include <emmintrin.h>
 #include <stdint.h>
 
+// 8 bits only!!!
 
 PlanarFrame::PlanarFrame(int cpuFlags)
 {
@@ -191,8 +192,8 @@ void PlanarFrame::createPlanar(int height, int width, int chroma_format)
   }
   else if (chroma_format == PLANAR_400) // greyscale
   {
-    specs[0] = height; specs[1] = height;
-    specs[2] = 0; specs[3] = 0;
+    specs[0] = height; specs[1] = 0;
+    specs[2] = width; specs[3] = 0;
   }
   allocSpace(specs);
 }
