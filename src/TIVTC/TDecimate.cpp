@@ -3422,6 +3422,9 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     }
   }
 
+  if (metricsFullInfo && (tfmFullInfo || !usehints)) fullInfo = true;
+  else fullInfo = false;
+
   if (mode < 2)
   {
     if (hybrid != 3)
