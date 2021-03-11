@@ -770,9 +770,9 @@ PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, const Video
   double metricN = (metricU*100.0) / MAX_DIFF;
   if (debug)
   {
-    sprintf(buf, "TDecimate:  frame %d  metric = %3.2f  metricF =  %" PRIu64 " (%3.2f)", n, metricN, metricF,
+    sprintf(buf, "TDecimate:  frame %d  metric = %3.2f  metricF =  %" PRIu64 " (%3.2f)\n", n, metricN, metricF,
       (double)metricF*100.0 / (double)sceneDivU);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
   }
   if (*output && metricsOutArray != NULL)
   {
@@ -810,8 +810,8 @@ PVideoFrame TDecimate::GetFrameMode5(int n, IScriptEnvironment *env, const Video
   int frame = aLUT[n];
   if (debug)
   {
-    sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  (mode = %d)", n, frame, mode);
-    OutputDebugString(buf);
+    sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  (mode = %d)\n", n, frame, mode);
+    _OutputDebugString(buf);
   }
 
   const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
@@ -840,8 +840,8 @@ PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, const Video
   int frame = aLUT[n];
   if (debug)
   {
-    sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  (mode = %d)", n, frame, mode);
-    OutputDebugString(buf);
+    sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  (mode = %d)\n", n, frame, mode);
+    _OutputDebugString(buf);
   }
 
   const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
@@ -1348,7 +1348,7 @@ bool TDecimate::checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n)
   if (debug)
   {
     sprintf(buf, "TDecimate:  obvious dec frame found  %d - %d!\n", saved, c.frameSO);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
   }
   c.decimate[saved] = c.decimate2[saved] = 1;
   c.decSet = true;
@@ -1389,7 +1389,7 @@ int TDecimate::checkForD2VDecFrame(Cycle &p, Cycle &c, Cycle &n)
   if (debug)
   {
     sprintf(buf, "TDecimate:  d2v dec frame found  %d - %d!\n", savedV, c.frameSO);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
   }
   return savedV;
 }
@@ -1484,7 +1484,7 @@ bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n)
     if (debug)
     {
       sprintf(buf, "TDecimate:  drop two frames longest string  %d:%d - %d!\n", c1, c2, c.frameSO);
-      OutputDebugString(buf);
+      _OutputDebugString(buf);
     }
   }
   return true;
@@ -1619,7 +1619,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
         if (debug)
         {
           sprintf(buf, "TDecimate:  drop two frames most similar  %d:%d - %d!\n", savedc1, savedc2, c.frameSO);
-          OutputDebugString(buf);
+          _OutputDebugString(buf);
         }
       }
       return;
@@ -1767,7 +1767,7 @@ void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment 
       if (debug)
       {
         sprintf(buf, "TDecimate:  usecp case %d - %d!\n", usecp, c.frameSO);
-        OutputDebugString(buf);
+        _OutputDebugString(buf);
       }
       c.decSet = true;
       return;
@@ -1780,7 +1780,7 @@ void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment 
       if (debug)
       {
         sprintf(buf, "TDecimate:  usecp case %d - %d!\n", usecp, c.frameSO);
-        OutputDebugString(buf);
+        _OutputDebugString(buf);
       }
       c.decSet = true;
       return;
@@ -2321,7 +2321,8 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[24].AsBool(true), args[25].AsBool(false), args[26].AsBool(true), args[27].AsBool(false),
     args[28].AsInt(-200), args[29].AsBool(false), args[30].AsBool(false), args[31].AsBool(true),
     args[32].AsBool(false), args[33].IsBool() ? (args[33].AsBool() ? 1 : 0) : -1,
-    args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), env);
+    args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), 
+    args[38].AsString(""), env);
   return v;
 }
 
@@ -2653,7 +2654,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
   bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl, bool _m2PA,
   bool _predenoise, bool _noblend, bool _ssd, int _usehints, PClip _clip2,
-  int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env) : GenericVideoFilter(_child),
+  int _sdlim, int _opt, const char* _orgOut, const char* _debugOut, IScriptEnvironment* env) : GenericVideoFilter(_child),
   mode(_mode),
   cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh),
   hybrid(_hybrid), vidThresh(_vidThresh),
@@ -2663,13 +2664,14 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   vfrDec(_vfrDec), debug(_debug), display(_display), batch(_batch), tcfv1(_tcfv1), se(_se),
   maxndl(_maxndl), chroma(_chroma), m2PA(_m2PA), exPP(_exPP),
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
-  opt(_opt), clip2(_clip2), orgOut(_orgOut),
+  opt(_opt), clip2(_clip2), orgOut(_orgOut), debugOut(_debugOut),
   prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0)
 {
   diff = metricsArray = metricsOutArray = mode2_metrics = NULL;
   aLUT = mode2_decA = mode2_order = NULL;
   ovrArray = NULL;
   mkvOutF = NULL;
+  debugOutF = NULL;
   FILE *f = NULL;
   char linein[1024], *linep, *linet;
   
@@ -2756,10 +2758,16 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     useclip2 = true;
   }
   else useclip2 = false;
+  if (*debugOut)
+  {
+      if((debugOutF = fopen(debugOut, "w")) == NULL)
+          env->ThrowError("TDecimate: cannot create debugOut file!");
+      debug = true;
+  }
   if (debug)
   {
     sprintf(buf, "TDecimate:  %s by tritical\n", VERSION);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
   }
   ecf = false;
   if (cycle > 5 && mode != 4 && mode != 6 && mode != 7)
@@ -3704,6 +3712,21 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
 }
 
+void TDecimate::_OutputDebugString(const char* s)
+{
+    if(debugOutF != NULL)
+    {
+        if(s != NULL && *s != 0)
+        {
+            fprintf(debugOutF, s);
+        }
+    }
+    else
+    {
+        OutputDebugString(s);
+    }
+}
+
 TDecimate::~TDecimate()
 {
   if (diff != NULL) _aligned_free(diff);
@@ -3737,6 +3760,7 @@ TDecimate::~TDecimate()
     free(metricsOutArray);
   }
   if (mkvOutF != NULL) fclose(mkvOutF);
+  if (debugOutF != NULL) fclose(debugOutF);
   if (mode2_decA != NULL) free(mode2_decA);
   if (mode2_metrics != NULL) free(mode2_metrics);
   if (mode2_order != NULL) free(mode2_order);

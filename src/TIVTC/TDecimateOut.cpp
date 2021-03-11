@@ -33,40 +33,40 @@ void TDecimate::debugOutput1(int n, bool film, int blend)
   {
     sprintf(buf, "TDecimate:  %d: ", curr.frame);
     formatMetrics(curr);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", curr.frame);
     formatMatches(curr, prev);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
   }
   else
   {
     sprintf(buf, "TDecimate:  %d: ", prev.frame);
     formatMetrics(prev);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", prev.frame);
     formatDups(prev);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", prev.frame);
     formatMatches(prev, prev);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", curr.frame);
     formatMetrics(curr);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", curr.frame);
     formatDups(curr);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", curr.frame);
     formatMatches(curr, prev);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", next.frame);
     formatMetrics(next);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", next.frame);
     formatDups(next);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "TDecimate:  %d: ", next.frame);
     formatMatches(next, curr);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
   }
   if (film)
   {
@@ -74,8 +74,8 @@ void TDecimate::debugOutput1(int n, bool film, int blend)
     else sprintf(buf, "TDecimate:  %d:  Dropping Frame:", n);
     formatDecs(curr);
   }
-  else sprintf(buf, "TDecimate:  %d:  VIDEO", n);
-  OutputDebugString(buf);
+  else sprintf(buf, "TDecimate:  %d:  VIDEO\n", n);
+  _OutputDebugString(buf);
 }
 
 void TDecimate::debugOutput2(int n, int ret, bool film, int f1, int f2, double amount1,
@@ -85,7 +85,7 @@ void TDecimate::debugOutput2(int n, int ret, bool film, int f1, int f2, double a
     sprintf(buf, "TDecimate:  inframe = %d  useframe = %d\n", n, ret);
   else sprintf(buf, "TDecimate:  inframe: %d  useframe = blend %d-%d (%3.2f,%3.2f)\n",
     n, f1, f2, amount1*100.0, amount2*100.0);
-  OutputDebugString(buf);
+  _OutputDebugString(buf);
 }
 
 void TDecimate::formatMetrics(Cycle &current)

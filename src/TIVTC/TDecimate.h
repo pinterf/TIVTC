@@ -221,6 +221,11 @@ private:
 
   bool wasChosen(int i, int n);
   void calcMetricPreBuf(int n1, int n2, int pos, const VideoInfo &vit, bool scene, bool gethint, IScriptEnvironment *env);
+
+  const char* debugOut;
+  FILE* debugOutF;
+  void _OutputDebugString(const char* s);
+
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
   TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _rate,
@@ -230,7 +235,8 @@ public:
     int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
-    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env);
+    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, const char* _debugOut, 
+    IScriptEnvironment* env);
   ~TDecimate();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {

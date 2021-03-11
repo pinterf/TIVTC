@@ -82,7 +82,7 @@ PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, const Video
   if (debug)
   {
     sprintf(buf, "TDecimate:  inframe = %d  useframe = %d  rate = %3.6f\n", n, ret, rate);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
   }
 
   const VideoInfo vi2 = (!useclip2) ? child->GetVideoInfo() : clip2->GetVideoInfo();
@@ -491,7 +491,7 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
     {
       sprintf(buf, "drop count = %d  expected = %d\n", vi.num_frames - v,
         vi.num_frames - (int)(vi.num_frames*aRate / fps));
-      OutputDebugString(buf);
+      _OutputDebugString(buf);
     }
     mode2_numCycles = -20;
   }
@@ -537,7 +537,7 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
     {
       sprintf(buf, "drop count = %d  expected = %d\n", dropCount,
         vi.num_frames - (int)(vi.num_frames*aRate / fps));
-      OutputDebugString(buf);
+      _OutputDebugString(buf);
     }
     if (clength != 5)
     {
@@ -551,14 +551,14 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
   if (debug)
   {
     sprintf(buf, "rate = %f  actual rate = %f\n", rate, aRate);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     sprintf(buf, "mode2_num = %d  mode2_den = %d  numCycles = %d  clength = %d\n", mode2_num, mode2_den, mode2_numCycles, clength);
-    OutputDebugString(buf);
+    _OutputDebugString(buf);
     for (int x = 0; x < 10; ++x)
     {
       if (mode2_cfs[x] <= 0) break;
       sprintf(buf, "mode2_cfs %d = %d\n", x, mode2_cfs[x]);
-      OutputDebugString(buf);
+      _OutputDebugString(buf);
     }
   }
   return aRate;
