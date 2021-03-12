@@ -1104,9 +1104,9 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
       if (next_numd == w - 1) 
         copyFrame(prev, next, vit, env);
       else 
-        blurFrame(prevt, prev, 2, chroma, env, vit, opt);
+        blurFrame(prevt, prev, 2, chroma, env, vit, cpuFlags);
       
-      blurFrame(nextt, next, 2, chroma, env, vit, opt);
+      blurFrame(nextt, next, 2, chroma, env, vit, cpuFlags);
       next_numd = w;
     }
     else
