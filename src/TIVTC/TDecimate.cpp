@@ -207,7 +207,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
       break;
     }
   }
-  
+
   if (curr.blend == 3)  // 2 dups detected
   {
     if (hybrid == 3)  // blend up-convert (hybrid=3 leaves video untouched)
@@ -2164,7 +2164,7 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
 
   if (weight_i >= 32768)
   {
-    copyFrame(dst, src1, vi, env); // 1000% src1
+    copyFrame(dst, src1, vi, env); // 100% src1
     return;
   }
   if (weight_i <= 0)
@@ -2182,7 +2182,7 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
     const int plane = planes[b];
     srcp1 = src1->GetReadPtr(plane);
     s1_pitch = src1->GetPitch(plane);
-    width = src1->GetRowSize(plane);
+    width = src1->GetRowSize(plane) / vi.ComponentSize();
     height = src1->GetHeight(plane);
     srcp2 = src2->GetReadPtr(plane);
     s2_pitch = src2->GetPitch(plane);
