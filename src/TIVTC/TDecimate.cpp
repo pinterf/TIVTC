@@ -346,7 +346,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
       {
         PVideoFrame frame1 = clip2->GetFrame(f1, env);
         PVideoFrame frame2 = clip2->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, vi, env);
+        blendFrames(frame1, frame2, dst, a1, vi2, env);
       }
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, vi2);
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
@@ -745,14 +745,16 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const Video
     fclose(mkvOutF);
     mkvOutF = NULL;
   }
-  PVideoFrame dst = env->NewVideoFrame(vi);
-  setBlack(dst, vi);
+
+  const VideoInfo vi2 = !useclip2 ? child->GetVideoInfo() : clip2->GetVideoInfo();
+  PVideoFrame dst = env->NewVideoFrame(vi2);
+  setBlack(dst, vi2);
   if (retFrames <= -305)
   {
     if (retFrames <= -306 && se)
       env->ThrowError("TDecimate:  mode 3 finished (early termination)!");
     sprintf(buf, "Mode 3:  Last Actual Frame = %d", lastFrame);
-    Draw(dst, 2, 1, buf, vi);
+    Draw(dst, 2, 1, buf, vi2);
   }
   --retFrames;
   return dst;
