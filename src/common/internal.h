@@ -7,7 +7,8 @@
 #ifndef _WIN32
 #define OutputDebugString(x)
 #endif
-#if defined(GCC) || defined(CLANG)
+
+#if defined(GCC) || (defined(CLANG) && !defined(_WIN32))
 #include <stdlib.h>
 #define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
 #define _aligned_free(ptr) free(ptr)
