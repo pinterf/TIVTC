@@ -423,6 +423,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\common\internal.cpp" />
     <ClCompile Include="..\common\TCommonASM.cpp" />
     <ClCompile Include="TDBuf.cpp" />
     <ClCompile Include="TDeintASM.cpp" />

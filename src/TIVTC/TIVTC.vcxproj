@@ -439,6 +439,7 @@
   <ItemGroup>
     <ClCompile Include="..\common\fixedfonts.cpp" />
     <ClCompile Include="..\common\info.cpp" />
+    <ClCompile Include="..\common\internal.cpp" />
     <ClCompile Include="..\common\TCommonASM.cpp" />
     <ClCompile Include="Cache.cpp" />
     <ClCompile Include="calcCRC.cpp" />
