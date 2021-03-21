@@ -52,6 +52,15 @@ Since December 27th 2020 project can be built under Linux and macOS (x86/x64 onl
 
 ## TIVTC
 
+** v1.0.27 WIP
+- TDecimate mode 0,1 crash in 10+bits in blend (dubhater)
+- Fixes in Mode 0,1 when clip2 is different format (dubhater)
+- Fix: slow C was used in calcMetricCycle.blurframe (dubhater)
+- Fix: V14(?) regression TDecimate fullInfo was always false (dubhater), (Don't know what it affected)
+- MacOS build fixes (akarin)
+- minGW build fixes
+- Source code: refactorings, backported from VapourSynth port (dubhater), and others.
+
 **v1.0.26 (20210222)**
 - Fix: TDecimate YV16 possible crash in metrics calculation
 
@@ -155,17 +164,40 @@ Since December 27th 2020 project can be built under Linux and macOS (x86/x64 onl
 - Project source: https://github.com/pinterf/TIVTC
 - Doom9 topic: https://forum.doom9.org/showthread.php?t=82264
 
+## Windows MSVC
+
+* build from IDE
+
+## Windows GCC
+  (mingw installed by msys2):
+  Note: project root is TIVTC/src
+  From the 'build' folder under project root:
+
+        del ..\CMakeCache.txt
+        cmake .. -G "MinGW Makefiles" -DENABLE_INTEL_SIMD:bool=on
+        @rem test: cmake .. -G "MinGW Makefiles" -DENABLE_INTEL_SIMD:bool=off
+        cmake --build . --config Release  
+
 ## Linux build instructions
 
 * Clone repo
-    
+
         git clone https://github.com/pinterf/TIVTC
         cd TIVTC/src
         cmake -B build -S .
         cmake --build build
 
+  Useful hints:        
+  build after clean:
+
+        cmake --build build --clean-first
+
+  delete cmake cache
+
+        rm build/CMakeCache.txt
+
 * Find binaries at
-    
+
         build/TIVTC/libtivtc.so
         build/TDeint/libtdeint.so
 
