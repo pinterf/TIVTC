@@ -7,7 +7,7 @@
 #ifndef _WIN32
 #define OutputDebugString(x)
 #endif
-#if defined(GCC)
+#if defined(GCC) || defined(CLANG)
 #include <stdlib.h>
 #define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
 #define _aligned_free(ptr) free(ptr)
@@ -15,7 +15,10 @@
 #ifndef _WIN32
 #include <stdio.h>
 #ifdef AVS_POSIX
-#include <linux/limits.h>
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 1
+#endif
+#include <limits.h>
 #endif
 #endif
 

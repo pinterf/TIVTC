@@ -4,7 +4,7 @@ This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) 
 
 All credit goes to tritical, thanks for his work.
 
-Since December 27th 2020 project can be built under Linux (x86/x64 only) as well. For build instructions see end of this readme.
+Since December 27th 2020 project can be built under Linux and macOS (x86/x64 only) as well. For build instructions see end of this readme.
 
 ## TDeint
 **v1.8 (20201214) - pinterf**
