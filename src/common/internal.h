@@ -18,8 +18,11 @@
 
 #if (defined(GCC) || defined(CLANG)) && !defined(_WIN32)
 #include <stdlib.h>
-#define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
-#define _aligned_free(ptr) free(ptr)
+//#define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
+//#define _aligned_free(ptr) free(ptr)
+// when defined as above, we cannot pass the address of _aligned_free to unique_ptr's custom deleter
+#define _aligned_malloc aligned_alloc
+#define _aligned_free free
 #endif
 #ifndef _WIN32
 #include <stdio.h>

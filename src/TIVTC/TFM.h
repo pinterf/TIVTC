@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <xmmintrin.h>
 #include "Font.h"
+#include "../common/internal.h"
 #ifndef _WIN32
 #include <limits.h>
 #include <stdlib.h>
