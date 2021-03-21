@@ -24,6 +24,7 @@
 */
 
 #include "TFMPP.h"
+#include "internal.h"
 #include "TCommonASM.h"
 #include "emmintrin.h"
 #include "smmintrin.h"
@@ -34,6 +35,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
 {
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
+
   bool combed;
   int fieldSrc, field;
   unsigned int hint;
@@ -61,25 +63,25 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     if (use > 0)
     {
       dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
-      buildMotionMask(prv, src, nxt, mmask, use, vi, env);
+      buildMotionMask(prv, src, nxt, mmask, use, vi);
       if (uC2) {
         PVideoFrame frame = clip2->GetFrame(n, env);
-        maskClip2(src, frame, mmask, dst, vi, env);
+        maskClip2(src, frame, mmask, dst, vi);
       }
       else
       {
         if (PP == 5)
-          BlendDeint(src, mmask, dst, false, vi, env);
+          BlendDeint(src, mmask, dst, false, vi);
         else
         {
           if (PP == 6)
           {
-            copyField(dst, src, env, vi, fieldSrc);
-            CubicDeint(src, mmask, dst, false, fieldSrc, vi, env);
+            copyField(dst, src, vi, fieldSrc);
+            CubicDeint(src, mmask, dst, false, fieldSrc, vi);
           }
           else
           {
-            copyFrame(dst, src, vi, env);
+            copyFrame(dst, src, vi);
             elaDeint(dst, mmask, src, false, fieldSrc, vi);
           }
         }
@@ -96,17 +98,17 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
       {
         dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
         if (PP == 5) 
-          BlendDeint(src, mmask, dst, true, vi, env);
+          BlendDeint(src, mmask, dst, true, vi);
         else
         {
           if (PP == 6)
           {
-            copyField(dst, src, env, vi, fieldSrc);
-            CubicDeint(src, mmask, dst, true, fieldSrc, vi, env);
+            copyField(dst, src, vi, fieldSrc);
+            CubicDeint(src, mmask, dst, true, fieldSrc, vi);
           }
           else
           {
-            copyFrame(dst, src, vi, env);
+            copyFrame(dst, src, vi);
             elaDeint(dst, mmask, src, true, fieldSrc, vi);
           }
         }
@@ -125,17 +127,17 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     {
       dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
       if (PP == 2)
-        BlendDeint(src, mmask, dst, true, vi, env);
+        BlendDeint(src, mmask, dst, true, vi);
       else
       {
         if (PP == 3)
         {
-          copyField(dst, src, env, vi, fieldSrc);
-          CubicDeint(src, mmask, dst, true, fieldSrc, vi, env);
+          copyField(dst, src, vi, fieldSrc);
+          CubicDeint(src, mmask, dst, true, fieldSrc, vi);
         }
         else
         {
-          copyFrame(dst, src, vi, env);
+          copyFrame(dst, src, vi);
           elaDeint(dst, mmask, src, true, fieldSrc, vi);
         }
       }
@@ -148,17 +150,17 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
 }
 
 void TFMPP::buildMotionMask(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
-  PlanarFrame* mask, int use, const VideoInfo& vi, IScriptEnvironment* env)
+  PlanarFrame* mask, int use, const VideoInfo& vi) const
 {
   if (vi.ComponentSize() == 1)
-    buildMotionMask_core<uint8_t>(prv, src, nxt, mask, use, vi, env);
+    buildMotionMask_core<uint8_t>(prv, src, nxt, mask, use, vi);
   else
-    buildMotionMask_core<uint16_t>(prv, src, nxt, mask, use, vi, env);
+    buildMotionMask_core<uint16_t>(prv, src, nxt, mask, use, vi);
 }
 
 template<typename pixel_t>
 void TFMPP::buildMotionMask_core(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-  PlanarFrame *mask, int use, const VideoInfo &vi, IScriptEnvironment *env)
+  PlanarFrame *mask, int use, const VideoInfo &vi) const
 {
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
@@ -197,7 +199,7 @@ void TFMPP::buildMotionMask_core(PVideoFrame &prv, PVideoFrame &src, PVideoFrame
     {
       // fixme: hbd SIMD
       if (sizeof(pixel_t) == 1 && use_sse2)
-        buildMotionMask1_SSE2((const uint8_t *)srcp, (const uint8_t*)prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2, cpuFlags);
+        buildMotionMask1_SSE2((const uint8_t *)srcp, (const uint8_t*)prvp, maskw, src_pitch, prv_pitch, msk_pitch, width, height - 2);
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -222,7 +224,7 @@ void TFMPP::buildMotionMask_core(PVideoFrame &prv, PVideoFrame &src, PVideoFrame
     {
       // fixme: hbd SIMD
       if (sizeof(pixel_t) == 1 && use_sse2)
-        buildMotionMask1_SSE2((const uint8_t*)srcp, (const uint8_t*)nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
+        buildMotionMask1_SSE2((const uint8_t*)srcp, (const uint8_t*)nxtp, maskw, src_pitch, nxt_pitch, msk_pitch, width, height - 2);
       else
       {
         memset(maskw - msk_pitch, 0xFF, msk_pitch*height);
@@ -249,7 +251,7 @@ void TFMPP::buildMotionMask_core(PVideoFrame &prv, PVideoFrame &src, PVideoFrame
       // use not 1 or 2
       if (sizeof(pixel_t) == 1 && use_sse2)
       {
-        buildMotionMask2_SSE2((const uint8_t*)prvp, (const uint8_t*)srcp, (const uint8_t*)nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2, cpuFlags);
+        buildMotionMask2_SSE2((const uint8_t*)prvp, (const uint8_t*)srcp, (const uint8_t*)nxtp, maskw, prv_pitch, src_pitch, nxt_pitch, msk_pitch, width, height - 2);
         for (int y = 1; y < height; ++y)
         {
           for (int x = 0; x < width; ++x)
@@ -317,7 +319,7 @@ void TFMPP::buildMotionMask_core(PVideoFrame &prv, PVideoFrame &src, PVideoFrame
 
 void TFMPP::buildMotionMask1_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
   uint8_t *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width,
-  int height, long cpu)
+  int height) const
 {
   memset(dstp - dst_pitch, 0xFF, dst_pitch);
   memset(dstp + dst_pitch*height, 0xFF, dst_pitch);
@@ -358,7 +360,7 @@ void TFMPP::buildMotionMask1_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
 
 void TFMPP::buildMotionMask2_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
   const uint8_t *srcp3, uint8_t *dstp, int s1_pitch, int s2_pitch,
-  int s3_pitch, int dst_pitch, int width, int height, long cpu)
+  int s3_pitch, int dst_pitch, int width, int height) const
 {
   __m128i thresh = _mm_set1_epi8((char)(std::max(std::min(255 - mthresh - 1, 255), 0)));
   __m128i all_ff = _mm_set1_epi8(-1);
@@ -417,7 +419,7 @@ void TFMPP::buildMotionMask2_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
 }
 
 // not the same as in TDeint. Here 0xFF instead of 0x3C
-void TFMPP::denoiseYUY2(PlanarFrame *mask)
+void TFMPP::denoiseYUY2(PlanarFrame *mask) const
 {
   uint8_t *maskw = mask->GetPtr();
   const int mask_pitch = mask->GetPitch();
@@ -462,7 +464,7 @@ void TFMPP::denoiseYUY2(PlanarFrame *mask)
   }
 }
 
-void TFMPP::linkYUY2(PlanarFrame *mask)
+void TFMPP::linkYUY2(PlanarFrame *mask) const
 {
   uint8_t *maskw = mask->GetPtr();
   const int mask_pitch = mask->GetPitch();
@@ -484,7 +486,7 @@ void TFMPP::linkYUY2(PlanarFrame *mask)
 // mask-only no need HBD here
 // Differences
 // TFMPP::denoisePlanar: PlanarFrame, 0xFF, TDeinterlace:PVideoFrame 0x3C
-void TFMPP::denoisePlanar(PlanarFrame *mask)
+void TFMPP::denoisePlanar(PlanarFrame *mask) const
 {
   const int np = mask->NumComponents();
   for (int b = 0; b < np; ++b)
@@ -520,7 +522,7 @@ void TFMPP::denoisePlanar(PlanarFrame *mask)
 }
 
 template<int planarType>
-void TFMPP::linkPlanar(PlanarFrame* mask)
+void TFMPP::linkPlanar(PlanarFrame* mask) const
 {
   uint8_t* maskpY = mask->GetPtr(0);
   uint8_t* maskpV = mask->GetPtr(2);
@@ -587,17 +589,17 @@ void TFMPP::linkPlanar(PlanarFrame* mask)
 }
 
 void TFMPP::BlendDeint(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst, bool nomask,
-  const VideoInfo& vi, IScriptEnvironment* env)
+  const VideoInfo& vi) const
 {
   if (vi.BitsPerComponent() == 8)
-    BlendDeint_core<uint8_t>(src, mask, dst, nomask, vi, env);
+    BlendDeint_core<uint8_t>(src, mask, dst, nomask, vi);
   else
-    BlendDeint_core<uint16_t>(src, mask, dst, nomask, vi, env);
+    BlendDeint_core<uint16_t>(src, mask, dst, nomask, vi);
 }
 
 template<typename pixel_t>
 void TFMPP::BlendDeint_core(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
-  const VideoInfo& vi, IScriptEnvironment *env)
+  const VideoInfo& vi) const
 {
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
@@ -696,6 +698,9 @@ void blendDeintMask_SSE2(const uint8_t *srcp, uint8_t *dstp,
       if constexpr (with_mask) {
         auto mask = _mm_load_si128(reinterpret_cast<const __m128i*>(maskp + x));
         res = _MM_BLENDV_EPI8(curr, res, mask); // if mask then res else curr
+      } else {
+        (void)maskp;
+        (void)msk_pitch;
       }
       _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), res);
     }
@@ -729,24 +734,24 @@ void blendDeintMask_C(const pixel_t* srcp, pixel_t* dstp,
 }
 
 void TFMPP::CubicDeint(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst, bool nomask,
-  int field, const VideoInfo& vi, IScriptEnvironment* env)
+  int field, const VideoInfo& vi) const
 {
   if (vi.IsYUY2())
-    CubicDeint_core<uint8_t, 8>(src, mask, dst, nomask, field, vi, env);
+    CubicDeint_core<uint8_t, 8>(src, mask, dst, nomask, field, vi);
   else {
     switch (vi.BitsPerComponent()) {
-    case 8: CubicDeint_core<uint8_t, 8>(src, mask, dst, nomask, field, vi, env); break;
-    case 10: CubicDeint_core<uint16_t, 10>(src, mask, dst, nomask, field, vi, env); break;
-    case 12: CubicDeint_core<uint16_t, 12>(src, mask, dst, nomask, field, vi, env); break;
-    case 14: CubicDeint_core<uint16_t, 14>(src, mask, dst, nomask, field, vi, env); break;
-    case 16: CubicDeint_core<uint16_t, 16>(src, mask, dst, nomask, field, vi, env); break;
+    case 8: CubicDeint_core<uint8_t, 8>(src, mask, dst, nomask, field, vi); break;
+    case 10: CubicDeint_core<uint16_t, 10>(src, mask, dst, nomask, field, vi); break;
+    case 12: CubicDeint_core<uint16_t, 12>(src, mask, dst, nomask, field, vi); break;
+    case 14: CubicDeint_core<uint16_t, 14>(src, mask, dst, nomask, field, vi); break;
+    case 16: CubicDeint_core<uint16_t, 16>(src, mask, dst, nomask, field, vi); break;
     }
   }
 }
 
 template<typename pixel_t, int bits_per_pixel>
 void TFMPP::CubicDeint_core(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
-  int field, const VideoInfo& vi, IScriptEnvironment *env)
+  int field, const VideoInfo& vi) const
 {
   bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
@@ -782,7 +787,7 @@ void TFMPP::CubicDeint_core(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &ds
 
     // top orphan
     if (field == 0)
-      env->BitBlt(dst->GetWritePtr(plane), (dst_pitch >> 1) * sizeof(pixel_t),
+      BitBlt(dst->GetWritePtr(plane), (dst_pitch >> 1) * sizeof(pixel_t),
         src->GetReadPtr(plane) + (src_pitch >> 1) * sizeof(pixel_t), (src_pitch >> 1) * sizeof(pixel_t), rowsize, 1);
     
     if (nomask)
@@ -863,7 +868,7 @@ void TFMPP::CubicDeint_core(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &ds
     }
     // bottom orphan
     if (field == 1)
-      env->BitBlt(dst->GetWritePtr(plane) + (height - 1)*(dst_pitch >> 1) * sizeof(pixel_t), (dst_pitch >> 1) * sizeof(pixel_t),
+      BitBlt(dst->GetWritePtr(plane) + (height - 1)*(dst_pitch >> 1) * sizeof(pixel_t), (dst_pitch >> 1) * sizeof(pixel_t),
         src->GetReadPtr(plane) + (height - 2)*(src_pitch >> 1) * sizeof(pixel_t), (src_pitch >> 1) * sizeof(pixel_t), rowsize, 1);
   }
 }
@@ -929,6 +934,9 @@ void cubicDeintMask_SSE2(const uint8_t *srcp, uint8_t *dstp,
         // s1 is the normal src_pitch (half of the doubled)
         auto curr2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp - s1 + x)); // == srcp - s1 + x
         res = _MM_BLENDV_EPI8(curr2, res, mask); // if mask then res else curr
+      } else {
+        (void)maskp;
+        (void)msk_pitch;
       }
       _mm_store_si128(reinterpret_cast<__m128i *>(dstp + x), res);
     }
@@ -1068,10 +1076,10 @@ bool TFMPP::getHint_core(PVideoFrame &src, int &field, bool &combed, unsigned in
 
 void TFMPP::getSetOvr(int n)
 {
-  if (setArray == NULL || setArraySize <= 0) return;
+  if (setArray.size() == 0) return;
   mthresh = mthresh_origSaved;
   PP = PP_origSaved;
-  for (int x = 0; x < setArraySize; x += 4)
+  for (int x = 0; x < (int)setArray.size(); x += 4)
   {
     if (n >= setArray[x + 1] && n <= setArray[x + 2])
     {
@@ -1081,7 +1089,7 @@ void TFMPP::getSetOvr(int n)
   }
 }
 
-void TFMPP::copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, const VideoInfo& vi, int field)
+void TFMPP::copyField(PVideoFrame &dst, PVideoFrame &src, const VideoInfo& vi, int field) const
 {
   // bit depth independent
   const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
@@ -1093,20 +1101,21 @@ void TFMPP::copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *en
     const int dst_pitch = dst->GetPitch(plane);
     const int src_pitch = src->GetPitch(plane);
     if (field == 0)
-      env->BitBlt(dst->GetWritePtr(plane), dst_pitch, src->GetReadPtr(plane) + src_pitch, 
+      BitBlt(dst->GetWritePtr(plane), dst_pitch, src->GetReadPtr(plane) + src_pitch, 
         src_pitch, src->GetRowSize(plane), 1);
-    env->BitBlt(dst->GetWritePtr(plane) + dst_pitch *(1 - field),
+      BitBlt(dst->GetWritePtr(plane) + dst_pitch *(1 - field),
       dst->GetPitch(plane) * 2, src->GetReadPtr(plane) + src_pitch *(1 - field),
       src->GetPitch(plane) * 2, src->GetRowSize(plane), src->GetHeight(plane) >> 1);
     if (field == 1)
-      env->BitBlt(dst->GetWritePtr(plane) + dst_pitch *(dst->GetHeight(plane) - 1),
+      BitBlt(dst->GetWritePtr(plane) + dst_pitch *(dst->GetHeight(plane) - 1),
         dst->GetPitch(plane), src->GetReadPtr(plane) + src_pitch *(src->GetHeight(plane) - 2),
         src->GetPitch(plane), src->GetRowSize(plane), 1);
   }
 }
 
-void TFMPP::writeDisplay(PVideoFrame &dst, const VideoInfo &vi, int n, int field)
+void TFMPP::writeDisplay(PVideoFrame &dst, const VideoInfo &vi, int n, int field) const
 {
+  char buf[256];
   sprintf(buf, "TFMPP %s by tritical ", VERSION);
   Draw(dst, 0, 0, buf, vi);
   sprintf(buf, "field = %d  PP = %d  mthresh = %d ", field, PP, mthresh);
@@ -1115,7 +1124,7 @@ void TFMPP::writeDisplay(PVideoFrame &dst, const VideoInfo &vi, int n, int field
   Draw(dst, 0, 2, buf, vi);
 }
 
-void TFMPP::elaDeint(PVideoFrame& dst, PlanarFrame* mask, PVideoFrame& src, bool nomask, int field, const VideoInfo& vi)
+void TFMPP::elaDeint(PVideoFrame& dst, PlanarFrame* mask, PVideoFrame& src, bool nomask, int field, const VideoInfo& vi) const
 {
   if (!vi.IsYUY2()) {
     switch (vi.BitsPerComponent()) {
@@ -1132,7 +1141,7 @@ void TFMPP::elaDeint(PVideoFrame& dst, PlanarFrame* mask, PVideoFrame& src, bool
 
 // totally different from TDeinterlace ELADeintPlanar
 template<typename pixel_t, int bits_per_pixel>
-void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi)
+void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi) const
 {
   const pixel_t *srcpY = reinterpret_cast<const pixel_t *>(src->GetReadPtr(PLANAR_Y));
   const pixel_t *srcpV = reinterpret_cast<const pixel_t*>(src->GetReadPtr(PLANAR_V));
@@ -1442,7 +1451,7 @@ void TFMPP::elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src
   }
 }
 
-void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field)
+void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field) const
 {
   const uint8_t *srcp = src->GetReadPtr();
   int src_pitch = src->GetPitch();
@@ -1668,7 +1677,7 @@ void TFMPP::elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, 
 
 // hbd ready
 void TFMPP::maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
-  PVideoFrame &dst, const VideoInfo& vi, IScriptEnvironment *env)
+  PVideoFrame &dst, const VideoInfo& vi) const
 {
   const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
   const bool use_sse4 = (cpuFlags & CPUF_SSE4_1) ? true : false;
@@ -1804,11 +1813,10 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
   PP(_PP), mthresh(_mthresh), ovr(_ovr), display(_display), clip2(_clip2),
   usehints(_usehints), opt(_opt)
 {
-  setArray = NULL;
-  mmask = NULL;
+  mmask = nullptr;
   int w, i, z, b, q, countOvrS;
   char linein[1024], *linep, *linet;
-  FILE *f = NULL;
+  FILE *f = nullptr;
 
   has_at_least_v8 = true;
   try { env->CheckVersion(8); }
@@ -1848,18 +1856,17 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
 
   child->SetCacheHints(CACHE_GENERIC, 3); // fixed to diameter (07/30/2005)
 
-  mmask = new PlanarFrame(vi, true, cpuFlags); // true: packed yuy2
   nfrms = vi.num_frames - 1;
   PP_origSaved = PP;
   mthresh_origSaved = mthresh;
-  setArraySize = 0;
+
   i = 0;
-  if (*ovr)
+  if (ovr.size())
   {
-    if ((f = fopen(ovr, "r")) != NULL)
+    if ((f = tivtc_fopen(ovr.c_str(), "r")) != nullptr)
     {
       countOvrS = 0;
-      while (fgets(linein, 1024, f) != 0)
+      while (fgets(linein, 1024, f) != nullptr)
       {
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
           continue;
@@ -1868,17 +1875,15 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
         if (*linep != 0) ++countOvrS;
       }
       fclose(f);
-      f = NULL;
+      f = nullptr;
       if (countOvrS == 0) { goto emptyovrFM; }
       ++countOvrS;
       countOvrS *= 4;
-      setArray = (int *)malloc(countOvrS * sizeof(int));
-      if (setArray == NULL) env->ThrowError("TFMPP:  malloc failure (setArray)!");
-      memset(setArray, 255, countOvrS * sizeof(int));
-      setArraySize = countOvrS;
-      if ((f = fopen(ovr, "r")) != NULL)
+      setArray.resize(countOvrS, 0xffffffff);
+
+      if ((f = tivtc_fopen(ovr.c_str(), "r")) != nullptr)
       {
-        while (fgets(linein, 1024, f) != NULL)
+        while (fgets(linein, 1024, f) != nullptr)
         {
           if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
             continue;
@@ -1900,7 +1905,6 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
               if (z<0 || z>nfrms)
               {
                 fclose(f);
-                f = NULL;
                 env->ThrowError("TFMPP:  ovr input error (out of range frame #)!");
               }
               linep = linein;
@@ -1918,7 +1922,6 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
                   if (q == 80 && (b < 0 || b > 7))
                   {
                     fclose(f);
-                    f = NULL;
                     env->ThrowError("TFMPP:  ovr input error (bad PP value)!");
                   }
                   else if (q != 80 && q != 77) continue;
@@ -1942,7 +1945,6 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
               if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
               {
                 fclose(f);
-                f = NULL;
                 env->ThrowError("TFMPP: ovr input error (invalid frame range)!");
               }
               linep = linein;
@@ -1960,7 +1962,6 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
                   if (q == 80 && (b < 0 || b > 7))
                   {
                     fclose(f);
-                    f = NULL;
                     env->ThrowError("TFMPP:  ovr input error (bad PP value)!");
                   }
                   else if (q != 77 && q != 80) continue;
@@ -1974,18 +1975,18 @@ TFMPP::TFMPP(PClip _child, int _PP, int _mthresh, const char* _ovr, bool _displa
           }
         }
         fclose(f);
-        f = NULL;
+        f = nullptr;
       }
       else env->ThrowError("TFMPP:  ovr file error (could not open file)!");
     }
     else env->ThrowError("TFMPP:  ovr input error (could not open ovr file)!");
   }
 emptyovrFM:
-  if (f != NULL) fclose(f);
+  if (f != nullptr) fclose(f);
+  mmask = new PlanarFrame(vi, true, cpuFlags); // true: packed yuy2
 }
 
 TFMPP::~TFMPP()
 {
-  if (setArray != NULL) free(setArray);
   if (mmask) delete mmask;
 }

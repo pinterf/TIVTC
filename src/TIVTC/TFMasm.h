@@ -25,6 +25,7 @@
 #ifndef __TFMASM_H__
 #define __TFMASM_H__
 
+#include <cstdint>
 #include "internal.h"
 
 void checkSceneChangeYUY2_1_SSE2(const uint8_t* prvp, const uint8_t* srcp,

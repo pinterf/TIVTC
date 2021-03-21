@@ -99,6 +99,8 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
   int EvalGroup;
   if (hybrid != 3) EvalGroup = ((int)(n / (cycle - cycleR))) * cycle;
   else EvalGroup = ((int)(n / cycle)) * cycle;
+  // rerunFromStart is only executed if all the metrics are already available from the "input" file (fullInfo is true)
+  // thus it never requests any frames, it always does calculations from the stored metrics
   if (n != lastn + 1 && EvalGroup >= cycle && fullInfo && (EvalGroup != curr.frame ||
     EvalGroup - cycle != prev.frame || EvalGroup + cycle != next.frame))
     rerunFromStart(EvalGroup, vi, env);
@@ -117,7 +119,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
         checkVideoMatches(prev, prev);
         checkVideoMetrics(prev, vidThresh);
       }
-      if (*output) addMetricCycle(prev);
+      if (output.size()) addMetricCycle(prev);
     }
     curr = next;
     if (curr.frame != EvalGroup)
@@ -130,7 +132,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
         checkVideoMatches(prev, curr);
         checkVideoMetrics(curr, vidThresh);
       }
-      if (*output) addMetricCycle(curr);
+      if (output.size()) addMetricCycle(curr);
     }
     next = nbuf;
     if (next.frame != EvalGroup + cycle)
@@ -142,7 +144,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
       checkVideoMatches(curr, next);
       checkVideoMetrics(next, vidThresh);
     }
-    if (*output) addMetricCycle(next);
+    if (output.size()) addMetricCycle(next);
     nbuf.setFrame(EvalGroup + cycle * 2);
     getOvrCycle(nbuf, false);
     if (hybrid > 0 && curr.type > 1)
@@ -473,6 +475,7 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
     if (hybrid == 3) // return source frame (hybrid=3 leaves video untouched)
     {
       if (debug) debugOutput2(n, n, false, 0, 0, 0.0, 0.0);
+      // So.... did it not drop any frames up to this one? That's the only way output frame n corresponds to input frame n.
       if (display)
       {
         PVideoFrame dst;
@@ -552,7 +555,7 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const Video
       calcMetricCycle(prev, env, vi, true, true);
       checkVideoMatches(prev, prev);
       checkVideoMetrics(prev, vidThresh);
-      if (*output) addMetricCycle(prev);
+      if (output.size()) addMetricCycle(prev);
     }
     curr = next;
     if (curr.frame != lastCycle)
@@ -562,7 +565,7 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const Video
       calcMetricCycle(curr, env, vi, true, true);
       checkVideoMatches(prev, curr);
       checkVideoMetrics(curr, vidThresh);
-      if (*output) addMetricCycle(curr);
+      if (output.size()) addMetricCycle(curr);
     }
     next = nbuf;
     if (next.frame != lastCycle + cycle)
@@ -571,7 +574,8 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const Video
     calcMetricCycle(next, env, vi, true, true);
     checkVideoMatches(curr, next);
     checkVideoMetrics(next, vidThresh);
-    if (*output) addMetricCycle(next);
+    if (output.size()) addMetricCycle(next);
+
     nbuf.setFrame(lastCycle + cycle * 2);
     getOvrCycle(nbuf, false);
     int scenetest = curr.sceneDetect(prev, next, sceneThreshU);
@@ -734,7 +738,7 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const Video
       return clip2->GetFrame(curr.frame + ret, env);
     }
   }
-  if (retFrames == -1 && mkvOutF != NULL)
+  if (retFrames == -1 && mkvOutF != nullptr)
   {
     double filmCf = ((double)(filmC) / (double)(nfrms + 1))*100.0;
     double videoCf = ((double)(vidC) / (double)(nfrms + 1))*100.0;
@@ -743,7 +747,7 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const Video
     fprintf(mkvOutF, "# vfr stats:  longest vid section - %d frames\n", longestV);
     fprintf(mkvOutF, "# vfr stats:  # of detected vid sections - %d", countVT);
     fclose(mkvOutF);
-    mkvOutF = NULL;
+    mkvOutF = nullptr;
   }
 
   const VideoInfo vi2 = !useclip2 ? child->GetVideoInfo() : clip2->GetVideoInfo();
@@ -776,7 +780,7 @@ PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, const Video
       (double)metricF*100.0 / (double)sceneDivU);
     OutputDebugString(buf);
   }
-  if (*output && metricsOutArray != NULL)
+  if (output.size() && metricsOutArray.size())
   {
     metricsOutArray[n << 1] = metricU;
     metricsOutArray[(n << 1) + 1] = metricF;
@@ -868,7 +872,7 @@ PVideoFrame TDecimate::GetFrameMode6(int n, IScriptEnvironment *env, const Video
 }
 
 // PF 180131 uses usehints! but its runtime alreadz, no problem
-void TDecimate::rerunFromStart(int s, const VideoInfo &vi, IScriptEnvironment *env)
+void TDecimate::rerunFromStart(const int s, const VideoInfo &vi, IScriptEnvironment *env)
 {
   int EvalGroup = 0;
   while (EvalGroup < s)
@@ -968,7 +972,7 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, const VideoInfo &vit, 
   if (n2 == 0) n1 = 0;
   int blockNI, xblocksI;
   uint64_t metricF;
-  PVideoFrame src = NULL;
+  PVideoFrame src = nullptr;
   if (nbuf.diffMetricsU[pos] == UINT64_MAX ||
     (nbuf.diffMetricsUF[pos] == UINT64_MAX && scene))
   {
@@ -995,7 +999,7 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, const VideoInfo &vit, 
 }
 
 uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const VideoInfo &vit, int &blockNI,
-  int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene)
+  int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene) const
 {
   uint64_t highestDiff = 0;
 
@@ -1011,7 +1015,7 @@ uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const Vid
   d.blocky = blocky;
   d.blocky_half = blocky_half;
   d.blocky_shift = blocky_shift;
-  d.diff = diff;
+  d.diff = diff.get();
   d.nt = nt;
   d.ssd = ssd;
 
@@ -1032,9 +1036,9 @@ uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const Vid
 
   for (int x = 0; x < arraysize; ++x)
   {
-    if (diff[x] > highestDiff)
+    if (diff.get()[x] > highestDiff)
     {
-      highestDiff = diff[x];
+      highestDiff = diff.get()[x];
       blockNI = x;
     }
   }
@@ -1049,7 +1053,7 @@ uint64_t TDecimate::calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const Vid
 
 // PF 180131 uses usehints!
 void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const VideoInfo& vi,
-  bool scene, bool hnt)
+  bool scene, bool hnt) const
 {
   if (current.mSet || current.cycleS == current.cycleE) 
     return;
@@ -1060,7 +1064,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
   uint64_t highestDiff;
   int next_num = -20, next_numd = -20;
 
-  PVideoFrame prev, next, prevt, nextt;
+  PVideoFrame prev = nullptr, next = nullptr, prevt, nextt = nullptr;
   if (predenoise)
   {
     prev = env->NewVideoFrame(vit);
@@ -1102,7 +1106,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
         else current.match[i] = getHint(vit, nextt, current.filmd2v[i]);
       }
       if (next_numd == w - 1) 
-        copyFrame(prev, next, vit, env);
+        copyFrame(prev, next, vit);
       else 
         blurFrame(prevt, prev, 2, chroma, env, vit, cpuFlags);
       
@@ -1151,7 +1155,7 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
     d.blocky = blocky;
     d.blocky_half = blocky_half;
     d.blocky_shift = blocky_shift;
-    d.diff = diff;
+    d.diff = diff.get();
     d.nt = nt;
     d.ssd = ssd;
 
@@ -1169,8 +1173,8 @@ void TDecimate::calcMetricCycle(Cycle &current, IScriptEnvironment *env, const V
     highestDiff = 0;
     for (int x = 0; x < arraysize; ++x)
     {
-      if (diff[x] > highestDiff)
-        highestDiff = diff[x];
+      if (diff.get()[x] > highestDiff)
+        highestDiff = diff.get()[x];
     }
     if (ssd)
     {
@@ -1248,7 +1252,7 @@ uint64_t calcLumaDiffYUY2_SSD(const uint8_t* prvp, const uint8_t* nxtp,
   return calcLumaDiffYUY2_SADorSSD<false>(prvp, nxtp, width, height, prv_pitch, nxt_pitch, nt, cpuFlags);
 }
 
-int TDecimate::getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm)
+int TDecimate::getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm) const
 {
   if (vi.ComponentSize() == 1)
     return getHint_core<uint8_t>(src, d2vfilm);
@@ -1257,7 +1261,7 @@ int TDecimate::getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm)
 }
 
 template<typename pixel_t>
-int TDecimate::getHint_core(PVideoFrame &src, int &d2vfilm)
+int TDecimate::getHint_core(PVideoFrame &src, int &d2vfilm) const
 {
   const pixel_t *p = reinterpret_cast<const pixel_t *>(src->GetReadPtr(PLANAR_Y));
   unsigned int i, magic_number = 0, hint = 0;
@@ -1306,7 +1310,7 @@ int TDecimate::getHint_core(PVideoFrame &src, int &d2vfilm)
 */
 bool TDecimate::checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n)
 {
-  int i, v, dups = 0, mc, mp, saved = -20, saved2 = -20;
+  int i, v, dups = 0, mc = ISC, mp = ISC, saved = -20, saved2 = -20;
   uint64_t lowest_metric = UINT64_MAX;
   for (i = c.cycleS; i < c.cycleE; ++i)
   {
@@ -1409,7 +1413,7 @@ int TDecimate::checkForD2VDecFrame(Cycle &p, Cycle &c, Cycle &n)
 bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n)
 {
   int dupsP = 0, savedp = -20, dupsN = 0, savedn = -20;
-  int c1 = -20, c2 = -20, i, v, mp, mc;
+  int c1 = -20, c2 = -20, i, v, mp, mc = ISC;
   uint64_t lowest = UINT64_MAX;
   for (v = -1, i = p.cycleS; i < p.cycleE; ++i)
   {
@@ -1532,7 +1536,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
   if (c.dupCount == 1)
   {
     uint64_t lowest = UINT64_MAX, lowest2 = UINT64_MAX;
-    int savedc, savedp, savedn, v;
+    int savedc = -1, savedp = -1, savedn = -1, v;
     for (v = -1, i = c.cycleS; i < c.cycleE; ++i)
     {
       if (c.dupArray[i] == 1) savedc = i;
@@ -1577,7 +1581,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
   else
   {
     uint64_t lowestp = UINT64_MAX, lowestn = UINT64_MAX;
-    int savedp, savedn, savedc1, savedc2, v;
+    int savedp = -1, savedn = -1, savedc1, savedc2, v;
     if (c.dupCount == 2 && p.dupCount == 1 && n.dupCount == 1)
     {
       for (v = -1, i = p.cycleS; i < p.cycleE; ++i)
@@ -1839,7 +1843,7 @@ void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment 
     dupStrings[w][2] = f;
     ++w;
   }
-  if (ovrArray != NULL)
+  if (ovrArray.size())
   {
     for (i = c.cycleS; i < c.cycleE; ++i)
     {
@@ -1992,13 +1996,13 @@ void TDecimate::checkVideoMetrics(Cycle &c, double thresh)
 void TDecimate::getOvrCycle(Cycle &current, bool mode2)
 {
   if (mode2) current.dupCount = 0;
-  if (ovrArray == NULL && metricsArray == NULL && metricsOutArray == NULL) return;
+  if (ovrArray.empty() && metricsArray.empty() && metricsOutArray.empty()) return;
   int b = current.cycleS, v = 0, i, p = 0, d = 0, value;
   int numr = current.frameEO - current.frameSO == cycle ? cycleR :
     std::max(int(cycleR*(current.frameEO - current.frameSO) / double(cycle)), 1);
   for (i = current.frameSO; i < current.frameEO; ++i, ++b)
   {
-    if (ovrArray != NULL)
+    if (ovrArray.size())
     {
       value = ovrArray[i];
       if (value&DROP_FRAME && (d < numr || mode2))
@@ -2034,7 +2038,7 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
       }
     }
     bool foundM = false;
-    if (metricsArray != NULL)
+    if (metricsArray.size())
     {
       if (metricsArray[i << 1] != UINT64_MAX)
       {
@@ -2045,7 +2049,7 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
       if (metricsArray[(i << 1) + 1] != UINT64_MAX)
         current.diffMetricsUF[b] = metricsArray[(i << 1) + 1];
     }
-    if (metricsOutArray != NULL && !foundM)
+    if (metricsOutArray.size() && !foundM)
     {
       if (metricsOutArray[i << 1] != UINT64_MAX)
       {
@@ -2063,10 +2067,10 @@ void TDecimate::getOvrCycle(Cycle &current, bool mode2)
   current.setIsFilmD2V();
 }
 
-void TDecimate::getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF)
+void TDecimate::getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF) const
 {
   metricU = metricF = UINT64_MAX;
-  if (metricsArray != NULL)
+  if (metricsArray.size())
   {
     if (metricsArray[n << 1] != UINT64_MAX)
       metricU = metricsArray[n << 1];
@@ -2077,7 +2081,7 @@ void TDecimate::getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF)
   if (metricU != UINT64_MAX && metricF != UINT64_MAX)
     return;
 
-  if (metricsOutArray != NULL)
+  if (metricsOutArray.size())
   {
     if (metricU == UINT64_MAX && metricsOutArray[n << 1] != UINT64_MAX) 
       metricU = metricsOutArray[n << 1];
@@ -2166,12 +2170,12 @@ void TDecimate::blendFrames(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &d
 
   if (weight_i >= 32768)
   {
-    copyFrame(dst, src1, vi, env); // 100% src1
+    copyFrame(dst, src1, vi); // 100% src1
     return;
   }
   if (weight_i <= 0)
   {
-    copyFrame(dst, src2, vi, env); // 100% src2
+    copyFrame(dst, src2, vi); // 100% src2
     return;
   }
 
@@ -2332,14 +2336,11 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
 }
 
 void TDecimate::init_mode_5(IScriptEnvironment* env) {
-  FILE *f = NULL;
+  FILE *f = nullptr;
 
   mkvfps = (fps*(cycle - cycleR)) / cycle;
   mkvfps2 = (fps*(cycle - cycleR - 1)) / cycle;
-  int *input = NULL;
-  input = (int*)malloc(vi.num_frames * sizeof(int));
-  if (input == NULL) env->ThrowError("TDecimate:  malloc failure (mode 5, input)!");
-  memset(input, 0, vi.num_frames * sizeof(int));
+  std::vector<int> input_magic_numbers(vi.num_frames, 0);
   Cycle prevM(5, sdlim), currM(5, sdlim), nextM(5, sdlim);
   if (cycle > 5)
   {
@@ -2355,10 +2356,10 @@ void TDecimate::init_mode_5(IScriptEnvironment* env) {
 twopassrun:
   ++passThrough;
 #if 0
-  if ((f = fopen("debug.txt", "a")) != NULL) {
+  if ((f = tivtc_fopen("debug.txt", "a")) != nullptr) {
     fprintf(f, "passThrough=%d cycle=%d nfrms=%d vidThresh=%f np=%d\n", passThrough, cycle, nfrms, (float)vidThresh, np);
     fclose(f);
-    f = NULL;
+    f = nullptr;
   }
 #endif
   count = 0;
@@ -2387,8 +2388,8 @@ twopassrun:
       if (currM.type == 5 || (!currM.isfilmd2v && ((currM.type == 2 && (vidDetect == 0 || vidDetect == 2)) ||
         (currM.type == 3 && (vidDetect == 1 || vidDetect == 2)) || (currM.type == 4 && vidDetect == 3))))
       {
-        if (currM.type == 5) input[b] = 8;
-        if (currM.sceneDetect(prevM, nextM, sceneThreshU) != -20) input[b] = 8;
+        if (currM.type == 5) input_magic_numbers[b] = 8;
+        if (currM.sceneDetect(prevM, nextM, sceneThreshU) != -20) input_magic_numbers[b] = 8;
       }
       else
       {
@@ -2405,7 +2406,7 @@ twopassrun:
         }
         for (w = 0, i = b; i < b + cycle && i <= nfrms; ++i, ++w)
         {
-          if (currM.decimate[w] == 1) input[i] = 2;
+          if (currM.decimate[w] == 1) input_magic_numbers[i] = 2;
         }
       }
     } // passthrough == 1
@@ -2413,7 +2414,7 @@ twopassrun:
     { // passthrough != 1
       for (vid = true, i = b; i <= nfrms && i < b + cycle; ++i)
       {
-        if (input[i] == 2) vid = false;
+        if (input_magic_numbers[i] == 2) vid = false;
       }
       if (!vid)
       {
@@ -2432,22 +2433,22 @@ twopassrun:
         {
           if (currM.decimate[w] == 1)
           {
-            input[i] = 2;
+            input_magic_numbers[i] = 2;
             ++count;
 #if 0
-            if ((f = fopen("debug.txt", "a")) != NULL) {
+            if ((f = tivtc_fopen("debug.txt", "a")) != nullptr) {
               fprintf(f, "count=%03d b=%d w=%d i=%d \n", count, b, w, i);
               fclose(f);
-              f = NULL;
+              f = nullptr;
             }
 #endif
           }
-          else input[i] = 0;
+          else input_magic_numbers[i] = 0;
         }
       }
       else
       {
-        for (i = b; i < b + cycle && i <= nfrms; ++i) input[i] = 0;
+        for (i = b; i < b + cycle && i <= nfrms; ++i) input_magic_numbers[i] = 0;
       }
     } // passthrough != 1
   }
@@ -2456,7 +2457,7 @@ twopassrun:
   {
     for (vid = true, i = h; i < h + cycle && i <= nfrms; ++i)
     {
-      if (input[i] == 2) vid = false;
+      if (input_magic_numbers[i] == 2) vid = false;
     }
     if (vid) ++w;
     else
@@ -2465,7 +2466,7 @@ twopassrun:
       {
         for (i = std::max(0, h - w * cycle); i < h && i <= nfrms; i += cycle)
         {
-          if (input[i] != 8) input[i] = 2;
+          if (input_magic_numbers[i] != 8) input_magic_numbers[i] = 2;
         }
       }
       w = 0;
@@ -2475,33 +2476,29 @@ twopassrun:
   {
     for (i = h - w * cycle; i < h && i <= nfrms; i += cycle)
     {
-      if (input[i] != 8) input[i] = 2;
+      if (input_magic_numbers[i] != 8) input_magic_numbers[i] = 2;
     }
   }
   goto twopassrun;
 finishTP:
-  if (metricsArray != NULL)
+   metricsArray.resize(0);
+
+  if (ovrArray.size())
   {
-    free(metricsArray);
-    metricsArray = NULL;
-  }
-  if (ovrArray != NULL)
-  {
-    free(ovrArray);
-    ovrArray = NULL;
+    ovrArray.resize(0);
   }
 
 #if 0
-  if ((f = fopen("debug.txt", "a")) != NULL) {
+  if ((f = tivtc_fopen("debug.txt", "a")) != nullptr) {
     fprintf(f, "new_num_frames=%d vi.num_frames=%d count=%d\n", vi.num_frames - count, vi.num_frames, count);
     fclose(f);
-    f = NULL;
+    f = nullptr;
   }
 #endif
 
   vi.MulDivFPS(vi.num_frames - count, vi.num_frames);
   vi.num_frames = vi.num_frames - count;
-  if ((f = fopen(mkvOut, "w")) != NULL)
+  if ((f = tivtc_fopen(mkvOut.c_str(), "w")) != nullptr)
   {
     double timestamp = 0.0;
     double sample1 = 1000.0 / fps;
@@ -2526,7 +2523,7 @@ finishTP:
       vid = true;
       for (i = b, ddup = 0; i < b + cycle && i <= nfrms; ++i)
       {
-        if (input[i] == 2)
+        if (input_magic_numbers[i] == 2)
         {
           ++ddup;
           if (ddup < 2) filmC += (b + cycle <= nfrms ? cycle : nfrms - b + 1);
@@ -2597,51 +2594,38 @@ finishTP:
     fprintf(f, "# vfr stats:  longest vid section - %d frames\n", longestV);
     fprintf(f, "# vfr stats:  # of detected vid sections - %d", countVT);
     fclose(f);
-    f = NULL;
+    f = nullptr;
   }
   else
   {
-    free(input);
-    input = NULL;
     env->ThrowError("TDecimate:  mkvOut file output error (cannot create file)!");
   }
-  if (aLUT != NULL)
-  {
-    free(aLUT);
-    aLUT = NULL;
-  }
-  aLUT = (int *)malloc((vi.num_frames + 1) * sizeof(int));
-  if (aLUT == NULL)
-  {
-    free(input);
-    input = NULL;
-    env->ThrowError("TDecimate:  malloc failure (aLUT, mode 5)!");
-  }
-  memset(aLUT, 0, (vi.num_frames + 1) * sizeof(int));
+  if (aLUT.size())
+    aLUT.resize(0);
+
+  aLUT.resize(vi.num_frames + 1, 0);
   i = w = 0;
   while (i <= nfrms && w <= vi.num_frames - 1)
   {
-    if (input[i] != 2)
+    if (input_magic_numbers[i] != 2)
     {
       aLUT[w] = i;
       ++w;
     }
     ++i;
   }
-  free(input);
-  input = NULL;
+  input_magic_numbers.resize(0);
   nfrmsN = vi.num_frames - 1;
-
-  if (f != NULL) fclose(f);
+  if (f != nullptr) fclose(f);
 
   //nfrms and nfrmsN may give some hints as well.
   //8day
-  if (*orgOut)
+  if (orgOut.size())
   {
-    if (aLUT == NULL)
-      env->ThrowError("TDecimate: aLUT is NULL!");
-    FILE *orgOutF = fopen(orgOut, "w");
-    if (orgOutF == NULL)
+    if (aLUT.empty())
+      env->ThrowError("TDecimate: aLUT is nullptr!");
+    FILE *orgOutF = tivtc_fopen(orgOut.c_str(), "w");
+    if (orgOutF == nullptr)
       env->ThrowError("TDecimate: cannot create orgOut file!");
     for (int n = 0; n<vi.num_frames; ++n)
     {
@@ -2670,13 +2654,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   maxndl(_maxndl), chroma(_chroma), m2PA(_m2PA), exPP(_exPP),
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
   opt(_opt), clip2(_clip2), orgOut(_orgOut),
-  prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0)
+  prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, nullptr)
 {
-  diff = metricsArray = metricsOutArray = mode2_metrics = NULL;
-  aLUT = mode2_decA = mode2_order = NULL;
-  ovrArray = NULL;
-  mkvOutF = NULL;
-  FILE *f = NULL;
+  mkvOutF = nullptr;
+  FILE *f = nullptr;
   char linein[1024], *linep, *linet;
   
   bool tfmFullInfo = false, metricsFullInfo = false;
@@ -2696,11 +2677,11 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  YUV colorspaces only!");
   if (mode < 0 || mode > 7)
     env->ThrowError("TDecimate:  mode must be set to 0, 1, 2, 3, 4, 5, 6, or 7!");
-  if (mode == 3 && !(*mkvOut))
+  if (mode == 3 && mkvOut.empty())
     env->ThrowError("TDecimate:  an mkvOut file must be specified in mode 3!");
-  if (mode == 5 && !(*mkvOut))
+  if (mode == 5 && mkvOut.empty())
     env->ThrowError("TDecimate:  an mkvOut file must be specified in mode 5!");
-  if (mode == 6 && !(*mkvOut))
+  if (mode == 6 && mkvOut.empty())
     env->ThrowError("TDecimate:  an mkvOut file must be specified in mode 6!");
   if (hybrid < 0 || hybrid > 3)
     env->ThrowError("TDecimate:  hybrid must be set to 0, 1, 2, or 3!");
@@ -2730,11 +2711,11 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  vidDetect must be set to 0, 1, 2, 3, or 4!");
   if (conCycle > 2)
     env->ThrowError("TDecimate:  conCycle cannot be greater than 2!");
-  if (mode == 4 && (*ovr || *tfmIn))
+  if (mode == 4 && (ovr.size() || tfmIn.size()))
     env->ThrowError("TDecimate:  cannot use an ovr or tfmIn file when in mode 4!");
   if (vfrDec != 0 && vfrDec != 1)
     env->ThrowError("TDecimate:  vfrDec must be set to 0 or 1!");
-  if (*output && (mode == 5 || mode == 6))
+  if (output.size() && (mode == 5 || mode == 6))
     env->ThrowError("TDecimate:  output not supported in mode 5 and 6 (you should already have the metrics)!");
   if (blockx != 4 && blockx != 8 && blockx != 16 && blockx != 32 && blockx != 64 &&
     blockx != 128 && blockx != 256 && blockx != 512 && blockx != 1024 && blockx != 2048)
@@ -2789,7 +2770,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   {
     int cacheRange = cycle * 4 + 1;
     if (cacheRange < 1) cacheRange = 1;
-    if (*input || cycle >= 26)
+    if (input.size() || cycle >= 26)
     {
       if (cacheRange > 100)
         child->SetCacheHints(CACHE_GENERIC, 100);
@@ -2802,6 +2783,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
       child->SetCacheHints(0, -20);
     }
   }
+  // VS: usehints is bool param
   if (_usehints == 0) usehints = false;
   else if (_usehints == 1) usehints = true;
   else
@@ -2900,39 +2882,36 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   if (mode <= 5 || mode == 7)
   {
-    diff = (uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16);
-    if (diff == NULL) env->ThrowError("TDecimate:  malloc failure (diff)!");
+    diff = decltype(diff) ((uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16), &_aligned_free);
+    if (diff == nullptr) env->ThrowError("TDecimate:  malloc failure (diff)!");
   }
-  if (*output)
+  if (output.size())
   {
-    if ((f = fopen(output, "w")) != NULL)
+    if ((f = tivtc_fopen(output.c_str(), "w")) != nullptr)
     {
 #ifdef _WIN32
-      _fullpath(outputFull, output, MAX_PATH);
+      _fullpath(outputFull, output.c_str(), MAX_PATH);
 #else
-      realpath(output, outputFull);
+      realpath(output.c_str(), outputFull);
 #endif
 
       calcCRC(child, 15, outputCrc, env);
       fclose(f);
-      f = NULL;
-      metricsOutArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
-      if (metricsOutArray == NULL)
-        env->ThrowError("TDecimate:  malloc failure (metricsOutArray)!");
-      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = UINT64_MAX;
+      f = nullptr;
+      metricsOutArray.resize(vi.num_frames * 2, UINT64_MAX);
     }
     else env->ThrowError("TDecimate:  output error (cannot create output file)!");
   }
-  if (*input)
+  if (input.size())
   {
-    metricsArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
-    if (metricsArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsArray)!");
+    metricsArray.resize(vi.num_frames * 2);
+
     for (int h = 0; h < vi.num_frames * 2; ++h)
     {
       if (!batch || (mode != 5 && mode != 6)) metricsArray[h] = UINT64_MAX;
       else metricsArray[h] = 0;
     }
-    if ((f = fopen(input, "r")) != NULL)
+    if ((f = tivtc_fopen(input.c_str(), "r")) != nullptr)
     {
       uint64_t metricU, metricF;
       int w;
@@ -2957,7 +2936,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             if (tempCrc != z && !batch)
             {
               fclose(f);
-              f = NULL;
+              f = nullptr;
               env->ThrowError("TDecimate:  crc32 in input file does not match that of the current clip (%#x vs %#x)!",
                 z, tempCrc);
             }
@@ -2974,7 +2953,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               if (j != blockx)
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimate:  current blockx value does not match" \
                   " that which was used to create the given input file!");
               }
@@ -2994,7 +2973,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               if (j != blocky)
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimate:  current blocky value does not match" \
                   " that which was used to create the given input file!");
               }
@@ -3019,7 +2998,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               if (((ch == 'T' || ch == 't') && !chroma) || ((ch == 'F' || ch == 'f') && chroma))
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimate:  current chroma setting does not match" \
                   " that which was used to create the given input file!");
               }
@@ -3031,10 +3010,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           sscanf(linein, "%d %" PRIu64 " %" PRIu64 "", &w, &metricU, &metricF);
           if (w < 0 || w > nfrms)
           {
-            free(metricsArray);
-            metricsArray = NULL;
             fclose(f);
-            f = NULL;
+            f = nullptr;
             env->ThrowError("TDecimate:  input error (out of range frame #)!");
           }
           metricsArray[w * 2] = metricU;
@@ -3042,7 +3019,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         }
       }
       fclose(f);
-      f = NULL;
+      f = nullptr;
       metricsFullInfo = true;
       for (int h = 0; h < vi.num_frames * 2; h += 2)
       {
@@ -3051,8 +3028,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           metricsFullInfo = false;
           if ((mode == 5 || mode == 6) && !batch)
           {
-            free(metricsArray);
-            metricsArray = NULL;
             env->ThrowError("TDecimate:  input error (mode 5 and 6, all frames must have entries)!");
           }
         }
@@ -3060,36 +3035,28 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     }
     else
     {
-      free(metricsArray);
-      metricsArray = NULL;
       env->ThrowError("TDecimate:  input error (cannot open input file)!");
     }
   }
   else if (mode == 5)
   {
-    metricsArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
-    if (metricsArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsArray)!");
+    metricsArray.resize(vi.num_frames * 2);
+
     for (int h = 0; h < vi.num_frames * 2; h += 2)
     {
       metricsArray[h + 0] = UINT64_MAX - 1;
       metricsArray[h + 1] = 0;
     }
   }
-  if (*ovr)
+  if (ovr.size())
   {
-    if ((f = fopen(ovr, "r")) != NULL)
+    if ((f = tivtc_fopen(ovr.c_str(), "r")) != nullptr)
     {
-      if (ovrArray == NULL)
+      if (ovrArray.empty())
       {
-        ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
-        if (ovrArray == NULL)
-        {
-          fclose(f);
-          f = NULL;
-          env->ThrowError("TDecimate:  malloc failure (ovrArray, ovr)!");
-        }
-        if (!batch || (mode != 5 && mode != 6)) memset(ovrArray, 112, vi.num_frames);
-        else memset(ovrArray, 0, vi.num_frames);
+        ovrArray.resize(vi.num_frames);
+        if (!batch || (mode != 5 && mode != 6)) memset(ovrArray.data(), 112, vi.num_frames);
+        else memset(ovrArray.data(), 0, vi.num_frames);
       }
       int q, w, z, count = 0;
       while (fgets(linein, 1024, f) != 0)
@@ -3114,7 +3081,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             if (z<0 || z>nfrms)
             {
               fclose(f);
-              f = NULL;
+              f = nullptr;
               env->ThrowError("TDecimate:  ovr file error (out of range frame #)!");
             }
             linep = linein;
@@ -3128,7 +3095,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               else
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimate:  ovr file error (invalid specifier)!");
               }
               ovrArray[z] &= 0xFC;
@@ -3141,7 +3108,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             if (z<0 || z>nfrms)
             {
               fclose(f);
-              f = NULL;
+              f = nullptr;
               env->ThrowError("TDecimate:  ovr file error (out of range frame #)!");
             }
             linep = linein;
@@ -3155,7 +3122,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               else
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimate:  ovr file error (invalid symbol)!");
               }
               ovrArray[z] &= 0xF3;
@@ -3175,7 +3142,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
             {
               fclose(f);
-              f = NULL;
+              f = nullptr;
               env->ThrowError("TDecimate:  input file error (out of range frame #)!");
             }
             linep = linein;
@@ -3189,7 +3156,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               else
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimate:  input file error (invalid specifier)!");
               }
               while (z <= w)
@@ -3207,7 +3174,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             if (z<0 || z>nfrms || w<0 || w>nfrms || w < z)
             {
               fclose(f);
-              f = NULL;
+              f = nullptr;
               env->ThrowError("TDecimate:  input file error (out of range frame #)!");
             }
             linep = linein;
@@ -3224,7 +3191,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
                 else
                 {
                   fclose(f);
-                  f = NULL;
+                  f = nullptr;
                   env->ThrowError("TDecimate:  input file error (invalid specifier)!");
                 }
                 ovrArray[z + count] &= 0xFC;
@@ -3247,7 +3214,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               else
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimatee:  input file error (invalid specifier)!");
               }
               while (z <= w)
@@ -3261,30 +3228,24 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         }
       }
       fclose(f);
-      f = NULL;
+      f = nullptr;
     }
     else env->ThrowError("TDecimate:  ovr error (could not open ovr file)!");
   }
-  if (*tfmIn)
+  if (tfmIn.size())
   {
     bool d2vmarked, micmarked;
-    if ((f = fopen(tfmIn, "r")) != NULL)
+    if ((f = tivtc_fopen(tfmIn.c_str(), "r")) != nullptr)
     {
       int fieldt, firstLine, z, q, r;
-      if (ovrArray == NULL)
+      if (ovrArray.empty())
       {
-        ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
-        if (ovrArray == NULL)
-        {
-          fclose(f);
-          f = NULL;
-          env->ThrowError("TDecimate:  malloc failure (ovrArray, tfmIn)!");
-        }
-        if (!batch || mode != 5) memset(ovrArray, 112, vi.num_frames);
-        else memset(ovrArray, 0, vi.num_frames);
+        ovrArray.resize(vi.num_frames);
+        if (!batch || mode != 5) memset(ovrArray.data(), 112, vi.num_frames);
+        else memset(ovrArray.data(), 0, vi.num_frames);
       }
       fieldt = firstLine = 0;
-      while (fgets(linein, 1024, f) != NULL)
+      while (fgets(linein, 1024, f) != nullptr)
       {
         if (linein[0] == 0 || linein[0] == '\n' || linein[0] == '\r' || linein[0] == ';' || linein[0] == '#')
           continue;
@@ -3317,7 +3278,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             if (z<0 || z>nfrms)
             {
               fclose(f);
-              f = NULL;
+              f = nullptr;
               env->ThrowError("TDecimate:  tfmIn file error (out of range frame #)!");
             }
             linep = linein;
@@ -3336,7 +3297,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
               else
               {
                 fclose(f);
-                f = NULL;
+                f = nullptr;
                 env->ThrowError("TDecimate:  tfmIn file error (invalid match specifier)!");
               }
               if (fieldt != 0)
@@ -3366,7 +3327,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
                 else if (r != 43 && r != 45)
                 {
                   fclose(f);
-                  f = NULL;
+                  f = nullptr;
                   env->ThrowError("TDecimate:  tfmIn file error (invalid specifier)!");
                 }
               }
@@ -3388,7 +3349,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         }
       }
       fclose(f);
-      f = NULL;
+      f = nullptr;
       tfmFullInfo = true;
       for (int h = 0; h < vi.num_frames; ++h)
       {
@@ -3397,8 +3358,6 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           tfmFullInfo = false;
           if (mode == 5 && !batch)
           {
-            free(ovrArray);
-            ovrArray = NULL;
             env->ThrowError("TDecimate:  tfmIn error (mode 5, all frames must have an entry)!");
           }
         }
@@ -3408,11 +3367,9 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   else if (mode == 5)
   {
-    if (ovrArray == NULL)
+    if (ovrArray.empty())
     {
-      ovrArray = (uint8_t *)malloc(vi.num_frames * sizeof(unsigned char));
-      if (ovrArray == NULL) env->ThrowError("TDecimate:  malloc failure (ovrArray, tfmIn)!");
-      memset(ovrArray, 16, vi.num_frames);
+      ovrArray.resize(vi.num_frames, 16);
     }
     else
     {
@@ -3439,15 +3396,12 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   else if (mode == 2)
   {
-    if (metricsOutArray == NULL)
+    if (metricsOutArray.empty())
     {
-      metricsOutArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
-      if (metricsOutArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsOutArray)!");
-      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = UINT64_MAX;
+      metricsOutArray.resize(vi.num_frames * 2, UINT64_MAX);
     }
-    mode2_decA = (int *)malloc(vi.num_frames * sizeof(int));
-    if (mode2_decA == NULL) env->ThrowError("TDecimate:  malloc failure (mode2_decA)!");
-    for (int j = 0; j < vi.num_frames; ++j) mode2_decA[j] = -20;
+    mode2_decA.resize(vi.num_frames, -20);
+
     double arate = buildDecStrategy(env);
     if (mode2_numCycles > 0)
     {
@@ -3457,8 +3411,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
         child->SetCacheHints(CACHE_GENERIC, (curr.length * 2) + 1);
       else 
         child->SetCacheHints(CACHE_GENERIC, 100);
-      mode2_order = (int*)malloc(std::max(curr.length + 10, 100) * sizeof(int));
-      mode2_metrics = (uint64_t*)malloc(std::max(curr.length + 10, 100) * sizeof(uint64_t));
+      mode2_order.resize(std::max(curr.length + 10, 100));
+      mode2_metrics.resize(std::max(curr.length + 10, 100));
     }
     else {
       child->SetCacheHints(CACHE_GENERIC, 3);  // fixed to diameter (07/30/2005)
@@ -3471,26 +3425,20 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   else if (mode == 7)
   {
-    if (metricsOutArray == NULL)
+    if (metricsOutArray.empty())
     {
-      metricsOutArray = (uint64_t *)malloc(vi.num_frames * 2 * sizeof(uint64_t));
-      if (metricsOutArray == NULL) env->ThrowError("TDecimate:  malloc failure (metricsOutArray)!");
-      for (int h = 0; h < vi.num_frames * 2; ++h) metricsOutArray[h] = UINT64_MAX;
+      metricsOutArray.resize(vi.num_frames * 2, UINT64_MAX);
       metricsOutArray[0] = 0;
     }
-    if (aLUT) free(aLUT);
-    aLUT = (int *)malloc(vi.num_frames * sizeof(int));
-    if (aLUT == NULL)
-      env->ThrowError("TDecimate:  malloc failure (aLUT, mode 7)!");
-    for (int h = 0; h < vi.num_frames; ++h) aLUT[h] = -20;
+    if (aLUT.size()) aLUT.resize(0);
+    aLUT.resize(vi.num_frames, -20);
     unsigned int num, den;
     FloatToFPS(rate, num, den, env);
     vi.SetFPS(num, den);
     vi.num_frames = (int)(vi.num_frames * (rate / fps));
     nfrmsN = vi.num_frames - 1;
-    mode2_decA = (int *)malloc(vi.num_frames * sizeof(int));
-    if (mode2_decA == NULL) env->ThrowError("TDecimate:  malloc failure (mode2_decA)!");
-    for (int j = 0; j < vi.num_frames; ++j) mode2_decA[j] = -20;
+    mode2_decA.resize(vi.num_frames, -20);
+
     child->SetCacheHints(CACHE_GENERIC, int((fps / rate) + 1.0) * 2 + 3);  // fixed to diameter (07/30/2005)
     diff_thresh = uint64_t((vidThresh*MAX_DIFF) / 100.0);
     same_thresh = uint64_t((dupThresh*MAX_DIFF) / 100.0);
@@ -3503,7 +3451,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     lastCycle = -cycle;
     retFrames = -200;
     lastType = linearCount = 0;
-    if ((mkvOutF = fopen(mkvOut, "w")) != NULL)
+    if ((mkvOutF = tivtc_fopen(mkvOut.c_str(), "w")) != nullptr)
     {
       if (tcfv1)
       {
@@ -3519,21 +3467,16 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   else if (mode == 5)
   {
     init_mode_5(env);
-    _aligned_free(diff); // mode 5 is using diff buffer only at init
-    diff = nullptr;
+    diff = nullptr; // mode 5 is using diff buffer only at init
   } // mode 5
   else if (mode == 6)
   {
-    int *input = NULL;
-    input = (int*)malloc(vi.num_frames * sizeof(int));
-    if (input == NULL) env->ThrowError("TDecimate:  malloc failure (mode 6, input)!");
-    memset(input, 0, vi.num_frames * sizeof(int));
+    std::vector<int> input_magic_numbers(vi.num_frames, 0);
     int j = 0, k = 0, dups;
     double timestamp = 0.0;
     int lastt = 0, lastf = 0;
-    if ((f = fopen(mkvOut, "w")) == NULL)
+    if ((f = tivtc_fopen(mkvOut.c_str(), "w")) == nullptr)
     {
-      free(input);
       env->ThrowError("TDecimate:  unable to create mkvOut file!");
     }
     if (tcfv1)
@@ -3569,7 +3512,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             lastf = k;
           }
           else if (lastt <= 0) lastt = 1;
-          input[j - 1] = 2;
+          input_magic_numbers[j - 1] = 2;
           dups = 0;
           ++k;
         }
@@ -3587,7 +3530,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             lastf = k;
           }
           else if (lastt <= 0) lastt = 2;
-          input[j - 2] = 2;
+          input_magic_numbers[j - 2] = 2;
           dups = 0;
           ++k;
         }
@@ -3605,7 +3548,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             lastf = k;
           }
           else if (lastt <= 0) lastt = 3;
-          input[j - 3] = 2;
+          input_magic_numbers[j - 3] = 2;
           dups = 0;
           ++k;
         }
@@ -3628,7 +3571,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           }
           else if (lastt <= 0) lastt = 4;
           k += (dups >> 2);
-          for (int i = 0; i < dups; i += 4) input[j - dups + i] = 2;
+          for (int i = 0; i < dups; i += 4) input_magic_numbers[j - dups + i] = 2;
           dups = 0;
         }
         else if ((dups % 5) == 0) // 23.97602
@@ -3650,7 +3593,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
           }
           else if (lastt <= 0) lastt = 5;
           k += (dups / 5);
-          for (int i = 0; i < dups; i += 5) input[j - dups + i] = 2;
+          for (int i = 0; i < dups; i += 5) input_magic_numbers[j - dups + i] = 2;
           dups = 0;
         }
         else if (dups > 5)
@@ -3667,7 +3610,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
             lastf = k;
           }
           else if (lastt <= 0) lastt = 5;
-          input[j - dups] = 2;
+          input_magic_numbers[j - dups] = 2;
           dups -= 5;
           ++k;
         }
@@ -3675,32 +3618,25 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     }
     if (tcfv1 && lastt != 5) fprintf(f, "%d,%d,%s\n", lastf, k - 1, cfps(lastt));
     vi.num_frames = k;
-    if (aLUT != NULL) { free(aLUT); aLUT = NULL; }
-    aLUT = (int *)malloc((vi.num_frames + 1) * sizeof(int));
-    if (aLUT == NULL)
-    {
-      free(input);
-      fclose(f);
-      env->ThrowError("TDecimate:  malloc failure (aLUT, mode 6)!");
-    }
-    memset(aLUT, 0, (vi.num_frames + 1) * sizeof(int));
+    if (aLUT.size()) { aLUT.resize(0); }
+    aLUT.resize(vi.num_frames + 1, 0);
+
     k = j = 0;
     while (k <= nfrms && j <= vi.num_frames - 1)
     {
-      if (input[k] == 2)
+      if (input_magic_numbers[k] == 2)
       {
         aLUT[j] = k;
         ++j;
       }
       ++k;
     }
-    free(input);
-    input = NULL;
+    
     fclose(f);
-    f = NULL;
+    f = nullptr;
     nfrmsN = vi.num_frames - 1;
   } // mode 6
-  if (f != NULL) fclose(f);
+  if (f != nullptr) fclose(f);
   if (clip2)
   {
     VideoInfo vi2 = clip2->GetVideoInfo();
@@ -3712,16 +3648,12 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
 
 TDecimate::~TDecimate()
 {
-  if (diff != NULL) _aligned_free(diff);
-  if (aLUT != NULL) free(aLUT);
-  if (ovrArray != NULL) free(ovrArray);
-  if (metricsArray != NULL) free(metricsArray);
-  if (metricsOutArray != NULL)
+  if (metricsOutArray.size())
   {
-    if (*output)
+    if (output.size())
     {
-      FILE *f = NULL;
-      if ((f = fopen(outputFull, "w")) != NULL)
+      FILE *f = nullptr;
+      if ((f = tivtc_fopen(outputFull, "w")) != nullptr)
       {
         uint64_t metricU, metricF;
         fprintf(f, "#TDecimate %s by tritical\n", VERSION);
@@ -3736,14 +3668,10 @@ TDecimate::~TDecimate()
             fprintf(f, "%d %" PRIu64 " %" PRIu64 "\n", h >> 1, metricU, metricF);
         }
         fclose(f);
-        f = NULL;
+        f = nullptr;
       }
-      if (f != NULL) fclose(f);
+      if (f != nullptr) fclose(f);
     }
-    free(metricsOutArray);
   }
-  if (mkvOutF != NULL) fclose(mkvOutF);
-  if (mode2_decA != NULL) free(mode2_decA);
-  if (mode2_metrics != NULL) free(mode2_metrics);
-  if (mode2_order != NULL) free(mode2_order);
+  if (mkvOutF != nullptr) fclose(mkvOutF);
 }

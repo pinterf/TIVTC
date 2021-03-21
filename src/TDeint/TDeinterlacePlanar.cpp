@@ -233,16 +233,16 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
         PVideoFrame nxte = emtn->GetFrame(n < nfrms ? n + 1 : nfrms, env);
         PVideoFrame nxt2e = emtn->GetFrame(n < nfrms - 1 ? n + 2 : n < nfrms ? n + 1 : nfrms, env);
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, false/*planar*/, env);
+          createMotionMap4_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, false/*planar*/);
         else
-          createMotionMap5_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, false/*planar*/, env);
+          createMotionMap5_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, false/*planar*/);
       }
       else
       {
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, false/*planar*/, env);
+          createMotionMap4_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, false/*planar*/);
         else
-          createMotionMap5_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, false/*planar*/, env);
+          createMotionMap5_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, false/*planar*/);
       }
     }
     else env->ThrowError("TDeint:  an unknown error occured!");
@@ -377,21 +377,21 @@ PVideoFrame TDeinterlace::GetFramePlanar(int n, IScriptEnvironment* env, bool &w
 
 void TDeinterlace::createMotionMap4_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
   PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-  int n, bool isYUY2, IScriptEnvironment *env)
+  int n, bool isYUY2)
 {
   db->resetCacheStart(n);
   // these are hbd ready
-  InsertDiff(prv, src, n, db->GetPos(0), env);
-  InsertDiff(src, nxt, n + 1, db->GetPos(1), env);
+  InsertDiff(prv, src, n, db->GetPos(0));
+  InsertDiff(src, nxt, n + 1, db->GetPos(1));
   if (mode == 0)
   {
-    if (field^order) InsertDiff(nxt, nxt2, n + 2, db->GetPos(2), env);
-    else InsertDiff(prv2, prv, n - 1, db->GetPos(2), env);
+    if (field^order) InsertDiff(nxt, nxt2, n + 2, db->GetPos(2));
+    else InsertDiff(prv2, prv, n - 1, db->GetPos(2));
   }
   else
   {
-    InsertDiff(nxt, nxt2, n + 2, db->GetPos(2), env);
-    InsertDiff(prv2, prv, n - 1, db->GetPos(3), env);
+    InsertDiff(nxt, nxt2, n + 2, db->GetPos(2));
+    InsertDiff(prv2, prv, n - 1, db->GetPos(3));
   }
   // from now on only mask is handled, no hbd stuff here
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
@@ -570,17 +570,17 @@ void TDeinterlace::createMotionMap4_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame 
 // HBD ready
 void TDeinterlace::createMotionMap5_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
   PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-  int n, bool isYUY2, IScriptEnvironment *env)
+  int n, bool isYUY2)
 {
   db->resetCacheStart(n - 1);
   // insertDiff is HBD ready. DB is 8 bits
-  InsertDiff(prv2, prv, n - 1, db->GetPos(0), env);
-  InsertDiff(prv, src, n, db->GetPos(1), env);
-  InsertDiff(src, nxt, n + 1, db->GetPos(2), env);
-  InsertDiff(nxt, nxt2, n + 2, db->GetPos(3), env);
-  InsertDiff(prv2, src, -n - 2, db->GetPos(4), env);
-  InsertDiff(prv, nxt, -n - 3, db->GetPos(5), env);
-  InsertDiff(src, nxt2, -n - 4, db->GetPos(6), env);
+  InsertDiff(prv2, prv, n - 1, db->GetPos(0));
+  InsertDiff(prv, src, n, db->GetPos(1));
+  InsertDiff(src, nxt, n + 1, db->GetPos(2));
+  InsertDiff(nxt, nxt2, n + 2, db->GetPos(3));
+  InsertDiff(prv2, src, -n - 2, db->GetPos(4));
+  InsertDiff(prv, nxt, -n - 3, db->GetPos(5));
+  InsertDiff(src, nxt2, -n - 4, db->GetPos(6));
   int plane[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   const uint8_t *dpp[7], *dp[7], *dpn[7];
   const int np = vi.IsYUY2() || vi.IsY() ? 1 : 3;
@@ -1485,7 +1485,7 @@ bool TDeinterlace::checkCombedPlanar(PVideoFrame& src, int& MIC, int bits_per_pi
 template<typename pixel_t>
 void TDeinterlace::buildDiffMapPlane2(const uint8_t* prvp, const uint8_t* nxtp,
   uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int bits_per_pixel, IScriptEnvironment* env)
+  int Width, int bits_per_pixel)
 {
   const bool YUY2_LumaOnly = false; // no mChroma like in TFM
   do_buildABSDiffMask2<pixel_t>(prvp, nxtp, dstp, prv_pitch, nxt_pitch, dst_pitch, Width, Height, YUY2_LumaOnly, cpuFlags, bits_per_pixel);
@@ -1494,10 +1494,10 @@ void TDeinterlace::buildDiffMapPlane2(const uint8_t* prvp, const uint8_t* nxtp,
 // instantiate
 template void TDeinterlace::buildDiffMapPlane2<uint8_t>(const uint8_t* prvp, const uint8_t* nxtp,
   uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int bits_per_pixel, IScriptEnvironment* env);
+  int Width, int bits_per_pixel);
 template void TDeinterlace::buildDiffMapPlane2<uint16_t>(const uint8_t* prvp, const uint8_t* nxtp,
   uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int bits_per_pixel, IScriptEnvironment* env);
+  int Width, int bits_per_pixel);
 
 // common planar YUY2
 template<typename pixel_t>
@@ -1592,7 +1592,7 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
         mapp - map_pitch,
         prvf_pitch * sizeof(pixel_t),
         nxtf_pitch * sizeof(pixel_t),
-        map_pitch, Height >> 1, Width, bits_per_pixel, env);
+        map_pitch, Height >> 1, Width, bits_per_pixel);
     else
       buildDiffMapPlane2<pixel_t>(
         reinterpret_cast<const uint8_t*>(prvnf - prvf_pitch),
@@ -1600,7 +1600,7 @@ void TDeinterlace::subtractFields(PVideoFrame &prv, PVideoFrame &src, PVideoFram
         mapn - map_pitch, 
         prvf_pitch * sizeof(pixel_t),
         nxtf_pitch * sizeof(pixel_t),
-        map_pitch, Height >> 1, Width, bits_per_pixel, env);
+        map_pitch, Height >> 1, Width, bits_per_pixel);
 
     const int Const23 = 23 << (bits_per_pixel - 8);
     const int Const42 = 42 << (bits_per_pixel - 8);
@@ -1746,8 +1746,7 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
           map_pitch, 
           Height, Width,
           actual_tbuffer_pitch,
-          bits_per_pixel,
-          env);
+          bits_per_pixel);
       else
         buildDiffMapPlane_Planar<pixel_t>(
           reinterpret_cast<const uint8_t*>(prvnf),
@@ -1758,8 +1757,7 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
           map_pitch, 
           Height, Width,
           actual_tbuffer_pitch,
-          bits_per_pixel,
-          env);
+          bits_per_pixel);
     }
     else
     {
@@ -1769,16 +1767,14 @@ void TDeinterlace::subtractFields1(PVideoFrame &prv, PVideoFrame &src, PVideoFra
           reinterpret_cast<const uint8_t*>(nxtpf), 
           mapp, 
           prvf_pitch, nxtf_pitch, map_pitch, Height, Width,
-          actual_tbuffer_pitch,
-          env);
+          actual_tbuffer_pitch);
       else
         buildDiffMapPlaneYUY2(
           reinterpret_cast<const uint8_t*>(prvnf),
           reinterpret_cast<const uint8_t*>(nxtnf),
           mapn, 
           prvf_pitch, nxtf_pitch, map_pitch, Height, Width, 
-          actual_tbuffer_pitch, 
-          env);
+          actual_tbuffer_pitch);
     }
 
     const int Const23 = 23 << (bits_per_pixel - 8);
@@ -1946,7 +1942,7 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
           nxtf_pitch * sizeof(pixel_t),
           map_pitch, 
           Height, Width, 
-          actual_tbuffer_pitch, bits_per_pixel, env);
+          actual_tbuffer_pitch, bits_per_pixel);
       else
         buildDiffMapPlane_Planar<pixel_t>(
           reinterpret_cast<const uint8_t*>(prvnf),
@@ -1956,7 +1952,7 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
           nxtf_pitch * sizeof(pixel_t),
           map_pitch, 
           Height, Width, 
-          actual_tbuffer_pitch, bits_per_pixel, env);
+          actual_tbuffer_pitch, bits_per_pixel);
     }
     else
     {
@@ -1969,7 +1965,7 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
           nxtf_pitch * sizeof(pixel_t),
           map_pitch, 
           Height, Width, 
-          actual_tbuffer_pitch, env);
+          actual_tbuffer_pitch);
       else
         buildDiffMapPlaneYUY2(
           reinterpret_cast<const uint8_t*>(prvnf),
@@ -1979,7 +1975,7 @@ void TDeinterlace::subtractFields2(PVideoFrame& prv, PVideoFrame& src, PVideoFra
           nxtf_pitch * sizeof(pixel_t),
           map_pitch, 
           Height, Width, 
-          actual_tbuffer_pitch, env);
+          actual_tbuffer_pitch);
     }
 
     const int Const23 = 23 << (bits_per_pixel - 8);
@@ -3095,7 +3091,7 @@ void TDeinterlace::blendDeint(PVideoFrame& dst, PVideoFrame& mask,
       dstp += dst_pitch;
     }
   }
-  copyFrame(dst, tf, vi, env);
+  copyFrame(dst, tf, vi);
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];
@@ -3216,7 +3212,7 @@ void TDeinterlace::blendDeint2(PVideoFrame& dst, PVideoFrame& mask,
       dstp += dst_pitch;
     }
   }
-  copyFrame(dst, tf, vi, env);
+  copyFrame(dst, tf, vi);
   for (int b = 0; b < stop; ++b)
   {
     const int plane = planes[b];

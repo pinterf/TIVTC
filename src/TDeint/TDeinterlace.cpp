@@ -244,11 +244,11 @@ void TDeinterlace::putHint2_core(PVideoFrame &dst, bool wdtd)
 }
 
 // HBD ready because absDiff is OK
-void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env)
+void TDeinterlace::InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos)
 {
   if (db->fnum[pos] == n) return;
   PVideoFrame dummyframe = NULL; // put into td buf @plane 'pos' instead
-  absDiff(p1, p2, dummyframe, pos, env); // HBD ready inside
+  absDiff(p1, p2, dummyframe, pos); // HBD ready inside
   db->fnum[pos] = n;
 }
 

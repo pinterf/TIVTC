@@ -22,6 +22,7 @@
 #ifndef __TCOMMONASM_H__
 #define __TCOMMONASM_H__
 
+#include <stdint.h>
 #include "internal.h"
 #include <xmmintrin.h>
 #include <emmintrin.h>
@@ -109,7 +110,7 @@ void compute_sum_8xN_sse2(const uint8_t *srcp, int pitch, int &sum);
 void compute_sum_16x8_sse2_luma(const uint8_t *srcp, int pitch, int &sum);
 
 // fixme: put non-asm utility functions into different file
-void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi, IScriptEnvironment* env);
+void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi);
 
 template<typename pixel_t>
 void blend_5050_SSE2(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch);

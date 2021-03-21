@@ -1247,7 +1247,7 @@ void compute_sum_16x8_sse2_luma(const uint8_t *srcp, int pitch, int &sum)
   sum = _mm_cvtsi128_si32(tmpsum);
 }
 
-void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi, IScriptEnvironment* env)
+void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi)
 {
   const int planes[3] = { PLANAR_Y, PLANAR_U, PLANAR_V };
   // bit depth independent
@@ -1255,7 +1255,7 @@ void copyFrame(PVideoFrame& dst, PVideoFrame& src, const VideoInfo& vi, IScriptE
   for (int b = 0; b < np; ++b)
   {
     const int plane = planes[b];
-    env->BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane), src->GetReadPtr(plane),
+    BitBlt(dst->GetWritePtr(plane), dst->GetPitch(plane), src->GetReadPtr(plane),
       src->GetPitch(plane), src->GetRowSize(plane), src->GetHeight(plane));
   }
 }
@@ -1265,7 +1265,7 @@ template<typename pixel_t>
 void blend_5050_SSE2(uint8_t* dstp, const uint8_t* srcp1, const uint8_t* srcp2, int width, int height, int dst_pitch, int src1_pitch, int src2_pitch)
 {
   while (height--) {
-    for (int x = 0; x < width * sizeof(pixel_t); x += 16) {
+    for (int x = 0; x < width * (int)sizeof(pixel_t); x += 16) {
       auto src1 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x));
       auto src2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x));
       if constexpr (sizeof(pixel_t) == 1)

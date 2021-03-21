@@ -110,10 +110,10 @@ class TDeinterlace : public GenericVideoFilter
 
   void createMotionMap4_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-    int n, bool isYUY2, IScriptEnvironment *env);
+    int n, bool isYUY2);
   void createMotionMap5_PlanarOrYUY2(PVideoFrame &prv2, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, PVideoFrame &nxt2, PVideoFrame &mask,
-    int n, bool IsYUY2, IScriptEnvironment *env);
+    int n, bool IsYUY2);
   
   template<int planarType>
   void linkFULL_Planar(PVideoFrame &mask);
@@ -205,27 +205,27 @@ class TDeinterlace : public GenericVideoFilter
   void setMaskForUpsize(PVideoFrame &msk, const VideoInfo& vi_mask);
 
   // hbd dispatch inside
-  void absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos, IScriptEnvironment *env);
+  void absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos);
 
   template<typename pixel_t>
   void buildABSDiffMask(const uint8_t *prvp, const uint8_t *nxtp,
-    int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env);
+    int prv_pitch, int nxt_pitch, int tpitch, int width, int height);
 
   template<typename pixel_t>
   void buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-    int Width, int tpitch, int bits_per_pixel, IScriptEnvironment *env);
+    int Width, int tpitch, int bits_per_pixel);
 
   void buildDiffMapPlaneYUY2(const uint8_t *prvp, const uint8_t *nxtp,
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-    int Width, int tpitch, IScriptEnvironment *env);
+    int Width, int tpitch);
 
   template<typename pixel_t>
   void buildDiffMapPlane2(const uint8_t* prvp, const uint8_t* nxtp,
     uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-    int Width, int bits_per_pixel, IScriptEnvironment* env);
+    int Width, int bits_per_pixel);
 
-  void InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos, IScriptEnvironment *env);
+  void InsertDiff(PVideoFrame &p1, PVideoFrame &p2, int n, int pos);
   void insertCompStats(int n, int norm1, int norm2, int mtn1, int mtn2);
   int getMatch(int norm1, int norm2, int mtn1, int mtn2);
 

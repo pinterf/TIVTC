@@ -30,8 +30,10 @@
 #ifdef _WIN32
 #include <windows.h> // OutputDebugString
 #endif
-#include "internal.h"
+
 #include <algorithm>
+#include <cstring>
+#include "internal.h"
 
 void Cycle::setFrame(int frameIn)
 {
@@ -249,16 +251,7 @@ void Cycle::setDups(double thresh)
   dupsSet = true;
 }
 
-constexpr int ISP = 0x00000000; // p
-constexpr int ISC = 0x00000001; // c
-constexpr int ISN = 0x00000002; // n
-constexpr int ISB = 0x00000003; // b
-constexpr int ISU = 0x00000004; // u
-constexpr int ISDB = 0x00000005; // l = (deinterlaced c bottom field)
-constexpr int ISDT = 0x00000006; // h = (deinterlaced c top field)
-constexpr int ISMATCH = 0x00000070; // ovr array - bits 5-7
-
-void Cycle::setDupsMatches(Cycle &p, uint8_t *marray)
+void Cycle::setDupsMatches(Cycle &p, const std::vector<uint8_t> &marray)
 {
   if (dupsSet) return;
   bool skip = false;
@@ -276,7 +269,7 @@ void Cycle::setDupsMatches(Cycle &p, uint8_t *marray)
   dupCount = 0;
   for (i = 0; i < cycleS; ++i) dupArray[i] = -20;
   mp = (p.cycleE > 0 && p.frame != frame) ? p.match[p.cycleE - 1] : -20;
-  if (mp == -20 && marray != NULL)
+  if (mp == -20 && marray.size())
   {
     int n = (p.frame == frame) ? frameSO - 1 : p.cycleE - 1;
     if (!(n < 0 || n > maxFrame || (n >= frameSO && n < frameEO) || n != frameSO - 1))
@@ -431,10 +424,10 @@ void Cycle::debugOutput()
   OutputDebugString(temp);
 }
 
-void Cycle::debugMetrics(int length)
+void Cycle::debugMetrics(int _length)
 {
   char temp[256];
-  for (int x = 0; x < length; ++x)
+  for (int x = 0; x < _length; ++x)
   {
     sprintf(temp, "Cycle:  %d - %3.2f  %" PRIu64 "  %" PRIu64 "\n", x, diffMetricsN[x], diffMetricsU[x],
       diffMetricsUF[x]);
@@ -451,10 +444,10 @@ Cycle::Cycle(int _size, int _sdlim)
   length = frame = frameE = cycleS = cycleE = offE = -20;
   frameSO = frameEO = maxFrame = dupCount = blend = -20;
   type = -1;
-  dupArray = lowest = match = decimate = decimate2 = filmd2v = NULL;
-  dect = dect2 = NULL;
-  diffMetricsU = diffMetricsUF = tArray = NULL;
-  diffMetricsN = NULL;
+  dupArray = lowest = match = decimate = decimate2 = filmd2v = nullptr;
+  dect = dect2 = nullptr;
+  diffMetricsU = diffMetricsUF = tArray = nullptr;
+  diffMetricsN = nullptr;
   cycleSize = std::max(0, _size);
   sdlim = _sdlim;
   allocSpace();
@@ -468,34 +461,34 @@ Cycle::Cycle(int _size, int _sdlim)
 
 Cycle::~Cycle()
 {
-  if (dupArray != NULL) { free(dupArray); dupArray = NULL; }
-  if (lowest != NULL) { free(lowest); lowest = NULL; }
-  if (match != NULL) { free(match); match = NULL; }
-  if (filmd2v != NULL) { free(filmd2v); filmd2v = NULL; }
-  if (decimate != NULL) { free(decimate); decimate = NULL; }
-  if (decimate2 != NULL) { free(decimate2); decimate2 = NULL; }
-  if (dect != NULL) { free(dect); dect = NULL; }
-  if (dect2 != NULL) { free(dect2); dect2 = NULL; }
-  if (diffMetricsU != NULL) { free(diffMetricsU); diffMetricsU = NULL; }
-  if (diffMetricsUF != NULL) { free(diffMetricsUF); diffMetricsUF = NULL; }
-  if (tArray != NULL) { free(tArray); tArray = NULL; }
-  if (diffMetricsN != NULL) { free(diffMetricsN); diffMetricsN = NULL; }
+  if (dupArray != nullptr) { free(dupArray); dupArray = nullptr; }
+  if (lowest != nullptr) { free(lowest); lowest = nullptr; }
+  if (match != nullptr) { free(match); match = nullptr; }
+  if (filmd2v != nullptr) { free(filmd2v); filmd2v = nullptr; }
+  if (decimate != nullptr) { free(decimate); decimate = nullptr; }
+  if (decimate2 != nullptr) { free(decimate2); decimate2 = nullptr; }
+  if (dect != nullptr) { free(dect); dect = nullptr; }
+  if (dect2 != nullptr) { free(dect2); dect2 = nullptr; }
+  if (diffMetricsU != nullptr) { free(diffMetricsU); diffMetricsU = nullptr; }
+  if (diffMetricsUF != nullptr) { free(diffMetricsUF); diffMetricsUF = nullptr; }
+  if (tArray != nullptr) { free(tArray); tArray = nullptr; }
+  if (diffMetricsN != nullptr) { free(diffMetricsN); diffMetricsN = nullptr; }
 }
 
 bool Cycle::allocSpace()
 {
-  if (dupArray != NULL) { free(dupArray); dupArray = NULL; }
-  if (lowest != NULL) { free(lowest); lowest = NULL; }
-  if (match != NULL) { free(match); match = NULL; }
-  if (filmd2v != NULL) { free(filmd2v); filmd2v = NULL; }
-  if (decimate != NULL) { free(decimate); decimate = NULL; }
-  if (decimate2 != NULL) { free(decimate2); decimate2 = NULL; }
-  if (dect != NULL) { free(dect); dect = NULL; }
-  if (dect2 != NULL) { free(dect2); dect2 = NULL; }
-  if (diffMetricsU != NULL) { free(diffMetricsU); diffMetricsU = NULL; }
-  if (diffMetricsUF != NULL) { free(diffMetricsUF); diffMetricsUF = NULL; }
-  if (tArray != NULL) { free(tArray); tArray = NULL; }
-  if (diffMetricsN != NULL) { free(diffMetricsN); diffMetricsN = NULL; }
+  if (dupArray != nullptr) { free(dupArray); dupArray = nullptr; }
+  if (lowest != nullptr) { free(lowest); lowest = nullptr; }
+  if (match != nullptr) { free(match); match = nullptr; }
+  if (filmd2v != nullptr) { free(filmd2v); filmd2v = nullptr; }
+  if (decimate != nullptr) { free(decimate); decimate = nullptr; }
+  if (decimate2 != nullptr) { free(decimate2); decimate2 = nullptr; }
+  if (dect != nullptr) { free(dect); dect = nullptr; }
+  if (dect2 != nullptr) { free(dect2); dect2 = nullptr; }
+  if (diffMetricsU != nullptr) { free(diffMetricsU); diffMetricsU = nullptr; }
+  if (diffMetricsUF != nullptr) { free(diffMetricsUF); diffMetricsUF = nullptr; }
+  if (tArray != nullptr) { free(tArray); tArray = nullptr; }
+  if (diffMetricsN != nullptr) { free(diffMetricsN); diffMetricsN = nullptr; }
   dupArray = (int *)malloc(cycleSize * sizeof(int));
   lowest = (int *)malloc(cycleSize * sizeof(int));
   match = (int *)malloc(cycleSize * sizeof(int));
@@ -508,10 +501,10 @@ bool Cycle::allocSpace()
   diffMetricsUF = (uint64_t *)malloc(cycleSize * sizeof(uint64_t));
   tArray = (uint64_t *)malloc(cycleSize * sizeof(uint64_t));
   diffMetricsN = (double *)malloc(cycleSize * sizeof(double));
-  if (dupArray == NULL || lowest == NULL || match == NULL || filmd2v == NULL ||
-    decimate == NULL || decimate2 == NULL || diffMetricsU == NULL ||
-    diffMetricsUF == NULL || diffMetricsN == NULL || tArray == NULL ||
-    dect == NULL || dect2 == NULL) return false;
+  if (dupArray == nullptr || lowest == nullptr || match == nullptr || filmd2v == nullptr ||
+    decimate == nullptr || decimate2 == nullptr || diffMetricsU == nullptr ||
+    diffMetricsUF == nullptr || diffMetricsN == nullptr || tArray == nullptr ||
+    dect == nullptr || dect2 == nullptr) return false;
   return true;
 }
 

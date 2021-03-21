@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <memory>
+#include <vector>
 #include "internal.h"
 #include "Font.h"
 #include "Cycle.h"
@@ -33,34 +35,7 @@
 #include "profUtil.h"
 #include "Cache.h"
 
-constexpr int ISP = 0x00000000; // p
-constexpr int ISC = 0x00000001; // c
-constexpr int ISN = 0x00000002; // n
-constexpr int ISB = 0x00000003; // b
-constexpr int ISU = 0x00000004; // u
-constexpr int ISDB = 0x00000005; // l = (deinterlaced c bottom field)
-constexpr int ISDT = 0x00000006; // h = (deinterlaced c top field)
-
-#define MTC(n) n == 0 ? 'p' : n == 1 ? 'c' : n == 2 ? 'n' : n == 3 ? 'b' : n == 4 ? 'u' : \
-			   n == 5 ? 'l' : n == 6 ? 'h' : 'x'
-
-constexpr int TOP_FIELD = 0x00000008;
-constexpr int D2VFILM = 0x00000020;
-
-constexpr uint32_t MAGIC_NUMBER = 0xdeadfeed;
-constexpr uint32_t MAGIC_NUMBER_2 = 0xdeadbeef;
-
-constexpr int DROP_FRAME = 0x00000001; // ovr array - bit 1
-constexpr int KEEP_FRAME = 0x00000002; // ovr array - 2
-constexpr int FILM = 0x00000004; // ovr array - bit 3
-constexpr int VIDEO = 0x00000008; // ovr array - bit 4
-constexpr int ISMATCH = 0x00000070; // ovr array - bits 5-7
-constexpr int ISD2VFILM = 0x00000080; // ovr array - bit 8
-
 #define VERSION "v1.0.8"
-
-#define cfps(n) n == 1 ? "119.880120" : n == 2 ? "59.940060" : n == 3 ? "39.960040" : \
-				n == 4 ? "29.970030" : n == 5 ? "23.976024" : "unknown"
 
 // All the rest of this code was just copied from tdecimate.cpp because I'm
 // too lazy to make it work such that it could call that code.
@@ -112,12 +87,12 @@ private:
   int vidDetect;
   double sceneThresh;
   int conCycle;
-  const char* ovr;
-  const char* input;
+  std::string ovr;
+  std::string input;
   int nt;
-  const char* output;
-  const char* mkvOut;
-  const char* tfmIn;
+  std::string output;
+  std::string mkvOut;
+  std::string tfmIn;
   int blockx, blocky;
   int vfrDec;
   bool debug, display;
@@ -134,7 +109,7 @@ private:
   int sdlim;
   int opt;
   PClip clip2;
-  const char* orgOut;
+  std::string orgOut;
   Cycle prev, curr, next, nbuf;
 
   int nfrms, nfrmsN, linearCount;
@@ -145,10 +120,11 @@ private:
   double fps, mkvfps, mkvfps2;
   bool useTFMPP, cve, ecf, fullInfo;
   bool usehints, useclip2;
-  uint64_t *diff, *metricsArray, *metricsOutArray, *mode2_metrics;
-  int *aLUT, *mode2_decA, *mode2_order;
+  std::unique_ptr<uint64_t, decltype (&_aligned_free)> diff;
+  std::vector<uint64_t> metricsArray, metricsOutArray, mode2_metrics;
+  std::vector<int> aLUT, mode2_decA, mode2_order;
   unsigned int outputCrc;
-  uint8_t *ovrArray;
+  std::vector<uint8_t> ovrArray;
   int mode2_num, mode2_den, mode2_numCycles, mode2_cfs[10];
   FILE *mkvOutF;
   char buf[8192];
@@ -165,9 +141,9 @@ private:
   bool checkMatchDup(int mp, int mc);
   void findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
 
-  int getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm);
+  int getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm) const;
   template<typename pixel_t>
-  int getHint_core(PVideoFrame &src, int &d2vfilm);
+  int getHint_core(PVideoFrame &src, int &d2vfilm) const;
 
   template<typename pixel_t>
   void restoreHint(PVideoFrame &dst, IScriptEnvironment *env);
@@ -184,7 +160,7 @@ private:
   PVideoFrame GetFrameMode5(int n, IScriptEnvironment *env, const VideoInfo& vi);
   PVideoFrame GetFrameMode6(int n, IScriptEnvironment *env, const VideoInfo& vi);
   PVideoFrame GetFrameMode7(int n, IScriptEnvironment *env, const VideoInfo& vi);
-  void getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF);
+  void getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF) const;
   void getOvrCycle(Cycle &current, bool mode2);
   void displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
     int ret, bool film, double amount1, double amount2, int f1, int f2, const VideoInfo &vi);
@@ -195,25 +171,25 @@ private:
   void formatMatches(Cycle &current, Cycle &previous);
   void debugOutput1(int n, bool film, int blend);
   void debugOutput2(int n, int ret, bool film, int f1, int f2, double amount1, double amount2);
-  void addMetricCycle(Cycle &j);
+  void addMetricCycle(const Cycle &j);
   bool checkForObviousDecFrame(Cycle &p, Cycle &c, Cycle &n);
   void mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
   int checkForD2VDecFrame(Cycle &p, Cycle &c, Cycle &n);
   bool checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n);
-  int getNonDecMode2(int n, int start, int stop);
+  int getNonDecMode2(int n, int start, int stop) const;
   double buildDecStrategy(IScriptEnvironment *env);
   void mode2MarkDecFrames(int cycleF);
   void removeMinN(int m, int n, int start, int stop);
   void removeMinN(int m, int n, uint64_t *metricsT, int *orderT, int &ovrC);
-  int findDivisor(double decRatio, int min_den);
-  int findNumerator(double decRatio, int divisor);
-  double findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env);
-  void sortMetrics(uint64_t *metrics, int *order, int length);
+  int findDivisor(double decRatio, int min_den) const;
+  int findNumerator(double decRatio, int divisor) const;
+  double findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env) const;
+  void sortMetrics(uint64_t *metrics, int *order, int length) const;
   //void SedgeSort(uint64_t *metrics, int *order, int length);
   //void pQuickerSort(uint64_t *metrics, int *order, int lower, int upper);
-  void calcMetricCycle(Cycle &current, IScriptEnvironment *env, const VideoInfo &vi, bool scene, bool hnt);
+  void calcMetricCycle(Cycle &current, IScriptEnvironment *env, const VideoInfo &vi, bool scene, bool hnt) const;
   uint64_t calcMetric(PVideoFrame &prevt, PVideoFrame &currt, const VideoInfo &vi, int &blockNI,
-    int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene);
+    int &xblocksI, uint64_t &metricF, IScriptEnvironment *env, bool scene) const;
 
 
   void calcBlendRatios2(double &amount1, double &amount2, int &frame1,
@@ -222,7 +198,7 @@ private:
   bool same_group(int f1, int f2, IScriptEnvironment *env);
   bool diff_group(int f1, int f2, IScriptEnvironment *env);
   int diff_f(int f1, int f2, IScriptEnvironment *env);
-  int mode7_analysis(int n, IScriptEnvironment *env);
+  int mode7_analysis(int n, IScriptEnvironment *env) const;
 
   bool wasChosen(int i, int n);
   void calcMetricPreBuf(int n1, int n2, int pos, const VideoInfo &vit, bool scene, bool gethint, IScriptEnvironment *env);

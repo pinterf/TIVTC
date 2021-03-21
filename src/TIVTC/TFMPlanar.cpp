@@ -23,6 +23,7 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <cstring>
 #include "TFM.h"
 #include "TFMasm.h"
 #include "TCommonASM.h"
@@ -232,8 +233,8 @@ template void checkCombedPlanarAnalyze_core<uint8_t>(const VideoInfo& vi, int ct
 template void checkCombedPlanarAnalyze_core<uint16_t>(const VideoInfo& vi, int cthresh, bool chroma, int cpuFlags, int metric, PVideoFrame& src, PlanarFrame* cmask);
 
 
-bool TFM::checkCombedPlanar(const VideoInfo& vi, PVideoFrame& src, int n, IScriptEnvironment* env, int match,
-  int* blockN, int& xblocksi, int* mics, bool ddebug, bool chroma, int cthresh)
+bool TFM::checkCombedPlanar(const VideoInfo& vi, PVideoFrame& src, int n, int match,
+  int* blockN, int& xblocksi, int* mics, bool ddebug, bool _chroma, int cthresh)
 {
   if (mics[match] != -20)
   {
@@ -258,19 +259,24 @@ bool TFM::checkCombedPlanar(const VideoInfo& vi, PVideoFrame& src, int n, IScrip
 
   const int bits_per_pixel = vi.BitsPerComponent();
   if (vi.ComponentSize() == 1) {
-    checkCombedPlanarAnalyze_core<uint8_t>(vi, cthresh, chroma, cpuFlags, metric, src, cmask);
-    return checkCombedPlanar_core<uint8_t>(src, n, env, match, blockN, xblocksi, mics, ddebug, bits_per_pixel);
+    checkCombedPlanarAnalyze_core<uint8_t>(vi, cthresh, _chroma, cpuFlags, metric, src, cmask);
+    return checkCombedPlanar_core<uint8_t>(src, n, match, blockN, xblocksi, mics, ddebug, bits_per_pixel);
   }
   else {
-    checkCombedPlanarAnalyze_core<uint16_t>(vi, cthresh, chroma, cpuFlags, metric, src, cmask);
-    return checkCombedPlanar_core<uint16_t>(src, n, env, match, blockN, xblocksi, mics, ddebug, bits_per_pixel);
+    checkCombedPlanarAnalyze_core<uint16_t>(vi, cthresh, _chroma, cpuFlags, metric, src, cmask);
+    return checkCombedPlanar_core<uint16_t>(src, n, match, blockN, xblocksi, mics, ddebug, bits_per_pixel);
   }
 }
 
 template<typename pixel_t>
-bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *env, int match,
+bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, int match,
   int *blockN, int &xblocksi, int *mics, bool ddebug, int bits_per_pixel)
 {
+  (void)src;
+  (void)n;
+  (void)ddebug;
+  (void)bits_per_pixel;
+
   const bool use_sse2 = (cpuFlags & CPUF_SSE2) ? true : false;
 
   const int cmk_pitch = cmask->GetPitch(0);
@@ -284,7 +290,7 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
   xblocksi = xblocks4;
   const int yblocks = ((Height + yhalf) >> yshift) + 1;
   const int arraysize = (xblocks*yblocks) << 2;
-  memset(cArray, 0, arraysize * sizeof(int));
+  memset(cArray.get(), 0, arraysize * sizeof(int));
 
   int Heighta = (Height >> (yshift - 1)) << (yshift - 1);
   if (Heighta == Height) Heighta = Height - yhalf;
@@ -300,10 +306,10 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
       {
         const int box1 = (x >> xshift) << 2;
         const int box2 = ((x + xhalf) >> xshift) << 2;
-        ++cArray[temp1 + box1 + 0];
-        ++cArray[temp1 + box2 + 1];
-        ++cArray[temp2 + box1 + 2];
-        ++cArray[temp2 + box2 + 3];
+        ++cArray.get()[temp1 + box1 + 0];
+        ++cArray.get()[temp1 + box2 + 1];
+        ++cArray.get()[temp2 + box1 + 2];
+        ++cArray.get()[temp2 + box2 + 3];
       }
     }
     cmkpp += cmk_pitch;
@@ -324,10 +330,10 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
         {
           const int box1 = (x >> xshift) << 2;
           const int box2 = ((x + xhalf) >> xshift) << 2;
-          cArray[temp1 + box1 + 0] += sum;
-          cArray[temp1 + box2 + 1] += sum;
-          cArray[temp2 + box1 + 2] += sum;
-          cArray[temp2 + box2 + 3] += sum;
+          cArray.get()[temp1 + box1 + 0] += sum;
+          cArray.get()[temp1 + box2 + 1] += sum;
+          cArray.get()[temp2 + box1 + 2] += sum;
+          cArray.get()[temp2 + box2 + 3] += sum;
         }
       }
     }
@@ -354,10 +360,10 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
         {
           const int box1 = (x >> xshift) << 2;
           const int box2 = ((x + xhalf) >> xshift) << 2;
-          cArray[temp1 + box1 + 0] += sum;
-          cArray[temp1 + box2 + 1] += sum;
-          cArray[temp2 + box1 + 2] += sum;
-          cArray[temp2 + box2 + 3] += sum;
+          cArray.get()[temp1 + box1 + 0] += sum;
+          cArray.get()[temp1 + box2 + 1] += sum;
+          cArray.get()[temp2 + box1 + 2] += sum;
+          cArray.get()[temp2 + box2 + 3] += sum;
         }
       }
     }
@@ -380,10 +386,10 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
       {
         const int box1 = (x >> xshift) << 2;
         const int box2 = ((x + xhalf) >> xshift) << 2;
-        cArray[temp1 + box1 + 0] += sum;
-        cArray[temp1 + box2 + 1] += sum;
-        cArray[temp2 + box1 + 2] += sum;
-        cArray[temp2 + box2 + 3] += sum;
+        cArray.get()[temp1 + box1 + 0] += sum;
+        cArray.get()[temp1 + box2 + 1] += sum;
+        cArray.get()[temp2 + box1 + 2] += sum;
+        cArray.get()[temp2 + box2 + 3] += sum;
       }
     }
     cmkpp += cmk_pitch*yhalf;
@@ -400,10 +406,10 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
       {
         const int box1 = (x >> xshift) << 2;
         const int box2 = ((x + xhalf) >> xshift) << 2;
-        ++cArray[temp1 + box1 + 0];
-        ++cArray[temp1 + box2 + 1];
-        ++cArray[temp2 + box1 + 2];
-        ++cArray[temp2 + box2 + 3];
+        ++cArray.get()[temp1 + box1 + 0];
+        ++cArray.get()[temp1 + box2 + 1];
+        ++cArray.get()[temp2 + box1 + 2];
+        ++cArray.get()[temp2 + box2 + 3];
       }
     }
     cmkpp += cmk_pitch;
@@ -412,9 +418,9 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
   }
   for (int x = 0; x < arraysize; ++x)
   {
-    if (cArray[x] > mics[match])
+    if (cArray.get()[x] > mics[match])
     {
-      mics[match] = cArray[x];
+      mics[match] = cArray.get()[x];
       blockN[match] = x;
     }
   }
@@ -440,24 +446,24 @@ bool TFM::checkCombedPlanar_core(PVideoFrame &src, int n, IScriptEnvironment *en
 template<typename pixel_t>
 void TFM::buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
   uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment *env)
+  int Width, int tpitch, int bits_per_pixel)
 {
-  buildABSDiffMask<pixel_t>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
+  buildABSDiffMask<pixel_t>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1);
   switch (bits_per_pixel) {
-  case 8: AnalyzeDiffMask_Planar<uint8_t, 8>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
-  case 10: AnalyzeDiffMask_Planar<uint16_t, 10>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
-  case 12: AnalyzeDiffMask_Planar<uint16_t, 12>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
-  case 14: AnalyzeDiffMask_Planar<uint16_t, 14>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
-  case 16: AnalyzeDiffMask_Planar<uint16_t, 16>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
+  case 8: AnalyzeDiffMask_Planar<uint8_t, 8>(dstp, dst_pitch, tbuffer.get(), tpitch, Width, Height); break;
+  case 10: AnalyzeDiffMask_Planar<uint16_t, 10>(dstp, dst_pitch, tbuffer.get(), tpitch, Width, Height); break;
+  case 12: AnalyzeDiffMask_Planar<uint16_t, 12>(dstp, dst_pitch, tbuffer.get(), tpitch, Width, Height); break;
+  case 14: AnalyzeDiffMask_Planar<uint16_t, 14>(dstp, dst_pitch, tbuffer.get(), tpitch, Width, Height); break;
+  case 16: AnalyzeDiffMask_Planar<uint16_t, 16>(dstp, dst_pitch, tbuffer.get(), tpitch, Width, Height); break;
   }
 }
 
 // instantiate
 template void TFM::buildDiffMapPlane_Planar<uint8_t>(const uint8_t* prvp, const uint8_t* nxtp,
   uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment* env);
+  int Width, int tpitch, int bits_per_pixel);
 template void TFM::buildDiffMapPlane_Planar<uint16_t>(const uint8_t* prvp, const uint8_t* nxtp,
   uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment* env);
+  int Width, int tpitch, int bits_per_pixel);
 
 

@@ -23,17 +23,19 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <cstring>
+#include <memory>
 #include "TFM.h"
 
 void TFM::parseD2V(IScriptEnvironment *env)
 {
-  int *valIn = NULL, error, D2Vformat, tff = -1, frames;
+  std::vector<int> valIn;
+  int error, D2Vformat, tff = -1, frames;
   bool found = false;
   char wfile[1024];
   error = D2V_initialize_array(valIn, D2Vformat, frames);
   if (error != 0)
   {
-    if (valIn != NULL) free(valIn);
     if (error == 1) env->ThrowError("TFM:  could not open specified d2v file!");
     else if (error == 2) env->ThrowError("TFM:  d2v file is not a d2v file or is of unsupported format!");
     else if (error == 3) env->ThrowError("TFM:  malloc failure (d2v)!");
@@ -52,7 +54,6 @@ void TFM::parseD2V(IScriptEnvironment *env)
   error = D2V_find_and_correct(valIn, found, tff);
   if (error != 0 || tff == -1)
   {
-    if (valIn != NULL) free(valIn);
     if (tff == -1) env->ThrowError("TFM:  unknown error (no entries in d2v file?)!");
     else if (error == 1) env->ThrowError("TFM:  illegal transition exists after fixing d2v file!");
     else if (error == 2) env->ThrowError("TFM:  ignored rff exists after fixing d2v file!");
@@ -79,10 +80,9 @@ void TFM::parseD2V(IScriptEnvironment *env)
     }
     if (flags != 3)
     {
-      if (*trimIn)
+      if (trimIn.size())
       {
-        error = fillTrimArray(env, frames);
-        if (valIn != NULL && error != 0) free(valIn);
+        error = fillTrimArray(frames);
         if (error == 1) env->ThrowError("TFM:  malloc failure (trimArray)!");
         else if (error == 2) env->ThrowError("TFM:  couldn't open trimIn file!");
         else if (error == 3) env->ThrowError("TFM:  error parsing trimIn file. " \
@@ -92,49 +92,41 @@ void TFM::parseD2V(IScriptEnvironment *env)
       }
       else if (frames != vi.num_frames)
       {
-        if (valIn != NULL) free(valIn);
-        env->ThrowError("TFM:  d2v frame count does not match filter frame count (%d vs %d)!",
+         env->ThrowError("TFM:  d2v frame count does not match filter frame count (%d vs %d)!",
           frames, vi.num_frames);
       }
       error = D2V_fill_d2vfilmarray(valIn, frames);
-      if (valIn != NULL) free(valIn);
-      if (error == 2) env->ThrowError("TFM:  malloc failure (d2vt)!");
+       if (error == 2) env->ThrowError("TFM:  malloc failure (d2vt)!");
       else if (error == 3) env->ThrowError("TFM:  malloc failure (d2vfilmarray, 2)!");
       else if (error != 0) env->ThrowError("TFM:  malloc failure (d2vfilmarray)!");
     }
-    else if (valIn != NULL) free(valIn);
     return;
   }
   error = D2V_get_output_filename(wfile);
   if (error != 0)
   {
-    if (valIn != NULL) free(valIn);
     env->ThrowError("TFM:  could not obtain output d2v filename!");
     return;
   }
   error = D2V_write_array(valIn, wfile);
   if (error != 0)
   {
-    if (valIn != NULL) free(valIn);
     if (error == 1) env->ThrowError("\tERROR:  could not open specified d2v file! Qutting...\n");
     else if (error == 2) env->ThrowError("\tERROR:  could not create output d2v file! Qutting...\n");
     else if (error == 3) env->ThrowError("\tERROR:  specified file is not a d2v file or is of unsupported format! Qutting...\n");
     return;
   }
-  if (valIn != NULL) free(valIn);
   env->ThrowError("TFM:  Illegal transitions found in dvd2avi project file!\n"
     "          Please use the fixed version that has been created\n"
     "          in the same directory as the original d2v file.");
 }
 
-int TFM::fillTrimArray(IScriptEnvironment *env, int frames)
+int TFM::fillTrimArray(int frames)
 {
-  trimArray = (bool *)malloc(frames * sizeof(bool));
-  if (trimArray == NULL) return 1;
-  memset(trimArray, 1, frames * sizeof(bool));
+  trimArray.resize(frames, 1); // bool array, default 1
   int x, y, v;
   char linein[81];
-  if (sscanf(trimIn, "%d,%d", &x, &y) == 2)
+  if (sscanf(trimIn.c_str(), "%d,%d", &x, &y) == 2)
   {
     if (x < 0 && abs(x) <= frames)
       x = frames + x;
@@ -147,9 +139,9 @@ int TFM::fillTrimArray(IScriptEnvironment *env, int frames)
   }
   else
   {
-    FILE *f = fopen(trimIn, "r");
-    if (f == NULL) return 2;
-    while (fgets(linein, 80, f) != 0)
+    FILE *f = tivtc_fopen(trimIn.c_str(), "r");
+    if (f == nullptr) return 2;
+    while (fgets(linein, 80, f) != nullptr)
     {
       sscanf(linein, "%d,%d", &x, &y);
       if (x < 0 && abs(x) <= frames)
@@ -170,7 +162,7 @@ int TFM::fillTrimArray(IScriptEnvironment *env, int frames)
   return 0;
 }
 
-int TFM::D2V_find_and_correct(int *array, bool &found, int &tff)
+int TFM::D2V_find_and_correct(std::vector<int> &array, bool &found, int &tff) const
 {
   found = false;
   tff = -1;
@@ -225,7 +217,7 @@ int TFM::D2V_find_and_correct(int *array, bool &found, int &tff)
   return D2V_check_final(array);
 }
 
-void TFM::D2V_find_fix(int a1, int a2, int sync, int &f1, int &f2, int &change)
+void TFM::D2V_find_fix(int a1, int a2, int sync, int &f1, int &f2, int &change) const
 {
   f1 = f2 = -1;
   if (sync >= 0)
@@ -262,7 +254,7 @@ void TFM::D2V_find_fix(int a1, int a2, int sync, int &f1, int &f2, int &change)
   }
 }
 
-bool TFM::D2V_check_illegal(int a1, int a2)
+bool TFM::D2V_check_illegal(int a1, int a2) const
 {
   if (a1 == 0 && a2 == 2) return true;
   else if (a1 == 0 && a2 == 3) return true;
@@ -275,7 +267,7 @@ bool TFM::D2V_check_illegal(int a1, int a2)
   return false;
 }
 
-int TFM::D2V_check_final(int *array)
+int TFM::D2V_check_final(const std::vector<int> &array) const
 {
   int i = 1, top = array[0] == 3 ? 1 : 0, bot = array[0] == 1 ? 1 : 0;
   while (array[i] != 9)
@@ -301,26 +293,18 @@ int TFM::D2V_check_final(int *array)
   return 0;
 }
 
-int TFM::D2V_initialize_array(int *&array, int &d2vtype, int &frames)
+int TFM::D2V_initialize_array(std::vector<int> &array, int &d2vtype, int &frames) const
 {
-  if (array != NULL) { free(array); array = NULL; }
+  FILE *ind2v = nullptr;
+  if (array.size() != 0) { array.resize(0); }
   int num = 0, num2 = 0, pass = 1, val, D2Vformat;
-  FILE *ind2v = NULL;
   char line[1025], *p;
 pass2_start:
-  ind2v = fopen(d2v, "r");
-  if (ind2v == NULL) return 1;
+  ind2v = tivtc_fopen(d2v.c_str(), "r");
+  if (ind2v == nullptr) return 1;
   if (pass == 2)
   {
-    array = (int *)malloc((num + 10) * sizeof(int));
-    if (array == NULL)
-    {
-      fclose(ind2v);
-      ind2v = NULL;
-      if (array != NULL) free(array);
-      return 3;
-    }
-    for (int k = 0; k < num + 10; ++k) array[k] = 9;
+    array.resize(num + 10, 9); // default 9
   }
   fgets(line, 1024, ind2v);
   D2Vformat = 0;
@@ -329,7 +313,6 @@ pass2_start:
     if (strncmp(line, "DGIndexProjectFile", 18) != 0)
     {
       fclose(ind2v);
-      ind2v = NULL;
       return 2;
     }
     sscanf(line, "DGIndexProjectFile%d", &D2Vformat);
@@ -344,7 +327,7 @@ pass2_start:
     D2Vformat += 3;
   }
   if (D2Vformat == 0) sscanf(line, "DVD2AVIProjectFile%d", &D2Vformat);
-  while (fgets(line, 1024, ind2v) != 0)
+  while (fgets(line, 1024, ind2v) != nullptr)
   {
     if (strncmp(line, "Location", 8) == 0) break;
   }
@@ -381,9 +364,8 @@ pass2_start:
       while (*p != ' ' && *p != '\n') p++;
       p++;
     }
-  } while ((fgets(line, 1024, ind2v) != 0) && line[0] > 47 && line[0] < 123);
+  } while ((fgets(line, 1024, ind2v) != nullptr) && line[0] > 47 && line[0] < 123);
   fclose(ind2v);
-  ind2v = NULL;
   if (pass == 1) { pass++; goto pass2_start; }
   d2vtype = D2Vformat;
   frames = 0;
@@ -398,14 +380,17 @@ pass2_start:
   return 0;
 }
 
-int TFM::D2V_write_array(int *array, char wfile[])
+int TFM::D2V_write_array(const std::vector<int> &array, char wfile[]) const
 {
   int num = 0, D2Vformat, val;
   char line[1025], *p, tbuf[16];
-  FILE *ind2v = fopen(d2v, "r");
-  if (ind2v == NULL) return 1;
-  FILE *outd2v = fopen(wfile, "w");
-  if (outd2v == NULL) return 2;
+  FILE *ind2v = tivtc_fopen(d2v.c_str(), "r");
+  if (ind2v == nullptr) return 1;
+  FILE *outd2v = tivtc_fopen(wfile, "w");
+  if (outd2v == nullptr) {
+    fclose(ind2v);
+    return 2;
+  }
   fgets(line, 1024, ind2v);
   D2Vformat = 0;
   if (strncmp(line, "DVD2AVIProjectFile", 18) != 0)
@@ -413,7 +398,7 @@ int TFM::D2V_write_array(int *array, char wfile[])
     if (strncmp(line, "DGIndexProjectFile", 18) != 0)
     {
       fclose(ind2v);
-      ind2v = NULL;
+      fclose(outd2v); 
       return 3;
     }
     sscanf(line, "DGIndexProjectFile%d", &D2Vformat);
@@ -421,7 +406,6 @@ int TFM::D2V_write_array(int *array, char wfile[])
     if (D2Vformat > 14)
     {
       fclose(ind2v);
-      ind2v = NULL;
       return 3;
     }
     */
@@ -429,7 +413,7 @@ int TFM::D2V_write_array(int *array, char wfile[])
   }
   if (D2Vformat == 0) sscanf(line, "DVD2AVIProjectFile%d", &D2Vformat);
   fputs(line, outd2v);
-  while (fgets(line, 1024, ind2v) != 0)
+  while (fgets(line, 1024, ind2v) != nullptr)
   {
     fputs(line, outd2v);
     if (strncmp(line, "Location", 8) == 0) break;
@@ -474,47 +458,45 @@ int TFM::D2V_write_array(int *array, char wfile[])
       p++;
     }
     fputs(line, outd2v);
-  } while ((fgets(line, 1024, ind2v) != 0) && line[0] > 47 && line[0] < 123);
+  } while ((fgets(line, 1024, ind2v) != nullptr) && line[0] > 47 && line[0] < 123);
   fputs(line, outd2v);
-  while (fgets(line, 1024, ind2v) != 0) fputs(line, outd2v);
+  while (fgets(line, 1024, ind2v) != nullptr) fputs(line, outd2v);
   fclose(ind2v);
-  ind2v = NULL;
   fclose(outd2v);
-  outd2v = NULL;
   return 0;
 }
 
-int TFM::D2V_get_output_filename(char wfile[])
+int TFM::D2V_get_output_filename(char wfile[]) const
 {
-  FILE *outd2v = NULL;
-  strcpy(wfile, d2v);
+  FILE *outd2v = nullptr;
+  strcpy(wfile, d2v.c_str());
   char *p = wfile;
   while (*p != 0) p++;
   while (*p != 46) p--;
   *p++ = '-'; *p++ = 'F'; *p++ = 'I'; *p++ = 'X'; *p++ = 'E'; *p++ = 'D';
-  *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = '\0';
+  *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = 0;
   bool checking = true;
   int inT = 1;
   while (checking && inT < 100)
   {
-    outd2v = fopen(wfile, "r");
-    if (outd2v != NULL)
+    outd2v = tivtc_fopen(wfile, "r");
+    if (outd2v != nullptr)
     {
       fclose(outd2v);
-      outd2v = NULL;
+      outd2v = nullptr;
       p = wfile;
       while (*p != 0) p++;
       while (*p != 46) p--;
       if (inT == 1)
       {
         *p++ = '_'; *p++ = inT + '0'; *p++ = '.'; *p++ = 'd';
-        *p++ = '2'; *p++ = 'v'; *p = '\0';
+        *p++ = '2'; *p++ = 'v'; *p = 0;
       }
       else if (inT < 10)
       {
         p--;
         *p++ = inT + '0'; *p++ = '.'; *p++ = 'd';
-        *p++ = '2'; *p++ = 'v'; *p = '\0';
+        *p++ = '2'; *p++ = 'v'; *p = 0;
       }
       else if (inT < 100)
       {
@@ -522,14 +504,14 @@ int TFM::D2V_get_output_filename(char wfile[])
         if (inT > 10) p--;
         *p++ = ((inT / 10) % 10) + '0';
         *p++ = (inT % 10) + '0';
-        *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = '\0';
+        *p++ = '.'; *p++ = 'd'; *p++ = '2'; *p++ = 'v'; *p = 0;
       }
       else return 1;
       ++inT;
     }
     else checking = false;
   }
-  outd2v = fopen(wfile, "w");
+  outd2v = tivtc_fopen(wfile, "w");
   if (outd2v == NULL) return 2;
   fclose(outd2v);
   // delete file
@@ -541,13 +523,11 @@ int TFM::D2V_get_output_filename(char wfile[])
   return 0;
 }
 
-int TFM::D2V_fill_d2vfilmarray(int *array, int frames)
+int TFM::D2V_fill_d2vfilmarray(const std::vector<int> &array, int frames)
 {
   int i = 0, v, fields = 0, val, outpattern = 0;
-  if (d2vfilmarray != NULL) { free(d2vfilmarray); d2vfilmarray = NULL; }
-  d2vfilmarray = (uint8_t *)malloc((frames + 1) * sizeof(unsigned char));
-  if (d2vfilmarray == NULL) return 1;
-  memset(d2vfilmarray, 0, (frames + 1) * sizeof(unsigned char));
+  if (d2vfilmarray.size()) { d2vfilmarray.resize(0); }
+  d2vfilmarray.resize(frames + 1, 0);
   while (array[i] != 9)
   {
     val = array[i];
@@ -592,11 +572,9 @@ int TFM::D2V_fill_d2vfilmarray(int *array, int frames)
     OutputDebugString(buf);
   }
   if (flags == 0) d2vpercent = -20.0;
-  if (*trimIn && trimArray != NULL)
+  if (trimIn.size() && trimArray.size())
   {
-    uint8_t *d2vt = (uint8_t*)malloc(vi.num_frames * sizeof(unsigned char));
-    if (d2vt == NULL) return 2;
-    memset(d2vt, 0, vi.num_frames * sizeof(unsigned char));
+    std::vector<uint8_t> d2vt(vi.num_frames, 0);
     for (v = 0, i = 0; i <= nfrms && v < frames; ++v)
     {
       if (trimArray[v])
@@ -605,22 +583,15 @@ int TFM::D2V_fill_d2vfilmarray(int *array, int frames)
         else ++i;
       }
     }
-    free(d2vfilmarray);
-    d2vfilmarray = (uint8_t*)malloc(vi.num_frames * sizeof(unsigned char));
-    if (d2vfilmarray == NULL)
-    {
-      free(d2vt);
-      return 3;
-    }
-    memcpy(d2vfilmarray, d2vt, vi.num_frames * sizeof(unsigned char));
-    free(d2vt);
-    free(trimArray);
-    trimArray = NULL;
+    d2vfilmarray.resize(0);
+    d2vfilmarray.resize(vi.num_frames);
+    memcpy(d2vfilmarray.data(), d2vt.data(), vi.num_frames * sizeof(unsigned char));
+    trimArray.resize(0);   
   }
   return 0;
 }
 
-bool TFM::checkInPatternD2V(int *array, int i)
+bool TFM::checkInPatternD2V(const std::vector<int> &array, int i) const
 {
   if (array[i + 1] == 9
     && i > 3 && checkD2VCase((array[i - 4] << 12) + (array[i - 3] << 8) + (array[i - 2] << 4) + array[i - 1])
@@ -642,7 +613,7 @@ bool TFM::checkInPatternD2V(int *array, int i)
   return false;
 }
 
-bool TFM::checkD2VCase(int check)
+bool TFM::checkD2VCase(int check) const
 {
   switch (check)
   {

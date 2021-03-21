@@ -221,16 +221,16 @@ PVideoFrame TDeinterlace::GetFrameYUY2(int n, IScriptEnvironment* env, bool &wdt
         PVideoFrame nxte = emtn->GetFrame(n < nfrms ? n + 1 : nfrms, env);
         PVideoFrame nxt2e = emtn->GetFrame(n < nfrms - 1 ? n + 2 : n < nfrms ? n + 1 : nfrms, env);
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, true /*yuy2*/, env);
+          createMotionMap4_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, true /*yuy2*/);
         else
-          createMotionMap5_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, true /*yuy2*/, env);
+          createMotionMap5_PlanarOrYUY2(prv2e, prve, srce, nxte, nxt2e, mask, n, true /*yuy2*/);
       }
       else
       {
         if (mtnmode == 0 || mtnmode == 2)
-          createMotionMap4_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, true /*yuy2*/, env);
+          createMotionMap4_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, true /*yuy2*/);
         else
-          createMotionMap5_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, true /* yuy2*/, env);
+          createMotionMap5_PlanarOrYUY2(prv2, prv, src, nxt, nxt2, mask, n, true /* yuy2*/);
       }
     }
     else env->ThrowError("TDeint:  an unknown error occured!");
@@ -1469,7 +1469,7 @@ void TDeinterlace::apPostCheck(PVideoFrame &dst, PVideoFrame &mask, PVideoFrame 
   if (APType > 0)
   {
     maskt = env->NewVideoFrame(vi_mask); // v1.6 was: vi_saved
-    copyFrame(maskt, mask, vi_mask, env);
+    copyFrame(maskt, mask, vi_mask);
   }
   int count = 0;
 

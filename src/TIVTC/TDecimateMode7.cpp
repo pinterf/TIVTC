@@ -49,7 +49,7 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, const Video
     {
       if (metricsOutArray[i << 1] == UINT64_MAX)
       {
-        if (metricsArray != NULL && metricsArray[i << 1] != UINT64_MAX)
+        if (metricsArray.size() && metricsArray[i << 1] != UINT64_MAX)
           metricsOutArray[i << 1] = metricsArray[i << 1];
         else
         {
@@ -204,7 +204,7 @@ int TDecimate::diff_f(int f1, int f2, IScriptEnvironment *env)
   return mx;
 }
 
-int TDecimate::mode7_analysis(int n, IScriptEnvironment *env)
+int TDecimate::mode7_analysis(int n, IScriptEnvironment *env) const
 {
   uint64_t vals[3] = { UINT64_MAX, UINT64_MAX, UINT64_MAX };
   if (n == 0) return 2;

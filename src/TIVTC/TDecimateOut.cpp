@@ -169,9 +169,9 @@ void TDecimate::formatMatches(Cycle &current, Cycle &previous)
   strcat(buf, "\n");
 }
 
-void TDecimate::addMetricCycle(Cycle &j)
+void TDecimate::addMetricCycle(const Cycle &j)
 {
-  if (metricsOutArray == NULL) return;
+  if (metricsOutArray.size() == 0) return;
   int i = j.cycleS, p = j.frameSO;
   for (; i < j.cycleE; ++i, ++p)
   {

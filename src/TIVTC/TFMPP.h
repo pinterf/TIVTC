@@ -23,6 +23,7 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#include <vector>
 #include <math.h>
 #define TFMPP_INCLUDED
 #ifndef TFM_INCLUDED
@@ -79,7 +80,7 @@ private:
 
   char buf[512];
   int PP, mthresh;
-  const char* ovr;
+  std::string ovr;
   bool display;
   PClip clip2;
   bool usehints;
@@ -88,18 +89,16 @@ private:
   int PP_origSaved;
   int mthresh_origSaved;
   int nfrms;
-  int setArraySize;
-  int* setArray;
+  std::vector<int> setArray;
   PlanarFrame *mmask;
 
   void buildMotionMask(PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt,
-    PlanarFrame *mask, int use, const VideoInfo& vi, IScriptEnvironment *env);
+    PlanarFrame *mask, int use, const VideoInfo& vi) const;
   template<typename pixel_t>
   void buildMotionMask_core(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
-    PlanarFrame* mask, int use, const VideoInfo& vi, IScriptEnvironment* env);
+    PlanarFrame* mask, int use, const VideoInfo& vi) const;
   void maskClip2(PVideoFrame &src, PVideoFrame &deint, PlanarFrame *mask,
-
-    PVideoFrame &dst, const VideoInfo& vi, IScriptEnvironment *env);
+    PVideoFrame &dst, const VideoInfo& vi) const;
 
   void putHint(const VideoInfo& vi, PVideoFrame& dst, int field, unsigned int hint);
   template<typename pixel_t>
@@ -110,43 +109,43 @@ private:
 
   void getSetOvr(int n);
 
-  void denoiseYUY2(PlanarFrame *mask);
-  void denoisePlanar(PlanarFrame *mask);
+  void denoiseYUY2(PlanarFrame *mask) const;
+  void denoisePlanar(PlanarFrame *mask) const;
 
-  void linkYUY2(PlanarFrame *mask);
+  void linkYUY2(PlanarFrame *mask) const;
   template<int planarType>
-  void linkPlanar(PlanarFrame *mask);
+  void linkPlanar(PlanarFrame *mask) const;
 
   void destroyHint(const VideoInfo &vi, PVideoFrame &dst, unsigned int hint);
   template<typename pixel_t>
   void destroyHint_core(PVideoFrame& dst, unsigned int hint);
 
   void BlendDeint(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst,
-    bool nomask, const VideoInfo& vi, IScriptEnvironment* env);
+    bool nomask, const VideoInfo& vi) const;
   template<typename pixel_t>
   void BlendDeint_core(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst,
-    bool nomask, const VideoInfo& vi, IScriptEnvironment* env);
+    bool nomask, const VideoInfo& vi) const;
 
   void CubicDeint(PVideoFrame &src, PlanarFrame *mask, PVideoFrame &dst, bool nomask,
-    int field, const VideoInfo &vi, IScriptEnvironment *env);
+    int field, const VideoInfo &vi) const;
   template<typename pixel_t, int bits_per_pixel>
   void CubicDeint_core(PVideoFrame& src, PlanarFrame* mask, PVideoFrame& dst, bool nomask,
-    int field, const VideoInfo& vi, IScriptEnvironment* env);
+    int field, const VideoInfo& vi) const;
 
-  void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);
+  void elaDeint(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi) const;
   // not the same as in tdeinterlace.
   template<typename pixel_t, int bits_per_pixel>
-  void elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi);
-  void elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field);
+  void elaDeintPlanar(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field, const VideoInfo &vi) const;
+  void elaDeintYUY2(PVideoFrame &dst, PlanarFrame *mask, PVideoFrame &src, bool nomask, int field) const;
 
-  void copyField(PVideoFrame &dst, PVideoFrame &src, IScriptEnvironment *env, const VideoInfo &vi, int field);
+  void copyField(PVideoFrame &dst, PVideoFrame &src, const VideoInfo &vi, int field) const;
   void buildMotionMask1_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
-    uint8_t *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width, int height, long cpu);
+    uint8_t *dstp, int s1_pitch, int s2_pitch, int dst_pitch, int width, int height) const;
   void buildMotionMask2_SSE2(const uint8_t *srcp1, const uint8_t *srcp2,
     const uint8_t *srcp3, uint8_t *dstp, int s1_pitch, int s2_pitch,
-    int s3_pitch, int dst_pitch, int width, int height, long cpu);
+    int s3_pitch, int dst_pitch, int width, int height) const;
 
-  void writeDisplay(PVideoFrame& dst, const VideoInfo& vi, int n, int field);
+  void writeDisplay(PVideoFrame& dst, const VideoInfo& vi, int n, int field) const;
 
 public:
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env) override;

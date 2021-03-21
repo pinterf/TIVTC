@@ -3,12 +3,20 @@
 
 #include "avisynth.h"
 #include "avs/config.h"
+#include <cstring>
+
+#include <stdexcept>
+#include <cstring>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #ifndef _WIN32
 #define OutputDebugString(x)
 #endif
 
-#if defined(GCC) || (defined(CLANG) && !defined(_WIN32))
+#if (defined(GCC) || defined(CLANG)) && !defined(_WIN32)
 #include <stdlib.h>
 #define _aligned_malloc(size, alignment) aligned_alloc(alignment, size)
 #define _aligned_free(ptr) free(ptr)
@@ -26,5 +34,47 @@
 // these settings control whether the included code comes from old asm or newer simd/C rewrites
 #define USE_C_NO_ASM
 // USE_C_NO_ASM: inline non-simd asm
+
+class TIVTCError : public std::runtime_error {
+  using std::runtime_error::runtime_error;
+};
+
+constexpr int ISP = 0x00000000; // p
+constexpr int ISC = 0x00000001; // c
+constexpr int ISN = 0x00000002; // n
+constexpr int ISB = 0x00000003; // b
+constexpr int ISU = 0x00000004; // u
+constexpr int ISDB = 0x00000005; // l = (deinterlaced c bottom field)
+constexpr int ISDT = 0x00000006; // h = (deinterlaced c top field)
+
+#define MTC(n) n == 0 ? 'p' : n == 1 ? 'c' : n == 2 ? 'n' : n == 3 ? 'b' : n == 4 ? 'u' : \
+               n == 5 ? 'l' : n == 6 ? 'h' : 'x'
+
+constexpr int TOP_FIELD = 0x00000008;
+constexpr int COMBED = 0x00000010;
+constexpr int D2VFILM = 0x00000020;
+
+constexpr int FILE_COMBED = 0x00000030;
+constexpr int FILE_NOTCOMBED = 0x00000020;
+constexpr int FILE_ENTRY = 0x00000080;
+constexpr int FILE_D2V = 0x00000008;
+constexpr int D2VARRAY_DUP_MASK = 0x03;
+constexpr int D2VARRAY_MATCH_MASK = 0x3C;
+
+constexpr int DROP_FRAME = 0x00000001; // ovr array - bit 1
+constexpr int KEEP_FRAME = 0x00000002; // ovr array - 2
+constexpr int FILM = 0x00000004; // ovr array - bit 3
+constexpr int VIDEO = 0x00000008; // ovr array - bit 4
+constexpr int ISMATCH = 0x00000070; // ovr array - bits 5-7
+constexpr int ISD2VFILM = 0x00000080; // ovr array - bit 8
+
+#define cfps(n) n == 1 ? "119.880120" : n == 2 ? "59.940060" : n == 3 ? "39.960040" : \
+				n == 4 ? "29.970030" : n == 5 ? "23.976024" : "unknown"
+
+constexpr uint32_t MAGIC_NUMBER = 0xdeadfeed;
+constexpr uint32_t MAGIC_NUMBER_2 = 0xdeadbeef;
+
+FILE *tivtc_fopen(const char *name, const char *mode);
+void BitBlt(uint8_t* dstp, int dst_pitch, const uint8_t* srcp, int src_pitch, int row_size, int height);
 
 #endif  // __Internal_H__

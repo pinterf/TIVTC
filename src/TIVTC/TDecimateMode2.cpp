@@ -106,7 +106,7 @@ PVideoFrame TDecimate::GetFrameMode2(int n, IScriptEnvironment *env, const Video
   return clip2->GetFrame(ret, env);
 }
 
-int TDecimate::getNonDecMode2(int n, int start, int stop)
+int TDecimate::getNonDecMode2(int n, int start, int stop) const
 {
   int count = -1, ret = -1;
   for (int i = start; i < stop; ++i)
@@ -203,7 +203,7 @@ void TDecimate::removeMinN(int m, int n, int start, int stop)
     }
     if (t > 0)
     {
-      sortMetrics(mode2_metrics, mode2_order, t);
+      sortMetrics(mode2_metrics.data(), mode2_order.data(), t);
       for (int i = 0; i < t && dec < m; ++i)
       {
         if (mode2_decA[x + mode2_order[t - 1 - i]] != 1)
@@ -219,7 +219,7 @@ void TDecimate::removeMinN(int m, int n, int start, int stop)
       mode2_order[i] = i;
       mode2_metrics[i] = metricsOutArray[(x + i) << 1];
     }
-    sortMetrics(mode2_metrics, mode2_order, n);
+    sortMetrics(mode2_metrics.data(), mode2_order.data(), n);
     for (int i = 0; i < stop2 && dec < m; ++i)
     {
       if (mode2_decA[x + mode2_order[i]] != 1)
@@ -242,7 +242,7 @@ void TDecimate::removeMinN(int m, int n, uint64_t *metricsT, int *orderT, int &o
       if (m < 1) continue;
       stop2 = nfrms - x + 1;
     }
-    if (ovrC > 0 && ovrArray != NULL)
+    if (ovrC > 0 && ovrArray.size())
     {
       for (int i = 0; i < stop2; ++i)
       {
@@ -323,7 +323,7 @@ void TDecimate::removeMinN(int m, int n, uint64_t *metricsT, int *orderT, int &o
   }
 }
 
-void TDecimate::sortMetrics(uint64_t *metrics, int *order, int length)
+void TDecimate::sortMetrics(uint64_t *metrics, int *order, int length) const
 {
   for (int i = 1; i < length; ++i)
   {
@@ -341,7 +341,7 @@ void TDecimate::sortMetrics(uint64_t *metrics, int *order, int length)
   }
 }
 
-int TDecimate::findDivisor(double decRatio, int min_den)
+int TDecimate::findDivisor(double decRatio, int min_den) const
 {
   int ret = -20;
   double num = 1.0, lowest = 5.0;
@@ -359,7 +359,7 @@ int TDecimate::findDivisor(double decRatio, int min_den)
   return ret;
 }
 
-int TDecimate::findNumerator(double decRatio, int divisor)
+int TDecimate::findNumerator(double decRatio, int divisor) const
 {
   int ret = -20;
   double den = (double)divisor, lowest = 5.0;
@@ -377,7 +377,7 @@ int TDecimate::findNumerator(double decRatio, int divisor)
   return ret;
 }
 
-double TDecimate::findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env)
+double TDecimate::findCorrectionFactors(double decRatio, int num, int den, int rc[10], IScriptEnvironment *env) const
 {
   double approx = ((double)num) / ((double)den);
   memset(rc, 0, 10 * sizeof(int));
@@ -439,7 +439,7 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
   if (rstart == -20) rstart = 11;
   mode2_numCycles = (int)((double)vi.num_frames / (double)clength + 1.0);
   bool allMetrics = true;
-  if (metricsArray != NULL)
+  if (metricsArray.size())
   {
     for (int h = 0; h < vi.num_frames * 2; h += 2)
     {
@@ -447,32 +447,30 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
     }
   }
   else allMetrics = false;
-  if (aLUT != NULL) free(aLUT);
+  if (aLUT.size()) aLUT.resize(0);
   if (allMetrics)
   {
-    aLUT = (int *)malloc(((int)(vi.num_frames*rate / fps)) * sizeof(int));
-    if (aLUT == NULL) env->ThrowError("TDecimate:  mode 2 error, malloc failure (aLUT)!");
-    memset(aLUT, 0, ((int)(vi.num_frames*rate / fps)) * sizeof(int));
-    int *orderT = (int *)malloc(vi.num_frames * sizeof(int));
-    if (orderT == NULL) env->ThrowError("TDecimate:  mode 2 error, malloc failure (orderT)!");
-    memset(orderT, 0, vi.num_frames * sizeof(int));
-    uint64_t *metricsT = (uint64_t *)malloc(vi.num_frames * sizeof(uint64_t));
-    if (metricsT == NULL) env->ThrowError("TDecimate:  mode 2 error, malloc failure (metricsT)!");
-    memset(metricsT, 0, vi.num_frames * sizeof(uint64_t));
-    memset(mode2_decA, 0, vi.num_frames * sizeof(int));
+    aLUT.resize((int)(vi.num_frames*rate / fps), 0);
+
+    std::vector<int> orderT(vi.num_frames, 0);
+    std::vector<uint64_t> metricsT(vi.num_frames, 0);
+    memset(mode2_decA.data(), 0, vi.num_frames * sizeof(int));
+
+
+    memset(mode2_decA.data(), 0, vi.num_frames * sizeof(int));
     int ovrC = 0;
-    if (ovrArray != NULL)
+    if (ovrArray.size())
     {
       for (int i = 0; i < vi.num_frames; ++i)
       {
         if (ovrArray[i] & DROP_FRAME) ++ovrC;
       }
     }
-    removeMinN(mode2_num, mode2_den, metricsT, orderT, ovrC);
+    removeMinN(mode2_num, mode2_den, metricsT.data(), orderT.data(), ovrC);
     for (int x = 0; x < 10; ++x)
     {
       if (rc[x] > 0)
-        removeMinN(1, rc[x], metricsT, orderT, ovrC);
+        removeMinN(1, rc[x], metricsT.data(), orderT.data(), ovrC);
     }
     int v = 0, tc = (int)(vi.num_frames*aRate / fps);
     for (int i = 0; i < vi.num_frames && v < tc; ++i)
@@ -483,10 +481,7 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
         ++v;
       }
     }
-    free(orderT);
-    free(metricsT);
-    free(mode2_decA);
-    mode2_decA = NULL;
+    mode2_decA.resize(0);
     if (debug)
     {
       sprintf(buf, "drop count = %d  expected = %d\n", vi.num_frames - v,
@@ -497,8 +492,7 @@ double TDecimate::buildDecStrategy(IScriptEnvironment *env)
   }
   else
   {
-    aLUT = (int *)malloc(mode2_numCycles * 5 * sizeof(int));
-    memset(aLUT, 0, mode2_numCycles * 5 * sizeof(int));
+    aLUT.resize(mode2_numCycles * 5, 0);
     int temp = 0;
     for (int x = 0; x < 10; ++x)
     {

@@ -29,7 +29,7 @@
 #include "emmintrin.h"
 
 // HBD ready inside
-void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos, IScriptEnvironment *env)
+void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &dst, int pos)
 {
   const bool use_sse2 = cpuFlags & CPUF_SSE2;
 
@@ -82,7 +82,7 @@ void TDeinterlace::absDiff(PVideoFrame &src1, PVideoFrame &src2, PVideoFrame &ds
 
 template<typename pixel_t>
 void TDeinterlace::buildABSDiffMask(const uint8_t *prvp, const uint8_t *nxtp,
-  int prv_pitch, int nxt_pitch, int tpitch, int width, int height, IScriptEnvironment *env)
+  int prv_pitch, int nxt_pitch, int tpitch, int width, int height)
 {
   do_buildABSDiffMask<pixel_t>(prvp, nxtp, tbuffer, prv_pitch, nxt_pitch, tpitch, width, height, false, cpuFlags);
 }
@@ -90,9 +90,9 @@ void TDeinterlace::buildABSDiffMask(const uint8_t *prvp, const uint8_t *nxtp,
 template<typename pixel_t>
 void TDeinterlace::buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
   uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment *env)
+  int Width, int tpitch, int bits_per_pixel)
 {
-  buildABSDiffMask<pixel_t>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1, env);
+  buildABSDiffMask<pixel_t>(prvp - prv_pitch, nxtp - nxt_pitch, prv_pitch, nxt_pitch, tpitch, Width, Height >> 1);
   switch (bits_per_pixel) {
   case 8: AnalyzeDiffMask_Planar<uint8_t, 8>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
   case 10: AnalyzeDiffMask_Planar<uint16_t, 10>(dstp, dst_pitch, tbuffer, tpitch, Width, Height); break;
@@ -104,15 +104,15 @@ void TDeinterlace::buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *
 // instantiate
 template void TDeinterlace::buildDiffMapPlane_Planar<uint8_t>(const uint8_t* prvp, const uint8_t* nxtp,
   uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment* env);
+  int Width, int tpitch, int bits_per_pixel);
 template void TDeinterlace::buildDiffMapPlane_Planar<uint16_t>(const uint8_t* prvp, const uint8_t* nxtp,
   uint8_t* dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, int bits_per_pixel, IScriptEnvironment* env);
+  int Width, int tpitch, int bits_per_pixel);
 
 
 void TDeinterlace::buildDiffMapPlaneYUY2(const uint8_t *prvp, const uint8_t *nxtp,
   uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
-  int Width, int tpitch, IScriptEnvironment *env)
+  int Width, int tpitch)
 {
   // Original v1.1: YUY2 was with chroma, but planar with no chroma.
   // v1.2: make it consistent with planar case.

@@ -19,6 +19,7 @@
 // multiline
 // multiple size, multiple fonts, "Terminus", "info_h"
 
+#include "avs/config.h"
 #include "info.h"
 
 #ifdef AVS_WINDOWS
@@ -1460,7 +1461,7 @@ void setBlack(PVideoFrame& dst, const VideoInfo& vi)
     else
     {
       const int width = dst->GetRowSize(plane) >> 1;
-      for (int y = 0; y < height; ++y)
+      for (int y = 0; y < (int)height; ++y)
       {
         for (int x = 0; x < width; ++x)
           ((uint16_t*)dstp)[x] = 0x8000;

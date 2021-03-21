@@ -22,6 +22,7 @@
 #ifndef __INFO_H__
 #define __INFO_H__
 
+#include "avs/config.h"
 #ifdef AVS_LINUX
 #include <uchar.h>
 #endif

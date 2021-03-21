@@ -36,7 +36,7 @@ AVSValue TFM::ConditionalIsCombedTIVTC(int n, IScriptEnvironment* env)
   int mics[5] = { -20, -20, -20, -20, -20 };
   int blockN[5] = { -20, -20, -20, -20, -20 };
   PVideoFrame frame = child->GetFrame(n, env);
-  return checkCombed(frame, n, env, vi, 1, blockN, xblocks, mics, false, chroma, cthresh);
+  return checkCombed(frame, n, vi, 1, blockN, xblocks, mics, false, chroma, cthresh);
 }
 
 AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnvironment* env)

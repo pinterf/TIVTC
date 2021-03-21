@@ -130,7 +130,7 @@ static void blend_uint16_SSE4(uint8_t* dstp, const uint8_t* srcp1, const uint8_t
   auto max_pixel_value_128 = _mm_set1_epi16((short)max_pixel_value);
 
   for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width * sizeof(uint16_t); x += 16) {
+    for (int x = 0; x < width * (int)sizeof(uint16_t); x += 16) {
       auto src1 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp1 + x));
       auto src2 = _mm_load_si128(reinterpret_cast<const __m128i*>(srcp2 + x));
 

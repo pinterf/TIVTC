@@ -23,6 +23,9 @@
 **   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+#ifndef CYCLE_H
+#define CYCLE_H
+
 /*
 ** This class stores all the individual cycle
 ** info for TDecimate and provides some useful methods.
@@ -52,6 +55,7 @@
 #include <limits.h>
 #include "profUtil.h"
 #include "stdint.h"
+#include <vector>
 
 class IScriptEnvironment;
 
@@ -97,7 +101,7 @@ public:
   void setDecimateLow(int num, IScriptEnvironment *env);
   void setLowest(bool exludeD);
   void setDups(double thresh);
-  void setDupsMatches(Cycle &p, uint8_t *marray);
+  void setDupsMatches(Cycle &p, const std::vector<uint8_t> &marray);
   void setDecimateLowP(int num, IScriptEnvironment *env);
   void setIsFilmD2V();
   int sceneDetect(uint64_t thresh);
@@ -112,3 +116,5 @@ public:
   ~Cycle();
   Cycle& operator=(Cycle& ob2);
 };
+
+#endif // CYCLE_H
