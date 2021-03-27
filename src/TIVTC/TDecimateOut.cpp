@@ -73,6 +73,7 @@ void TDecimate::debugOutput1(int n, bool film, int blend)
     if (cycleR > 1 || blend == 3) sprintf(buf, "TDecimate:  %d:  Dropping Frames:", n);
     else sprintf(buf, "TDecimate:  %d:  Dropping Frame:", n);
     formatDecs(curr);
+    strcat(buf, "\n");
   }
   else sprintf(buf, "TDecimate:  %d:  VIDEO\n", n);
   _OutputDebugString(buf);
