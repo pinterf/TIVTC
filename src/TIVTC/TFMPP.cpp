@@ -1156,7 +1156,7 @@ void TFMPP::copyField(PVideoFrame &dst, PVideoFrame &src, const VideoInfo& vi, i
     if (field == 0)
       BitBlt(dst->GetWritePtr(plane), dst_pitch, src->GetReadPtr(plane) + src_pitch, 
         src_pitch, src->GetRowSize(plane), 1);
-      BitBlt(dst->GetWritePtr(plane) + dst_pitch *(1 - field),
+    BitBlt(dst->GetWritePtr(plane) + dst_pitch *(1 - field),
       dst->GetPitch(plane) * 2, src->GetReadPtr(plane) + src_pitch *(1 - field),
       src->GetPitch(plane) * 2, src->GetRowSize(plane), src->GetHeight(plane) >> 1);
     if (field == 1)
