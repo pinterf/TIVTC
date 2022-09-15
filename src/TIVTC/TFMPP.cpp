@@ -173,9 +173,14 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     }
   }
   if (display) writeDisplay(dst, vi, n, fieldSrc);
-  // FIXME: VapourSynth port version doesn't write hint properties. Why?
-  if (usehints) putHint(vi, dst, fieldSrc, hint);
-  else destroyHint(vi, dst, hint);
+  // VapourSynth port version doesn't write hint properties. Why?
+  // Probably frame props are preserved - unlike bitmapped hints
+  if (usehints) {
+    if (!has_props) putHint(vi, dst, fieldSrc, hint);
+  }
+  else {
+    if (!has_props) destroyHint(vi, dst, hint);
+  }
   return dst;
 }
 
