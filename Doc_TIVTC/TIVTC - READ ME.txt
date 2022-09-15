@@ -1,5 +1,6 @@
 
                            TIVTC v1.0.26   HELP FILE - (22 February, 2021)
+                                 work in progress: v1.0.27 (15 September, 2022)
 
 INFO:
    Based on TIVTC v1.0.5   HELP FILE - (08 January, 2008)
@@ -39,6 +40,7 @@ INFO:
   - Greyscale and planar YUV colorspaces (4:1:1, 4:2:0, 4:2:2, 4:4:4)
     (YUY2 support was held, note that planar YV16 and YUY2 is losslessly convertables into each other)
 
+  1.0.27: (15 Sept 2022): test version Work In Progress for frame properties
   
   Project (along with TDeint) is hosted at https://github.com/pinterf/TIVTC
 
