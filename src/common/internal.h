@@ -80,4 +80,30 @@ constexpr uint32_t MAGIC_NUMBER_2 = 0xdeadbeef;
 FILE *tivtc_fopen(const char *name, const char *mode);
 void BitBlt(uint8_t* dstp, int dst_pitch, const uint8_t* srcp, int src_pitch, int row_size, int height);
 
+// Frame properties set by TFM:
+// #define PROP_TFMDisplay "TFMDisplay"
+#define PROP_TFMMATCH "TFMMatch"
+#define PROP_TFMMics "TFMMics"
+#define PROP_Combed "_Combed"
+#define PROP_TFMD2VFilm "TFMD2VFilm"
+#define PROP_TFMField "TFMField"
+#define PROP_TFMPP "TFMPP"
+
+// Frame properties set by TDecimate:
+// #define PROP_TDecimateDisplay "TDecimateDisplay"
+#define PROP_TDecimateCycleStart "TDecimateCycleStart"
+#define PROP_TDecimateCycleMaxBlockDiff "TDecimateCycleMaxBlockDiff" // uint64_t[]
+#define PROP_TDecimateOriginalFrame "TDecimateOriginalFrame"
+#define PROP_DurationNum "_DurationNum"
+#define PROP_DurationDen "_DurationDen"
+
+/* converts an int64 to int with saturation, useful to silence warnings when reading int properties among other things */
+static inline int int64ToIntS(int64_t i) {
+  if (i > INT_MAX)
+    return INT_MAX;
+  else if (i < INT_MIN)
+    return INT_MIN;
+  else return (int)i;
+}
+
 #endif  // __Internal_H__

@@ -40,12 +40,25 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
   int fieldSrc, field;
   unsigned int hint;
   PVideoFrame src = child->GetFrame(n, env);
-  bool res = getHint(vi, src, fieldSrc, combed, hint);
+  bool has_hint = false;
+  bool has_props = false;
+#ifdef DONT_USE_FRAMEPROPS
+  has_hint = getHint(vi, src, fieldSrc, combed, hint);
+#else
+  if(has_at_least_v8) {
+    has_hint = getProperties(src, fieldSrc, combed, env);  // try frame props first
+    has_props = true;
+  }
+  if(!has_hint)
+    has_hint = getHint(vi, src, fieldSrc, combed, hint);
+#endif
   if (!combed)
   {
-    if (usehints || !res) return src;
-    env->MakeWritable(&src);
-    destroyHint(vi, src, hint);
+    if (usehints || !has_hint) return src;
+    if(!has_props) { // destroy hint only if real hints not frame props
+      env->MakeWritable(&src);
+      destroyHint(vi, src, hint);
+    }
     return src;
   }
   getSetOvr(n);
@@ -55,10 +68,26 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     int use = 0;
     unsigned int hintt;
     PVideoFrame prv = child->GetFrame(n > 0 ? n - 1 : 0, env);
+#ifdef DONT_USE_FRAMEPROPS
     getHint(vi, prv, field, combed, hintt);
+#else
+    has_hint = false;
+    if (has_at_least_v8)
+      has_hint = getProperties(prv, field, combed, env); // try frame props first
+    if(!has_hint)
+      getHint(vi, prv, field, combed, hintt);
+#endif
     if (!combed && field != -1 && n != 0) ++use;
     PVideoFrame nxt = child->GetFrame(n < nfrms ? n + 1 : nfrms, env);
+#ifdef DONT_USE_FRAMEPROPS
     getHint(vi, nxt, field, combed, hintt);
+#else
+    has_hint = false;
+    if (has_at_least_v8)
+      has_hint = getProperties(nxt, field, combed, env); // try frame props first
+    if(!has_hint)
+      getHint(vi, nxt, field, combed, hintt);
+#endif
     if (!combed && field != -1 && n != nfrms) use += 2;
     if (use > 0)
     {
@@ -144,6 +173,7 @@ PVideoFrame __stdcall TFMPP::GetFrame(int n, IScriptEnvironment *env)
     }
   }
   if (display) writeDisplay(dst, vi, n, fieldSrc);
+  // FIXME: VapourSynth port version doesn't write hint properties. Why?
   if (usehints) putHint(vi, dst, fieldSrc, hint);
   else destroyHint(vi, dst, hint);
   return dst;
@@ -1074,6 +1104,29 @@ bool TFMPP::getHint_core(PVideoFrame &src, int &field, bool &combed, unsigned in
   return true;
 }
 
+bool TFMPP::getProperties(const PVideoFrame& src, int& field, bool& combed, IScriptEnvironment* env) const
+{
+  field = -1; combed = false;
+  int _field = -1; 
+  bool _combed = false;
+
+  const AVSMap* props = env->getFramePropsRO(src);
+
+  if (env->propNumElements(props, PROP_TFMField) == 1)
+    _field = int64ToIntS(env->propGetInt(props, PROP_TFMField, 0, nullptr));
+  else
+    return false; // no such frame prop
+
+  if (env->propNumElements(props, PROP_Combed) == 1)
+    _combed = !!env->propGetInt(props, PROP_Combed, 0, nullptr);
+  else
+    return false; // no such frame prop
+
+  field = _field;
+  combed = _combed;
+  return true;
+}
+
 void TFMPP::getSetOvr(int n)
 {
   if (setArray.size() == 0) return;
@@ -1122,6 +1175,11 @@ void TFMPP::writeDisplay(PVideoFrame &dst, const VideoInfo &vi, int n, int field
   Draw(dst, 0, 1, buf, vi);
   sprintf(buf, "frame: %d  (COMBED - DEINTERLACED)! ", n);
   Draw(dst, 0, 2, buf, vi);
+  /*
+  kept for reference: VS does not display debug, instead puts them into a frame property
+  VSMap *props = vsapi->getFramePropsRW(dst);
+  vsapi->propSetData(props, PROP_TFMDisplay, text.c_str(), text.size(), paReplace);  
+  */
 }
 
 void TFMPP::elaDeint(PVideoFrame& dst, PlanarFrame* mask, PVideoFrame& src, bool nomask, int field, const VideoInfo& vi) const

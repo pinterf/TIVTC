@@ -34,6 +34,7 @@
 #include "calcCRC.h"
 #include "profUtil.h"
 #include "Cache.h"
+#include <unordered_map>
 
 #define VERSION "v1.0.8"
 
@@ -76,7 +77,11 @@ class TDecimate : public GenericVideoFilter
 {
 private:
   bool has_at_least_v8;
+  bool has_at_least_v9;
   int cpuFlags;
+  VideoInfo vi_child;
+  VideoInfo vi_clip2;
+
 
   int mode;
   int cycleR, cycle;
@@ -123,6 +128,7 @@ private:
   std::unique_ptr<uint64_t, decltype (&_aligned_free)> diff;
   std::vector<uint64_t> metricsArray, metricsOutArray, mode2_metrics;
   std::vector<int> aLUT, mode2_decA, mode2_order;
+  std::unordered_map<int, std::pair<int, int>> frame_duration_info;
   unsigned int outputCrc;
   std::vector<uint8_t> ovrArray;
   int mode2_num, mode2_den, mode2_numCycles, mode2_cfs[10];
@@ -140,8 +146,8 @@ private:
   void checkVideoMatches(Cycle &p, Cycle &c);
   bool checkMatchDup(int mp, int mc);
   void findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment *env);
-
-  int getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm) const;
+  int getTFMFrameProperties(const PVideoFrame* src, int& d2vfilm, IScriptEnvironment* env) const;
+  int getHint(const VideoInfo& vi, PVideoFrame& src, int& d2vfilm, IScriptEnvironment* env) const;
   template<typename pixel_t>
   int getHint_core(PVideoFrame &src, int &d2vfilm) const;
 
@@ -157,8 +163,8 @@ private:
   PVideoFrame GetFrameMode2(int n, IScriptEnvironment *env, const VideoInfo& vi);
   PVideoFrame GetFrameMode3(int n, IScriptEnvironment *env, const VideoInfo& vi);
   PVideoFrame GetFrameMode4(int n, IScriptEnvironment *env, const VideoInfo& vi);
-  PVideoFrame GetFrameMode5(int n, IScriptEnvironment *env, const VideoInfo& vi);
-  PVideoFrame GetFrameMode6(int n, IScriptEnvironment *env, const VideoInfo& vi);
+  PVideoFrame GetFrameMode56(int n, IScriptEnvironment *env, const VideoInfo& vi);
+  //PVideoFrame GetFrameMode6(int n, IScriptEnvironment *env, const VideoInfo& vi);
   PVideoFrame GetFrameMode7(int n, IScriptEnvironment *env, const VideoInfo& vi);
   void getOvrFrame(int n, uint64_t &metricU, uint64_t &metricF) const;
   void getOvrCycle(Cycle &current, bool mode2);

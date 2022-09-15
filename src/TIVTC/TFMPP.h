@@ -107,6 +107,8 @@ private:
   template<typename pixel_t>
   bool getHint_core(PVideoFrame& src, int& field, bool& combed, unsigned int& hint);
 
+  bool getProperties(const PVideoFrame& src, int& field, bool& combed, IScriptEnvironment* env) const;
+
   void getSetOvr(int n);
 
   void denoiseYUY2(PlanarFrame *mask) const;

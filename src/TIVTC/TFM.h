@@ -194,6 +194,8 @@ private:
     int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env);
 
+  void putFrameProperties(PVideoFrame& dst, int match, int combed, bool d2vfilm, const int mics[5], IScriptEnvironment* env) const;
+
   void putHint(const VideoInfo &vi, PVideoFrame& dst, int match, int combed, bool d2vfilm);
   template<typename pixel_t>
   void putHint_core(PVideoFrame &dst, int match, int combed, bool d2vfilm);

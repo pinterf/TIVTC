@@ -30,6 +30,12 @@
 #include "avs/alignment.h"
 #include "info.h"
 
+enum _FieldBased {
+    Progressive = 0,
+    BottomFieldFirst = 1,
+    TopFieldFirst = 2
+};
+
 PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
 {
   if (n < 0) n = 0;
@@ -51,7 +57,30 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
   PP = PP_origSaved;
   MI = MI_origSaved;
   getSettingOvr(n); // process overrides
-  if (order == -1) order = child->GetParity(n) ? 1 : 0;
+
+  if (order == -1) {
+    // frame property precedence
+    if (has_at_least_v8) {
+      const AVSMap* props = env->getFramePropsRO(src);
+      int err;
+
+      int64_t field_based = env->propGetInt(props, "_FieldBased", 0, &err);
+      if (err) { // prop not present
+        order = child->GetParity(n) ? 1 : 0; // fallback to traditional Avisynth
+        /* VapourSynth port case: strict frame prop dependency
+          env->ThrowError("TFM: Couldn't find the '_FieldBased' frame property. The 'order' parameter must be used.");
+          In Avisynth we have Parity info
+        */
+      }
+      else {
+        /// Pretend it's top field first when it says progressive?
+        order = (field_based == TopFieldFirst || field_based == Progressive);
+      }
+    }
+    else {
+      order = child->GetParity(n) ? 1 : 0; // no frame prop support
+    }
+  }
   if (field == -1) field = order;
   int frstT = field^order ? 2 : 0;
   int scndT = (mode == 2 || mode == 6) ? (field^order ? 3 : 4) : (field^order ? 0 : 2);
@@ -124,7 +153,16 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
         OutputDebugString(buf);
       }
     }
-    if (usehints || PP >= 2) putHint(vi, dst, fmatch, combed, d2vfilm);
+    if (usehints || PP >= 2) {
+#ifdef DONT_USE_FRAMEPROPS
+      putHint(vi, dst, fmatch, combed, d2vfilm);
+#else     
+      if(has_at_least_v8)
+        putFrameProperties(dst, fmatch, combed, d2vfilm, mics, env);
+      else
+        putHint(vi, dst, fmatch, combed, d2vfilm);
+#endif
+    }
     lastMatch.frame = n;
     lastMatch.match = fmatch;
     lastMatch.field = field;
@@ -461,7 +499,16 @@ d2vCJump:
       OutputDebugString(buf);
     }
   }
-  if (usehints || PP >= 2) putHint(vi, dst, fmatch, combed, d2vfilm);
+  if (usehints || PP >= 2) {
+#ifdef DONT_USE_FRAMEPROPS
+      putHint(vi, dst, fmatch, combed, d2vfilm);
+#else     
+      if(has_at_least_v8)
+        putFrameProperties(dst, fmatch, combed, d2vfilm, mics, env);
+      else 
+        putHint(vi, dst, fmatch, combed, d2vfilm);
+#endif
+  }
   lastMatch.frame = n;
   lastMatch.match = fmatch;
   lastMatch.field = field;
@@ -607,6 +654,10 @@ void TFM::writeDisplay(PVideoFrame &dst, const VideoInfo& vi_disp, int n, int fm
     sprintf(buf, "%3.1f%s FILM (D2V) ", d2vpercent, "%");
     Draw(dst, 0, i, buf, vi_disp);
   }
+  /* VS: debug text is not drawn on screen but put into frame property. Kept for reference
+  AVSMap *props = env->getFramePropsRW(dst);
+  env->propSetData(props, PROP_TFMDisplay, text.c_str(), text.size(), paReplace);
+  */
 }
 
 // override from ovr file
@@ -2598,6 +2649,19 @@ void TFM::createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
   cfrm = match;
 }
 
+void TFM::putFrameProperties(PVideoFrame& dst, int match, int combed, bool d2vfilm, const int mics[5], IScriptEnvironment* env) const
+{
+  AVSMap* props = env->getFramePropsRW(dst);
+
+  env->propSetInt(props, PROP_TFMMATCH, match, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+  env->propSetInt(props, PROP_Combed, combed > 1, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+  env->propSetInt(props, PROP_TFMD2VFilm, d2vfilm, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+  env->propSetInt(props, PROP_TFMField, field, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+  for (int i = 0; i < 5; i++)
+    env->propSetInt(props, PROP_TFMMics, mics[i], i ? AVSPropAppendMode::PROPAPPENDMODE_APPEND : AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+  env->propSetInt(props, PROP_TFMPP, PP, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+}
+
 void TFM::putHint(const VideoInfo& vi, PVideoFrame& dst, int match, int combed, bool d2vfilm)
 {
   if (vi.ComponentSize() == 1)
@@ -2847,7 +2911,29 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   if (fieldO == -1)
   {
     if (order == -1) {
-      fieldO = child->GetParity(0) ? 1 : 0;
+       if(has_at_least_v8) {
+         char error[512] = "TFM: Couldn't fetch the first frame from the input clip to determine the clip's field order. Reason: ";
+         size_t len = strlen(error);
+
+         PVideoFrame first_frame = child->GetFrame(0, env);
+         const AVSMap *props = env->getFramePropsRO(first_frame);
+
+         int err;
+         int64_t field_based = env->propGetInt(props, "_FieldBased", 0, &err);
+         if (err) {
+            fieldO = child->GetParity(0) ? 1 : 0; // fallback to traditional Avisynth
+            /* VS case: strict frame prop dependency
+            env->ThrowError("TFM: Couldn't find the '_FieldBased' frame property. The 'order' parameter must be used.");
+            */
+         }
+         else {
+        /// Pretend it's top field first when it says progressive?
+         fieldO = (field_based == TopFieldFirst || field_based == Progressive);
+          }
+        } else {
+          fieldO = child->GetParity(0) ? 1 : 0; // no frameprop support, old method
+        }
+
     }
     else fieldO = order;
   }
