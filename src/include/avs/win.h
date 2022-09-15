@@ -41,9 +41,7 @@
 #endif
 
 #define WIN32_LEAN_AND_MEAN
-#ifndef STRICT
 #define STRICT
-#endif
 #if !defined(NOMINMAX)
     #define NOMINMAX
 #endif
