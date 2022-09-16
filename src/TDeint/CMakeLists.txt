@@ -18,7 +18,20 @@ Include("Files.cmake")
 
 add_library(${PluginName} SHARED ${TDeint_Sources})
 
-set_target_properties(${PluginName} PROPERTIES "OUTPUT_NAME" "${PluginName}")
+if (GIT_FOUND)
+    execute_process (COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
+        OUTPUT_VARIABLE ver
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    if (ver STREQUAL "")
+      set_target_properties(${PluginName} PROPERTIES OUTPUT_NAME "${PluginName}")
+    else ()
+      set_target_properties(${PluginName} PROPERTIES OUTPUT_NAME "${PluginName}.${ver}")
+    endif()
+else ()
+    set_target_properties(${PluginName} PROPERTIES OUTPUT_NAME "${PluginName}")
+endif ()
+
 if (MINGW)
   set_target_properties(${PluginName} PROPERTIES PREFIX "")
   set_target_properties(${PluginName} PROPERTIES IMPORT_PREFIX "")
