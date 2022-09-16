@@ -76,6 +76,10 @@ constexpr int ISD2VFILM = 0x00000080; // ovr array - bit 8
 
 constexpr uint32_t MAGIC_NUMBER = 0xdeadfeed;
 constexpr uint32_t MAGIC_NUMBER_2 = 0xdeadbeef;
+constexpr uint32_t MAGIC_NUMBER_DEADFEED = 0xdeadfeed; // TIVTC
+constexpr uint32_t MAGIC_NUMBER_2_DEADBEEF = 0xdeadbeef; // Decomb or DGDecode
+constexpr uint32_t MAGIC_NUMBER_3_DEADDEED = 0xdeaddeed;
+constexpr uint32_t MAGIC_NUMBER_4_DEADBEAD = 0xdeadbead;
 
 FILE *tivtc_fopen(const char *name, const char *mode);
 void BitBlt(uint8_t* dstp, int dst_pitch, const uint8_t* srcp, int src_pitch, int row_size, int height);

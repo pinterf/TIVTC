@@ -134,15 +134,15 @@ int TDeinterlace::getHint_core(PVideoFrame &src, unsigned int &storeHint, int &h
   {
     magic_number |= ((*p++ & 1) << i);
   }
-  if (magic_number != 0xdeadbeef &&
-    magic_number != 0xdeadfeed) return -1;
+  if (magic_number != MAGIC_NUMBER_2_DEADBEEF &&
+    magic_number != MAGIC_NUMBER_DEADFEED) return -1;
   for (i = 0; i < 32; ++i)
   {
     hint |= ((*p++ & 1) << i);
   }
   if (hint & 0xFFFF0000) return -1;
   storeHint = hint;
-  if (magic_number == 0xdeadbeef)
+  if (magic_number == MAGIC_NUMBER_2_DEADBEEF)
   {
     storeHint |= 0x00100000;
     if (hint & 0x01) return 0;
@@ -179,8 +179,8 @@ void TDeinterlace::putHint_core(PVideoFrame &dst, unsigned int hint, int fieldt)
   for (i = 0; i < 32; ++i)
   {
     *p &= ~1;
-    if (htype == 0) *p++ |= ((0xdeadbeef & (1 << i)) >> i);
-    else *p++ |= ((0xdeadfeed & (1 << i)) >> i);
+    if (htype == 0) *p++ |= ((MAGIC_NUMBER_2_DEADBEEF & (1 << i)) >> i);
+    else *p++ |= ((MAGIC_NUMBER_DEADFEED & (1 << i)) >> i);
   }
   for (i = 0; i < 32; ++i)
   {
@@ -206,7 +206,7 @@ void TDeinterlace::putHint2_core(PVideoFrame &dst, bool wdtd)
   {
     magic_number |= ((*p++ & 1) << i);
   }
-  if (magic_number == 0xdeadbeef)
+  if (magic_number == MAGIC_NUMBER_2_DEADBEEF)
   {
     for (i = 0; i < 32; ++i)
     {
@@ -215,9 +215,9 @@ void TDeinterlace::putHint2_core(PVideoFrame &dst, bool wdtd)
     hint <<= 8;
     hint |= 0x80;
     if (wdtd) hint |= 0x40;
-    magic_number = 0xdeadbead;
+    magic_number = MAGIC_NUMBER_4_DEADBEAD;
   }
-  else if (magic_number == 0xdeadfeed)
+  else if (magic_number == MAGIC_NUMBER_DEADFEED)
   {
     for (i = 0; i < 32; ++i)
     {
@@ -227,7 +227,7 @@ void TDeinterlace::putHint2_core(PVideoFrame &dst, bool wdtd)
   }
   else
   {
-    magic_number = 0xdeaddeed;
+    magic_number = MAGIC_NUMBER_3_DEADDEED;
     if (wdtd) hint |= 0x40;
   }
   p = reinterpret_cast<pixel_t*>(dst->GetWritePtr(PLANAR_Y));

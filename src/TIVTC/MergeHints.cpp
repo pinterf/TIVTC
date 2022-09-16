@@ -72,7 +72,7 @@ PVideoFrame __stdcall MergeHints::GetFrame(int n, IScriptEnvironment *env)
   if (debug)
   {
     sprintf(buf, "MergeHints:  identifier = %#x (%s)  hint = %#x\n", magic_number,
-      magic_number == 0xdeadfeed ? "TIVTC" : magic_number == 0xdeadbeef ?
+      magic_number == MAGIC_NUMBER_DEADFEED ? "TIVTC" : magic_number == MAGIC_NUMBER_2_DEADBEEF ?
       "Decomb or DGDecode" : "Unknown", hint);
     OutputDebugString(buf);
   }

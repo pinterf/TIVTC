@@ -102,11 +102,11 @@ int TSwitch::getHint_core(PVideoFrame &src, unsigned int &hint, int &htype)
   {
     magic_number |= ((*srcp++ & 1) << i);
   }
-  if (magic_number == 0xdeadfeed)
+  if (magic_number == MAGIC_NUMBER_DEADFEED)
     htype = 0;
-  else if (magic_number == 0xdeaddeed)
+  else if (magic_number == MAGIC_NUMBER_3_DEADDEED)
     htype = 1;
-  else if (magic_number == 0xdeadbead)
+  else if (magic_number == MAGIC_NUMBER_4_DEADBEAD)
     htype = 2;
   else
     return -20;
@@ -116,7 +116,7 @@ int TSwitch::getHint_core(PVideoFrame &src, unsigned int &hint, int &htype)
   }
   if (hint & 0xFFFF0000)
     return -20;
-  if (hint & 0x40)
+  if (hint & 0x40) // wdtd set by TDeinterlace::putHint2
     return 1;
   return 0;
 }
@@ -143,10 +143,10 @@ void TSwitch::putHint_core(PVideoFrame &dst, unsigned int hint, int htype)
   unsigned int magic_number;
   if (htype == 2 && (hint & 0x80))
   {
-    magic_number = 0xdeadbeef;
+    magic_number = MAGIC_NUMBER_2_DEADBEEF;
     hint >>= 8;
   }
-  else magic_number = 0xdeadfeed;
+  else magic_number = MAGIC_NUMBER_DEADFEED;
   for (i = 0; i < 32; ++i)
   {
     *p &= ~1;
