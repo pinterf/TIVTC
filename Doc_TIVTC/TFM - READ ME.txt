@@ -1,6 +1,6 @@
 
 
-                                  TFM v1.0.7  -  HELP FILE  (20201214)
+                                  TFM v1.0.8  -  HELP FILE  (20220915)
 
 
 
@@ -13,8 +13,9 @@ CONTENTS OF FILE:
     D.) File Input/Output Parameters
     E.) Debug/Display Parameters
     F.) Overrides Info
-    G.) Change List
-    H.) To Do List
+    G.) Frame property support
+    H.) Change List
+    I.) To Do List
 
 
 
@@ -45,7 +46,8 @@ A.)  GENERAL INFO:
    described under the "BASIC PARAMETERS" sections.  The other settings are described under
    the other various sections which should be pretty easy to figure out from the names.
 
-
+   Frame property support was introduced in 1.0.8 (1.0.27 package)
+   See Section G.)
 
 B.)  BASIC PARAMETERS:
 
@@ -897,9 +899,41 @@ F.)  OVERRIDES:
            9.) Setting the second frame in a range to 0 means the same as setting it to the
                last frame of the clip.
 
+G.) FRAME PROPERTY SUPPORT
+
+      Frame property support was introduced in package 1.0.27(since TFM module 1.0.8)
+
+      Frame properties (priority over burned-into-image hints).
+      Similarly to bitmapped hints, they are used when parameter "hint" is true.
+
+      Frame properties set by TFM: TFMMatch, _Combed, TFMD2VFilm, TFMField, TFMMics, TFMPP
+      Frame properties read by TFM and TDecimate: TFMMatch, TFMD2VFilm, TFMField
+      Frame properties read by TFMPP: TFMField, _Combed
+      Frame properties read by TDecimate creation: TFMPP (but if Avisynth variable "TFMPPValue" exists then the variable has priority over it)
+      Frame properties never read: TFMMics
+      Traditionally, TFM is using a 32 bit "hint" encoded in the lsb bits of the first 32 pixels of a frame.
+      When Avisynth interface V8 is available, then frame properties are used instead of the image destructing bit hints.
+      - Bitmapped hint replacement frame property names are: TFMMatch, _Combed, TFMD2VFilm, TFMField.
+          Mapping:
+            Bits 0-2: (ISP, ISC, ISN, ISB, ISU, ISDB, ISDT) are filled upon match (TFMMatch) and combed (_Combed) and field (TFMField)
+              ISP: match == 0
+              ISC: match == 1 && combed < 2
+              ISN: match == 2
+              ISB: match == 3
+              ISU: match == 4
+              ISDB: match == 1 && combed > 1 && field == 0
+              ISDT: match == 1 && combed > 1 && field == 1
+            Bit 3: set to 1 if field == 1 (TFMField 0 or 1)
+            Bit 4: set to 1 if combed > 1 (_Combed)
+            Bit 5: set to 1 if d2vfilm is true (TFMD2VFilm)
+      - Other frame properties:
+          TFMMics: array[6] of integer
+          TFMPP: integer
 
 
-G.)  CHANGE LIST:
+H.)  CHANGE LIST:
+    20220511  v1.0.8 (part of v1.0.27 package)
+        - Fixes, frame property support
 
     20201214  v1.0.7 (part of v1.0.25 package - pinterf)
         - For greyscale input 'chroma' parameter is ignored, and always treated as false.

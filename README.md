@@ -2,8 +2,7 @@
 
 Current versions:
 
-- TIVTC: v1.0.26 (20210222)
-  (1.0.27 - WIP - optimizations, fixes, frame properties)
+- TIVTC: v1.0.27 (20230511)
 - TDeint: v1.8 (20201214)
 
 This is a modernization effort on tritical's TIVTC (v1.0.5) and TDeInt (v1.1.1) plugin for Avisynth by pinterf.

@@ -1,6 +1,6 @@
 
 
-                            FrameDiff v1.10  -  HELP FILE  (20201214)
+                            FrameDiff v1.11  -  HELP FILE  (20230511)
 
 
 GENERAL INFO:
@@ -19,10 +19,11 @@ GENERAL INFO:
 
 	FrameDiff(int mode, bool prevf, int nt, int blockx, int blocky, bool chroma,
                     float thresh, int display, bool debug, bool norm, bool denoise,
-                    bool ssd, int opt)
+                    bool ssd, int opt, int offset)
 
 	CFrameDiff(int mode, bool prevf, int nt, int blockx, int blocky, bool chroma,
-                    bool debug, bool norm, bool denoise, bool ssd, bool rpos, int opt)
+                    bool debug, bool norm, bool denoise, bool ssd, bool rpos, int opt,
+                    int offset)
 
    example =>
 
@@ -46,11 +47,13 @@ PARAMETERS:
 
      prevf -
 
-         Sets whether the difference to the previous frame or the difference to the
-         next frame is calculated.
+         Sets whether the difference to the previous N frame or the difference to the
+         next N frame is calculated.
 
             true -  previous
             false - next
+
+         See also 'offset' parameter, by which you can set N other than 1.
 
          Default:  true  (bool)
 
@@ -185,9 +188,22 @@ PARAMETERS:
 
          Default:  4  (int)
 
+      offset -
+
+         Sets comparison distance.
+
+         offset must be >= 1.
+         The direction of the comparison is governed by 'prevf' parameter
+
+         Default:  1  (int)
 
 
 CHANGE LIST:
+   v1.11 - (20230511)
+         - Implement #39: CFrameDiff, FrameDiff: add offset parameter (default 1), 
+           to compare frames more than 1 distance away.
+           offset value must be >=1, prevf parameter sets the direction.
+
    v1.10 - (20201214)
          - parameter 'chroma' ignored and treated as false for greyscale input
 

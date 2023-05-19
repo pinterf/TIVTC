@@ -1,11 +1,17 @@
 ## TIVTC
 
-**v1.0.27 WIP**
+**v1.0.27 (20230511)
 
+- Fix #40: TDecimate: frame properties were not inherited at specific modes (20230511)
+- Implement #39: CFrameDiff, FrameDiff: add offset parameter (int, default 1), to compare frames more than 1 distance away.
+  offset value must be >=1, already existing prevf parameter is used to set the direction.
+
+**v1.0.27test (20220915)
+  (bugfixes, frame property support backport from VapourSynth version -20220915)
 - Fix: TDecimate mode 0,1 crash in 10+bits in blend (dubhater)
 - Fixes in Mode 0,1 when clip2 is different format (dubhater)
-- Fix: slow C was used in calcMetricCycle.blurframe (dubhater)
-- Fix: V14(?) regression TDecimate fullInfo was always false (dubhater), (Don't know what it affected)
+- Fix: slow C code was used in calcMetricCycle.blurframe (dubhater)
+- Fix: V14(?) regression TDecimate fullInfo was always false (dubhater), ("Don't know what it affected")
 - MacOS build fixes (akarin)
 - mingw build fixes
 - Source code: refactorings, backported from VapourSynth port (dubhater, https://github.com/dubhater/vapoursynth-tivtc), 

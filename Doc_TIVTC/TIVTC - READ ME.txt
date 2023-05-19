@@ -1,6 +1,5 @@
 
-                           TIVTC v1.0.26   HELP FILE - (22 February, 2021)
-                                 work in progress: v1.0.27 (15 September, 2022)
+                           TIVTC v1.0.27   HELP FILE - (11 May, 2023)
 
 INFO:
    Based on TIVTC v1.0.5   HELP FILE - (08 January, 2008)
@@ -22,15 +21,14 @@ INFO:
        For more info about using each of the filters/functions consult the individual readme files.
 
 
-  current filter versions:  TFM             v1.0.7     (17 January 2008 - 14 December 2020)
-                            TDecimate       v1.0.8     (28 September 2007 - 22 February 2021)
+  current filter versions:  TFM             v1.0.8     (17 January 2008 - 15 September 2022)
+                            TDecimate       v1.0.9     (28 September 2007 - 11 May 2023)
                             MergeHints      v1.3       (22 October 2006 - 11 June 2020)
                             FieldDiff       v1.5       (23 March 2006 - 14 December 2020)
-                            FrameDiff       v1.10       (21 November 2007 - 14 December 2020)
+                            FrameDiff       v1.11       (21 November 2007 - 11 May 2023)
                             ShowcombedTIVTC v1.4       (23 March 2006 - 14 December 2020)
                             RequestLinear   v1.4       (21 November 2007 - 20 October 2020)
-                            TFMPP           v1.0.3     (refreshed 11 June 2020)
-  
+                            TFMPP           v1.0.4     (refreshed 15 September 2022)
   
   Beginning with 1.0.16 all filters were updated to support 
   - 8 bit YV411, YV16 and YV24 besides existing YV12 and YUY2
@@ -38,10 +36,10 @@ INFO:
   Beginning with 1.0.19 all filters were updated to support additionally
   - 10-16 bits formats
   - Greyscale and planar YUV colorspaces (4:1:1, 4:2:0, 4:2:2, 4:4:4)
-    (YUY2 support was held, note that planar YV16 and YUY2 is losslessly convertables into each other)
+    (YUY2 support was kept, note that planar YV16 and YUY2 is losslessly convertables into each other)
 
-  1.0.27: (15 Sept 2022): test version Work In Progress for frame properties
-  
+  Beginning with 1.0.27 frame property support was introduced
+
   Project (along with TDeint) is hosted at https://github.com/pinterf/TIVTC
 
 Original author contact:   forum.doom9.org  nick = tritical  or  email:  kes25c@mizzou.edu
