@@ -269,18 +269,14 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
       }
       else
       {
-        dst = env->NewVideoFrame(vi2);
-
-        if (!useclip2) {
-          PVideoFrame frame1 = child->GetFrame(f1, env);
-          PVideoFrame frame2 = child->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, vi2, env);
-        }
-        else {
-          PVideoFrame frame1 = clip2->GetFrame(f1, env);
-          PVideoFrame frame2 = clip2->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, vi2, env);
-        }
+        PClip blendSrc = !useclip2 ? child : clip2;
+        PVideoFrame frame1 = blendSrc->GetFrame(f1, env);
+        PVideoFrame frame2 = blendSrc->GetFrame(f2, env);
+        if (has_at_least_v8)
+          dst = env->NewVideoFrameP(vi2, &frame1);
+        else
+          dst = env->NewVideoFrame(vi2);
+        blendFrames(frame1, frame2, dst, a1, vi2, env);
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, vi2);
@@ -335,19 +331,16 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
 
     if (f1 != 0)
     {
-      PVideoFrame dst = env->NewVideoFrame(vi2);
-      if (!useclip2)
-      {
-        PVideoFrame frame1 = child->GetFrame(f1, env);
-        PVideoFrame frame2 = child->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, vi2, env);
-      }
+      PVideoFrame dst;
+      PClip blendSrc = !useclip2 ? child : clip2;
+      PVideoFrame frame1 = blendSrc->GetFrame(f1, env);
+      PVideoFrame frame2 = blendSrc->GetFrame(f2, env);
+      if (has_at_least_v8)
+        dst = env->NewVideoFrameP(vi2, &frame1);
       else
-      {
-        PVideoFrame frame1 = clip2->GetFrame(f1, env);
-        PVideoFrame frame2 = clip2->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, vi2, env);
-      }
+        dst = env->NewVideoFrame(vi2);
+      blendFrames(frame1, frame2, dst, a1, vi2, env);
+
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, vi2);
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       return dst;
@@ -428,18 +421,14 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
       }
       else
       {
-        dst = env->NewVideoFrame(vi2);
-
-        if (!useclip2) {
-          PVideoFrame frame1 = child->GetFrame(f1, env);
-          PVideoFrame frame2 = child->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, vi2, env);
-        }
-        else {
-          PVideoFrame frame1 = clip2->GetFrame(f1, env);
-          PVideoFrame frame2 = clip2->GetFrame(f2, env);
-          blendFrames(frame1, frame2, dst, a1, vi2, env);
-        }
+        PClip blendSrc = !useclip2 ? child : clip2;
+        PVideoFrame frame1 = blendSrc->GetFrame(f1, env);
+        PVideoFrame frame2 = blendSrc->GetFrame(f2, env);
+        if (has_at_least_v8)
+          dst = env->NewVideoFrameP(vi2, &frame1);
+        else
+          dst = env->NewVideoFrame(vi2);
+        blendFrames(frame1, frame2, dst, a1, vi2, env);
       }
       if (debug) debugOutput2(n, 0, true, f1, f2, a1, a2);
       if (display) displayOutput(env, dst, n, 0, true, a1, a2, f1, f2, vi2);
@@ -503,17 +492,14 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
     }
     else
     {
-      dst = env->NewVideoFrame(vi2);
-      if (!useclip2) {
-        PVideoFrame frame1 = child->GetFrame(f1, env);
-        PVideoFrame frame2 = child->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, vi2, env);
-      }
-      else {
-        PVideoFrame frame1 = clip2->GetFrame(f1, env);
-        PVideoFrame frame2 = clip2->GetFrame(f2, env);
-        blendFrames(frame1, frame2, dst, a1, vi2, env);
-      }
+      PClip blendSrc = !useclip2 ? child : clip2;
+      PVideoFrame frame1 = blendSrc->GetFrame(f1, env);
+      PVideoFrame frame2 = blendSrc->GetFrame(f2, env);
+      if (has_at_least_v8)
+        dst = env->NewVideoFrameP(vi2, &frame1);
+      else
+        dst = env->NewVideoFrame(vi2);
+      blendFrames(frame1, frame2, dst, a1, vi2, env);
     }
 
     if (debug) debugOutput2(n, 0, false, f1, f2, a1, a2);
