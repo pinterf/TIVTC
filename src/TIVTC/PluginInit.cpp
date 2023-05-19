@@ -68,9 +68,9 @@ AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors) {
     Create_FieldDiff, 0);
   env->AddFunction("CFieldDiff", "c[nt]i[chroma]b[debug]b[sse]b[opt]i", Create_CFieldDiff, 0);
   env->AddFunction("FrameDiff", "c[mode]i[prevf]b[nt]i[blockx]i[blocky]i[chroma]b[thresh]f" \
-    "[display]i[debug]b[norm]b[denoise]b[ssd]b[opt]i", Create_FrameDiff, 0);
+    "[display]i[debug]b[norm]b[denoise]b[ssd]b[opt]i[offset]i", Create_FrameDiff, 0);
   env->AddFunction("CFrameDiff", "c[mode]i[prevf]b[nt]i[blockx]i[blocky]i[chroma]b[debug]b" \
-    "[norm]b[denoise]b[ssd]b[rpos]b[opt]i", Create_CFrameDiff, 0);
+    "[norm]b[denoise]b[ssd]b[rpos]b[opt]i[offset]i", Create_CFrameDiff, 0);
   env->AddFunction("ShowCombedTIVTC", "c[cthresh]i[chroma]b[MI]i[blockx]i[blocky]i[metric]i" \
     "[debug]b[display]i[fill]b[opt]i", Create_ShowCombedTIVTC, 0);
   env->AddFunction("IsCombedTIVTC", "c[cthresh]i[MI]i[chroma]b[blockx]i[blocky]i[metric]i" \

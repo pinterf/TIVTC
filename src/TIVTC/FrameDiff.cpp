@@ -30,11 +30,11 @@
 
 FrameDiff::FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
   bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise, bool _ssd,
-  bool _rpos, int _opt, IScriptEnvironment *env) : GenericVideoFilter(_child),
+  bool _rpos, int _opt, int _offset, IScriptEnvironment *env) : GenericVideoFilter(_child),
   predenoise(_predenoise), ssd(_ssd), rpos(_rpos),
   nt(_nt), blockx(_blockx), blocky(_blocky), mode(_mode), display(_display),
   thresh(_thresh),
-  opt(_opt), chroma(_chroma), debug(_debug), prevf(_prevf), norm(_norm)
+  opt(_opt), offset(_offset), chroma(_chroma), debug(_debug), prevf(_prevf), norm(_norm)
 {
   diff = NULL;
 
@@ -147,16 +147,16 @@ AVSValue FrameDiff::ConditionalFrameDiff(int n, IScriptEnvironment* env)
   uint64_t lowestDiff = UINT64_MAX, highestDiff = 0;
   int lpos, hpos;
   PVideoFrame src;
-  if (prevf && n >= 1)
+  if (prevf && n >= offset)
   {
-    PVideoFrame prv = child->GetFrame(n - 1, env);
+    PVideoFrame prv = child->GetFrame(n - offset, env);
     src = child->GetFrame(n, env);
     calcMetric(prv, src, vi, env);
   }
-  else if (!prevf && n < nfrms)
+  else if (!prevf && n < nfrms + 1 - offset)
   {
     src = child->GetFrame(n, env);
-    PVideoFrame nxt = child->GetFrame(n + 1, env);
+    PVideoFrame nxt = child->GetFrame(n + offset, env);
     calcMetric(src, nxt, vi, env);
   }
   else
@@ -230,16 +230,16 @@ PVideoFrame __stdcall FrameDiff::GetFrame(int n, IScriptEnvironment *env)
   int yblocks = ((vi.height + blocky_half) >> blocky_shift) + 1; // same as in constructor
   int arraysize = (xblocks*yblocks) << 2;
   PVideoFrame src;
-  if (prevf && n >= 1)
+  if (prevf && n >= offset)
   {
-    PVideoFrame prv = child->GetFrame(n - 1, env);
+    PVideoFrame prv = child->GetFrame(n - offset, env);
     src = child->GetFrame(n, env);
     calcMetric(prv, src, vi, env);
   }
-  else if (!prevf && n < nfrms)
+  else if (!prevf && n < nfrms + 1 - offset)
   {
     src = child->GetFrame(n, env);
-    PVideoFrame nxt = child->GetFrame(n + 1, env);
+    PVideoFrame nxt = child->GetFrame(n + offset, env);
     calcMetric(src, nxt, vi, env);
   }
   else
@@ -525,10 +525,16 @@ AVSValue __cdecl Create_CFrameDiff(AVSValue args, void* user_data, IScriptEnviro
   VideoInfo vi = args[0].AsClip()->GetVideoInfo();
   if (vi.IsY()) chroma = false;
 
+  const int offset = args[13].AsInt(1); // offset
+  if (offset < 1)
+    env->ThrowError("CFrameDiff: offset must be >= 1"); // prevf defines the direction next/prev
+
   FrameDiff *f = new FrameDiff(args[0].AsClip(), args[1].AsInt(1), chroma, args[3].AsInt(0),
     args[4].AsInt(32), args[5].AsInt(32), args[6].AsBool(false), 2.0, 0, args[7].AsBool(false),
     args[8].AsBool(true), args[9].AsBool(false), args[10].AsBool(false), args[11].AsBool(false),
-    args[12].AsInt(4), env);
+    args[12].AsInt(4),
+    offset,
+    env);
   AVSValue CFrameDiff = f->ConditionalFrameDiff(n, env);
   delete f;
   return CFrameDiff;
@@ -540,8 +546,12 @@ AVSValue __cdecl Create_FrameDiff(AVSValue args, void* user_data, IScriptEnviron
   VideoInfo vi = args[0].AsClip()->GetVideoInfo();
   if (vi.IsY()) chroma = false;
 
+  const int offset = args[13].AsInt(1); // offset
+  if (offset < 1)
+    env->ThrowError("FrameDiff: offset must be >= 1"); // prevf defines the direction next/prev
+
   return new FrameDiff(args[0].AsClip(), args[1].AsInt(1), chroma, args[3].AsInt(0),
     args[4].AsInt(32), args[5].AsInt(32), args[6].AsBool(false), args[7].AsFloat(2.0),
     args[8].AsInt(0), args[9].AsBool(false), args[10].AsBool(true), args[11].AsBool(false),
-    args[12].AsBool(false), false, args[13].AsInt(4), env);
+    args[12].AsBool(false), false, args[13].AsInt(4), offset, env);
 }

@@ -34,7 +34,7 @@
 #undef VERSION
 #endif
 
-#define VERSION "v1.10"
+#define VERSION "v1.11"
 
 class FrameDiff : public GenericVideoFilter
 {
@@ -46,6 +46,7 @@ private:
   int nt, nfrms, blockx, blocky, mode, display;
   double thresh;
   int opt;
+  int offset;
   bool chroma, debug, prevf, norm;
   int blocky_shift, blockx_shift, blocky_half, blockx_half;
   uint64_t *diff, MAX_DIFF, threshU;
@@ -57,7 +58,7 @@ private:
 public:
   FrameDiff(PClip _child, int _mode, bool _prevf, int _nt, int _blockx, int _blocky,
     bool _chroma, double _thresh, int _display, bool _debug, bool _norm, bool _predenoise,
-    bool _ssd, bool _rpos, int _opt, IScriptEnvironment *env);
+    bool _ssd, bool _rpos, int _opt, int _offset, IScriptEnvironment *env);
   ~FrameDiff();
   PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment *env) override;
   AVSValue ConditionalFrameDiff(int n, IScriptEnvironment* env);
