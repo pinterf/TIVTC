@@ -2338,7 +2338,9 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[24].AsBool(true), args[25].AsBool(false), chroma, args[27].AsBool(false),
     args[28].AsInt(-200), args[29].AsBool(false), args[30].AsBool(false), args[31].AsBool(true),
     args[32].AsBool(false), args[33].IsBool() ? (args[33].AsBool() ? 1 : 0) : -1,
-    args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), env);
+    args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), 
+    args[38].AsInt(0), args[39].AsInt(-1), // displayDecimation, displayOpt
+    env);
   return v;
 }
 
@@ -2672,7 +2674,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
   bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl, bool _m2PA,
   bool _predenoise, bool _noblend, bool _ssd, int _usehints, PClip _clip2,
-  int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env) : GenericVideoFilter(_child),
+  int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, IScriptEnvironment* env) : GenericVideoFilter(_child),
   mode(_mode),
   cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh),
   hybrid(_hybrid), vidThresh(_vidThresh),
@@ -2682,7 +2684,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   vfrDec(_vfrDec), debug(_debug), display(_display), batch(_batch), tcfv1(_tcfv1), se(_se),
   maxndl(_maxndl), chroma(_chroma), m2PA(_m2PA), exPP(_exPP),
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
-  opt(_opt), clip2(_clip2), orgOut(_orgOut),
+  opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt),
   prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, nullptr)
 {
 
@@ -2768,6 +2770,8 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     env->ThrowError("TDecimate:  invalid sdlim setting (%d through %d (inclusive) are allowed)!", 0, int(ceil(cycle / double(cycleR - 1))) - 2);
   if (opt < 0 || opt > 4)
     env->ThrowError("TDecimate:  opt must be set to 0, 1, 2, 3, or 4!");
+  if (displayDecimation < 0)
+    env->ThrowError("TDecimate:  displayDecimation must be a nonnegative number!");
   if (clip2 && vi.num_frames != clip2->GetVideoInfo().num_frames)
     env->ThrowError("TDecimate:  clip2 must have the same number of frames as the input clip!");
   if (clip2 && !clip2->GetVideoInfo().IsYUV())

@@ -36,7 +36,7 @@
 #include "Cache.h"
 #include <unordered_map>
 
-#define VERSION "v1.0.9"
+#define VERSION "v1.0.10"
 
 // All the rest of this code was just copied from tdecimate.cpp because I'm
 // too lazy to make it work such that it could call that code.
@@ -115,6 +115,8 @@ private:
   int opt;
   PClip clip2;
   std::string orgOut;
+  int displayDecimation; // debug display addition
+  int displayOpt; // debug display addition parameter
   Cycle prev, curr, next, nbuf;
 
   int nfrms, nfrmsN, linearCount;
@@ -172,7 +174,7 @@ private:
     int ret, bool film, double amount1, double amount2, int f1, int f2, const VideoInfo &vi);
   void formatMetrics(Cycle &current);
   void formatDups(Cycle &current);
-  void formatDecs(Cycle &current);
+  void formatDecs(Cycle& current, bool displayDecimationDefined, int displayFrom, int displayTo);
   void formatMatches(Cycle &current);
   void formatMatches(Cycle &current, Cycle &previous);
   void debugOutput1(int n, bool film, int blend);
@@ -217,7 +219,7 @@ public:
     int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
-    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, IScriptEnvironment* env);
+    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, IScriptEnvironment* env);
   ~TDecimate();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
