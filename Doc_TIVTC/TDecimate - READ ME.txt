@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.9  -  HELP FILE  (20230511)
+                              TDecimate v1.0.10  -  HELP FILE  (20231126)
 
 
 
@@ -39,7 +39,8 @@ A.)  GENERAL INFO:
                   String ovr, String output, String input, String tfmIn, String mkvOut, int nt,
                   int blockx, int blocky, bool debug, bool display, int vfrDec, bool batch,
                   bool tcfv1, bool se, bool chroma, bool exPP, int maxndl, bool m2PA,
-                  bool denoise, bool noblend, bool ssd, int hint, PClip clip2, int sdlim, int opt, String orgOut)
+                  bool denoise, bool noblend, bool ssd, int hint, PClip clip2, int sdlim, int opt,
+                  String orgOut, int displayDecimation, int displayOpt)
 
    Frame property support was introduced in 1.0.9 (1.0.27 package)
    See Section G.)
@@ -714,6 +715,65 @@ E.)  DEBUG/DISPLAY PARAMETERS:
         default:  false  (bool)
 
 
+     displayDecimation -
+
+        If more than zero then starting at the first value specified in Cycle, frames are displayed
+        in a list which contains only "displayDecimation" number of frames.
+
+        The beginning of the displayed list is fixed - as in the case of simply setting display=true.
+        But when a frame outside the actually visible list would be displayed, the display switches 
+        to the next range.
+
+        e.g. displayDecimation = 250
+
+                   data from frames 0-249 are displayed for frame #0
+                   data from frames 0-249 are displayed for frame #1
+                   ...
+                   data from frames 0-249 are displayed for frame #249
+                   data from frames 250-499 are displayed for frame #250
+                   data from frames 250-499 are displayed for frame #251
+                   ...
+
+        If the Cycle range crosses within the range specified by displayDecimation, the pages are 
+        displayed separately.(Page means that the listings are displayed separately.)
+
+        e.g. CycleR=20,Cycle=100,displayDecimation = 40
+
+                  data from frames 80-119 are displayed for frame #80
+                  data from frames 80-119 are displayed for frame #99
+                  on page 1 (Cycle range is 0-99)
+
+                  data from frames 80-119 are displayed for frame #100
+                  data from frames 80-119 are displayed for frame #119
+                  on page 2 (Cycle range is 100-199)
+
+        When this parameter is enabled, "#ofDecimations" is displayed in the top status line:
+
+                  #ofDecimations: x (y:z)
+
+                  x  Number of decimations in the current list
+                  y  Total number of decimations from the first to the current listing in the range
+                     specified by CycleR (including x)
+                  z  Remaining number of decimations after subtracting y from the value of CycleR
+
+        This parameter is useful for large cycles, when the screen area is not enough to display all
+        data within the range.
+
+        default:  0  (int)
+
+
+     displayOpt -
+
+        Visualize the deviation from an expected decimation distance.
+        When the number of frames since last frame drop is equal to displayOpt then 
+        the decimation sign is the usual "**". When the actual number is less or greater than
+        the expected number, then "*-" or "*+" (repectively) is displayed instead.
+
+        This option is useful even when displayDecimation is not specified, it is not required in 
+        combination with displayDecimation, and can be used by itself.
+
+        default:  -1  (int)
+
 
 F.)  OVERRIDES:
 
@@ -809,6 +869,12 @@ G.) FRAME PROPERTY SUPPORT
 
 
 H.)  CHANGE LIST:
+
+    (20231126) (v1.0.10, in v1.0.28 pack - pinterf)
+         - Request #43: (https://github.com/pinterf/TIVTC/issues/43)
+           TDecimate debug parameters displayDecimation, displayOpt
+         - Fix minor display glitch (regression since v1.0.19pack): display=true would duplicate the 
+           most bottom frame info text to the top position of the next column.
 
     (20230511) (v1.0.9, in v1.0.27 pack - pinterf)
          - Fix #40: frame properties were not inherited at specific blending modes

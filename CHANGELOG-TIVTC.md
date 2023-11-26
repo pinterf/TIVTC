@@ -1,5 +1,11 @@
 ## TIVTC
 
+**v1.0.28 (20231126)
+- Request #43: (https://github.com/pinterf/TIVTC/issues/43)
+  TDecimate debug parameters displayDecimation, displayOpt
+- Fix minor display glitch (regression since v1.0.19pack): display=true would duplicate the 
+  most bottom frame info text to the top position of the next column.
+
 **v1.0.27 (20230511)
 
 - Fix #40: TDecimate: frame properties were not inherited at specific modes (20230511)
