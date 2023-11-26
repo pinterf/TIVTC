@@ -1427,11 +1427,27 @@ void drawBox(PVideoFrame& dst, int blockx, int blocky, int blockN, int xblocks, 
   else drawBoxYUY2(dst, blockx, blocky, blockN, xblocks);
 }
 
-void Draw(PVideoFrame& dst, int x1, int y1, const char* s, const VideoInfo& vi)
+int Draw(PVideoFrame& dst, int x1, int y1, const char* s, const VideoInfo& vi)
 {
   x1 *= 10;
   y1 = y1 * 20;
-  DrawStringPlanar(const_cast<VideoInfo &>(vi), dst, x1, y1, s);
+
+  // >=0: column width printed 
+  // -1 if does not fit vertically 
+  // (-2-length_written) if does not fit horizontally
+
+  if (y1 >= vi.height - 20) return -1;
+  auto len = (int)strlen(s);
+  int displayable_chars = 0;
+  if (x1 <= vi.width - 10) {
+    displayable_chars = (vi.width - x1) / 10;
+    if (len < displayable_chars)
+      displayable_chars = len;
+    else 
+      displayable_chars = - 2 - displayable_chars;
+    DrawStringPlanar(const_cast<VideoInfo&>(vi), dst, x1, y1, s);
+  }
+  return displayable_chars;
 }
 
 void setBlack(PVideoFrame& dst, const VideoInfo& vi)
