@@ -231,12 +231,12 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
 
       int len = (int)strlen(buf);
 
-      Draw(dst, current_column_x, y++, buf, vi_disp);
+        int retd = Draw(dst, current_column_x, y++, buf, vi_disp);
       // retd is 
       // >=0: column width printed 
       // -1 if does not fit vertically 
       // (-2-length_written) if does not fit horizontally
-      if (y >= MAX_Y)
+        if (retd == -1)
       {
         // does not fit vertically
         current_column_x += max_column_width + 2; // make x to next column, leaving a gap
@@ -245,7 +245,8 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
         Draw(dst, current_column_x, y++, buf, vi_disp);
       }
       else
-        max_column_width = std::max(max_column_width, len); // get max width so far in current column
+          max_column_width = std::max(max_column_width, retd); // get max width so far in current column
+      }
       mp = mc;
       if (x < curr.cycleE - 1) mc = curr.match[x + 1];
     }
@@ -281,16 +282,24 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
 
       int len = (int)strlen(buf);
 
-      Draw(dst, current_column_x, y++, buf, vi_disp);
-      if (y >= MAX_Y)
+        int retd = Draw(dst, current_column_x, y++, buf, vi_disp);
+        // retd is 
+        // >=0: column width printed 
+        // -1 if does not fit vertically 
+        // (-2-length_written) if does not fit horizontally
+        if (retd == -1)
       {
-        current_column_x += max_column_width + 2;
-        max_column_width = 0;
-        y = y_saved;
+          // does not fit vertically
+          current_column_x += max_column_width + 2; // make x to next column, leaving a gap
+          max_column_width = 0; // reset width counter
+          y = y_saved; // back to the top of the area
         Draw(dst, current_column_x, y++, buf, vi_disp);
       }
       else 
-        max_column_width = std::max(max_column_width, len);
+          max_column_width = std::max(max_column_width, retd);
+
+      }
+
       mp = mc;
       if (x < curr.cycleE - 1) mc = curr.match[x + 1];
     }
@@ -304,12 +313,12 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
 
   int len = (int)strlen(buf);
 
-  Draw(dst, current_column_x, y++, buf, vi_disp);
-  if (y >= MAX_Y)
+  int retd = Draw(dst, current_column_x, y++, buf, vi_disp);
+  if (retd == -1)
   {
     y = y_saved;
     current_column_x += max_column_width + 2;
-    Draw(dst, current_column_x, y++, buf, vi_disp);
+    retd = Draw(dst, current_column_x, y++, buf, vi_disp);
   }
 
   int length_available = (MAX_X - current_column_x);
@@ -317,10 +326,13 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
   len -= length_available;
 
   // print rest buffer in a line-wrapped style
-  while (y < MAX_Y && len > 0)
+  while (retd < -1)
   {
-    Draw(dst, current_column_x, y++, buf + buf_offset, vi_disp);
-    buf_offset += length_available;
-    len -= length_available;
+    retd = Draw(dst, current_column_x, y++, buf + buf_offset, vi_disp);
+    if (retd < 0 && retd != -1) {
+      int printed = (-retd - 2);
+      buf_offset += printed;
+      //len -= length_available;
+    }
   }
 }
