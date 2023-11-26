@@ -231,144 +231,78 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
   int num_of_decimations_in_display = 0;
   int num_of_decimations_till_display_end = 0;
   int last_decimated = curr.cycleS;
+  
+  const bool mode0or3spec = mode == 0 || (mode == 3 && vfrDec == 0);
 
-  if (mode == 0 || (mode == 3 && vfrDec == 0))
+  int mp = prev.frame != -20 ? prev.match[prev.cycleE - 1] : -20;
+  int mc = curr.match[curr.cycleS];
+  for (int x = curr.cycleS; x < curr.cycleE; ++x)
   {
-    int mp = prev.frame != -20 ? prev.match[prev.cycleE - 1] : -20;
-    int mc = curr.match[curr.cycleS];
-    for (int x = curr.cycleS; x < curr.cycleE; ++x)
-    {
-      bool decimated = (curr.decimate[x] == 1);
-      if (decimated) {
-        num_of_decimations++;
-        if (curr.frame + x <= displayTo) num_of_decimations_till_display_end++;
-      }
-      if (!displayDecimationDefined ||
-        (curr.frame + x >= displayFrom && curr.frame + x <= displayTo)
-        )
-      {
-        int decimation_relation = 0;
-        if (decimated) {
-          num_of_decimations_in_display++;
-          if (displayOptDefined) {
-            const int num_of_nondecimations_since_last = x - last_decimated;
-            // num_of_nondecimations_since_last <=> displayOptDefined: draw *- or ** or *+
-            decimation_relation = (num_of_nondecimations_since_last < displayOpt) ? -1 : (num_of_nondecimations_since_last > displayOpt) ? 1 : 0;
-          }
-        }
-        sprintf(buf, "%d%s%3.2f", curr.frame + x, curr.decimate[x] == 1 ? (decimation_relation < 0 ? ":*-" : decimation_relation > 0 ? ":*+" : ":**") : ":  ",
-          curr.diffMetricsN[x]);
-        if (mc >= 0)
-        {
-          sprintf(tempBuf, " %c", MTC(mc));
-          strcat(buf, tempBuf);
-          if (checkMatchDup(mp, mc))
-          {
-            sprintf(tempBuf, " (%s)", "mdup");
-            strcat(buf, tempBuf);
-          }
-          if (curr.filmd2v[x] == 1)
-          {
-            sprintf(tempBuf, " (%s)", "d2vdup");
-            strcat(buf, tempBuf);
-          }
-        }
-
-        int len = (int)strlen(buf);
-
-        int retd = Draw(dst, current_column_x, y++, buf, vi_disp);
-        // retd is 
-        // >=0: column width printed 
-        // -1 if does not fit vertically 
-        // (-2-length_written) if does not fit horizontally
-        if (retd == -1)
-        {
-          // does not fit vertically
-          current_column_x += max_column_width + 2; // make x to next column, leaving a gap
-          max_column_width = 0; // reset width counter
-          y = y_saved; // back to the top of the area
-          Draw(dst, current_column_x, y++, buf, vi_disp);
-        }
-        else
-          max_column_width = std::max(max_column_width, retd); // get max width so far in current column
-      }
-      mp = mc;
-      if (x < curr.cycleE - 1) mc = curr.match[x + 1];
-      if (decimated) last_decimated = x;
+    bool decimated = (curr.decimate[x] == 1);
+    if (decimated) {
+      num_of_decimations++;
+      if (curr.frame + x <= displayTo) num_of_decimations_till_display_end++;
     }
-  }
-  else
-  {
-    int mp = prev.frame != -20 ? prev.match[prev.cycleE - 1] : -20;
-    int mc = curr.match[curr.cycleS];
-    for (int x = curr.cycleS; x < curr.cycleE; ++x)
-    {
-      bool decimated = (curr.decimate[x] == 1);
-      if (decimated) {
-        num_of_decimations++;
-        if (curr.frame + x <= displayTo) num_of_decimations_till_display_end++;
-      }
 
-      if (!displayDecimationDefined ||
-        (curr.frame + x >= displayFrom && curr.frame + x <= displayTo)
-        )
+    if (!displayDecimationDefined ||
+      (curr.frame + x >= displayFrom && curr.frame + x <= displayTo)
+      )
+    {
+      int decimation_relation = 0;
+      if (decimated) {
+        num_of_decimations_in_display++;
+        if (displayOptDefined) {
+          const int num_of_nondecimations_since_last = x - last_decimated;
+          // num_of_nondecimations_since_last <=> displayOptDefined: draw *- or ** or *+
+          decimation_relation = (num_of_nondecimations_since_last < displayOpt) ? -1 : (num_of_nondecimations_since_last > displayOpt) ? 1 : 0;
+        }
+      }
+      sprintf(buf, "%d%s%3.2f", curr.frame + x, curr.decimate[x] == 1 ? (decimation_relation < 0 ? ":*-" : decimation_relation > 0 ? ":*+" : ":**") : ":  ",
+        curr.diffMetricsN[x]);
+      if (mc >= 0)
       {
-        int decimation_relation = 0;
-        if (decimated) {
-          num_of_decimations_in_display++;
-          if (displayOptDefined) {
-            const int num_of_nondecimations_since_last = x - last_decimated;
-            // num_of_nondecimations_since_last <=> displayOptDefined: draw *- or ** or *+
-            decimation_relation = (num_of_nondecimations_since_last < displayOpt) ? -1 : (num_of_nondecimations_since_last > displayOpt) ? 1 : 0;
-          }
-        }
-        sprintf(buf, "%d%s%3.2f", curr.frame + x, curr.decimate[x] == 1 ? (decimation_relation < 0 ? ":*-" : decimation_relation > 0 ? ":*+" : ":**") : ":  ",
-          curr.diffMetricsN[x]);
-        if (mc >= 0)
-        {
-          sprintf(tempBuf, " %c", MTC(mc));
-          strcat(buf, tempBuf);
-        }
+        sprintf(tempBuf, " %c", MTC(mc));
+        strcat(buf, tempBuf);
+      }
+      if (!mode0or3spec) {
         sprintf(tempBuf, " %s", curr.dupArray[x] == 1 ? "(dup)" : "(new)");
         strcat(buf, tempBuf);
-        if (mc >= 0)
+      }
+      if (mc >= 0)
+      {
+        if (checkMatchDup(mp, mc))
         {
-          if (checkMatchDup(mp, mc))
-          {
-            sprintf(tempBuf, " (%s)", "mdup");
-            strcat(buf, tempBuf);
-          }
-          if (curr.filmd2v[x] == 1)
-          {
-            sprintf(tempBuf, " (%s)", "d2vdup");
-            strcat(buf, tempBuf);
-          }
+          sprintf(tempBuf, " (%s)", "mdup");
+          strcat(buf, tempBuf);
         }
-
-        int len = (int)strlen(buf);
-
-        int retd = Draw(dst, current_column_x, y++, buf, vi_disp);
-        // retd is 
-        // >=0: column width printed 
-        // -1 if does not fit vertically 
-        // (-2-length_written) if does not fit horizontally
-        if (retd == -1)
+        if (curr.filmd2v[x] == 1)
         {
-          // does not fit vertically
-          current_column_x += max_column_width + 2; // make x to next column, leaving a gap
-          max_column_width = 0; // reset width counter
-          y = y_saved; // back to the top of the area
-          Draw(dst, current_column_x, y++, buf, vi_disp);
+          sprintf(tempBuf, " (%s)", "d2vdup");
+          strcat(buf, tempBuf);
         }
-        else
-          max_column_width = std::max(max_column_width, retd);
-
       }
 
-      mp = mc;
-      if (x < curr.cycleE - 1) mc = curr.match[x + 1];
-      if (decimated) last_decimated = x;
+      int len = (int)strlen(buf);
+
+      int retd = Draw(dst, current_column_x, y++, buf, vi_disp);
+      // retd is 
+      // >=0: column width printed 
+      // -1 if does not fit vertically 
+      // (-2-length_written) if does not fit horizontally
+      if (retd == -1)
+      {
+        // does not fit vertically
+        current_column_x += max_column_width + 2; // make x to next column, leaving a gap
+        max_column_width = 0; // reset width counter
+        y = y_saved; // back to the top of the area
+        Draw(dst, current_column_x, y++, buf, vi_disp);
+      }
+      else
+        max_column_width = std::max(max_column_width, retd); // get max width so far in current column
     }
+    mp = mc;
+    if (x < curr.cycleE - 1) mc = curr.match[x + 1];
+    if (decimated) last_decimated = x;
   }
   if (film)
   {
