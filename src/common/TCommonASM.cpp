@@ -819,7 +819,7 @@ void check_combing_c_Metric1(const pixel_t* srcp, uint8_t* cmkp, int width, int 
 
   for (int y = 0; y < height; ++y)
   {
-    for (int x = 0; x < width; ++x)
+    for (int x = 0; x < width; x += increment)
     {
       if ((safeint_t)(srcp[x] - srcpp[x]) * (srcp[x] - srcpn[x]) > cthreshsq)
         cmkp[x] = 0xFF;
