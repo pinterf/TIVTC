@@ -253,11 +253,11 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
         num_of_decimations_in_display++;
         if (displayOptDefined && num_of_decimations > 1) { // the first decimation does not get comparison markers
           const int num_of_nondecimations_since_last = x - last_decimated;
-          // num_of_nondecimations_since_last <=> displayOptDefined: draw *- or ** or *+
+          // num_of_nondecimations_since_last <=> displayOptDefined: draw << or ** or >>
           decimation_relation = (num_of_nondecimations_since_last < displayOpt) ? -1 : (num_of_nondecimations_since_last > displayOpt) ? 1 : 0;
         }
       }
-      sprintf(buf, "%d%s%3.2f", curr.frame + x, curr.decimate[x] == 1 ? (decimation_relation < 0 ? ":*-" : decimation_relation > 0 ? ":*+" : ":**") : ":  ",
+      sprintf(buf, "%d%s%3.2f", curr.frame + x, decimated ? (decimation_relation < 0 ? ":<<" : decimation_relation > 0 ? ":>>" : ":**") : ":  ",
         curr.diffMetricsN[x]);
       if (mc >= 0)
       {
