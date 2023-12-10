@@ -218,7 +218,7 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
   const int displayFrom = !displayDecimationDefined ? -1 : (ret / displayDecimation) * displayDecimation;
   const int displayTo = !displayDecimationDefined ? -1 : displayFrom + displayDecimation - 1;
   if (displayDecimationDefined) {
-    sprintf(tempBuf, " displayDecimation: %d (%d-%d)", displayDecimation, displayFrom, displayTo);
+    sprintf(tempBuf, "  displayDecimation: %d (%d-%d)", displayDecimation, displayFrom, displayTo);
     strcat(buf, tempBuf);
   }
   Draw(dst, 0, y++, buf, vi_disp);
@@ -231,7 +231,7 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
   int num_of_decimations_in_display = 0;
   int num_of_decimations_till_display_end = 0;
   int last_decimated = curr.cycleS;
-  
+
   const bool mode0or3spec = mode == 0 || (mode == 3 && vfrDec == 0);
 
   int mp = prev.frame != -20 ? prev.match[prev.cycleE - 1] : -20;
@@ -258,7 +258,7 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
         }
       }
       sprintf(buf, "%d%s%3.2f", curr.frame + x, decimated ? (decimation_relation < 0 ? ":<<" : decimation_relation > 0 ? ":>>" : ":**") : ":  ",
-        curr.diffMetricsN[x]);
+      curr.diffMetricsN[x]);
       if (mc >= 0)
       {
         sprintf(tempBuf, " %c", MTC(mc));
