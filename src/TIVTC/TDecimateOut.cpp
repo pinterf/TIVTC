@@ -251,7 +251,7 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
       int decimation_relation = 0;
       if (decimated) {
         num_of_decimations_in_display++;
-        if (displayOptDefined) {
+        if (displayOptDefined && num_of_decimations > 1) { // the first decimation does not get comparison markers
           const int num_of_nondecimations_since_last = x - last_decimated;
           // num_of_nondecimations_since_last <=> displayOptDefined: draw *- or ** or *+
           decimation_relation = (num_of_nondecimations_since_last < displayOpt) ? -1 : (num_of_nondecimations_since_last > displayOpt) ? 1 : 0;
