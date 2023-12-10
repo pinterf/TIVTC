@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.10  -  HELP FILE  (20231126)
+                              TDecimate v1.0.10  -  HELP FILE  (20231210)
 
 
 
@@ -759,7 +759,10 @@ E.)  DEBUG/DISPLAY PARAMETERS:
         This parameter is useful for large cycles, when the screen area is not enough to display all
         data within the range.
 
-        default:  0  (int)
+        Example:
+                     TDecimate(mode=0,cycleR=462,cycle=2786,display=true,displayDecimation=199,displayOpt=6)
+
+        default:  0  (int) meaning: not used.
 
 
      displayOpt -
@@ -767,12 +770,14 @@ E.)  DEBUG/DISPLAY PARAMETERS:
         Visualize the deviation from an expected decimation distance.
         When the number of frames since last frame drop is equal to displayOpt then 
         the decimation sign is the usual "**". When the actual number is less or greater than
-        the expected number, then "*-" or "*+" (repectively) is displayed instead.
+        the expected number, then "<<" or ">>" (repectively) is displayed instead.
+
+        The very first decimated frame of the current cycle (first page) is always marked as "**".
 
         This option is useful even when displayDecimation is not specified, it is not required in 
         combination with displayDecimation, and can be used by itself.
 
-        default:  -1  (int)
+        default:  -1  (int) meaning: not used.
 
 
 F.)  OVERRIDES:
@@ -870,7 +875,7 @@ G.) FRAME PROPERTY SUPPORT
 
 H.)  CHANGE LIST:
 
-    (20231126) (v1.0.10, in v1.0.28 pack - pinterf)
+    (20231210) (v1.0.10, in v1.0.28 pack - pinterf)
          - Request #43: (https://github.com/pinterf/TIVTC/issues/43)
            TDecimate debug parameters displayDecimation, displayOpt
          - Fix minor display glitch (regression since v1.0.19pack): display=true would duplicate the 

@@ -1,8 +1,9 @@
 ## TIVTC
 
-**v1.0.28 (20231126)
+**v1.0.28 (20231210)
 - Request #43: (https://github.com/pinterf/TIVTC/issues/43)
-  TDecimate debug parameters displayDecimation, displayOpt
+  TDecimate debug parameters displayDecimation, displayOpt.
+  Able to show << or >> instead of ** on debug display by the distance from the last decimated frame compared to displayOpt.
 - Fix minor display glitch (regression since v1.0.19pack): display=true would duplicate the 
   most bottom frame info text to the top position of the next column.
 

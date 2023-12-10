@@ -1,4 +1,8 @@
 ## TDeint
+**v1.9 (20231209) - pinterf**
+
+- Fix C reference code of YUY2+luma-only: check_combing_c_Metric1 metrics
+  Probably no one had problems with it on Intel, since it's implemented in SSE2 as well.
 
 **v1.8 (20201214) - pinterf**
 
