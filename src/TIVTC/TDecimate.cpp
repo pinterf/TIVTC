@@ -2123,7 +2123,7 @@ void TDecimate::calcBlendRatios2(double &amount1, double &amount2, int &frame1, 
   offset = (offset - int(offset))*0.5;
   double pos = 1 + (tf%p.length)*stepsize - offset;
   double posf = pos - (int)(pos);
-  for (b = p.frameEO - 1, i = p.cycleE - 1; i >= p.cycleS; --i, --b)
+  for (b = p.frameEO - 1, i = p.cycleE - 1; (hybrid == 3 ? i > p.cycleS : i >= p.cycleS); --i, --b)
   {
     if (p.decimate[i] != 1)
     {
@@ -2131,7 +2131,7 @@ void TDecimate::calcBlendRatios2(double &amount1, double &amount2, int &frame1, 
       break;
     }
   }
-  for (k = 1, b = c.frameSO, i = c.cycleS; i < c.cycleE; ++i, ++b)
+  for (k = 1, b = c.frameSO, i = c.cycleS; (hybrid == 3 ? i <= c.cycleE : i < c.cycleE); ++i, ++b)
   {
     if (c.decimate[i] != 1)
     {
@@ -2139,7 +2139,7 @@ void TDecimate::calcBlendRatios2(double &amount1, double &amount2, int &frame1, 
       ++k;
     }
   }
-  for (b = n.frameSO, i = c.cycleS; i < c.cycleE; ++i, ++b)
+  for (b = n.frameSO, i = c.cycleS; (hybrid == 3 ? i <= c.cycleE : i < c.cycleE); ++i, ++b)
   {
     if (c.decimate[i] != 1)
     {
