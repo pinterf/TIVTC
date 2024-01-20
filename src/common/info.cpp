@@ -20,6 +20,7 @@
 // multiple size, multiple fonts, "Terminus", "info_h"
 
 #include "avs/config.h"
+#include <memory>
 #include "info.h"
 
 #ifdef AVS_WINDOWS
