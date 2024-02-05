@@ -50,6 +50,19 @@ PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
     else
       restoreHint<uint16_t>(dst, env);
   }
+  // Add frame properties: cycle metrics, frame numbers
+  if (has_at_least_v8) {
+      if (has_at_least_v9)
+          env->MakePropertyWritable(&dst);
+      else
+          env->MakeWritable(&dst);     
+      AVSMap* props = env->getFramePropsRW(dst); 
+ 
+      if (curr.diffMetricsF == nullptr) { curr.diffMetricsF = (int64_t*)malloc(curr.length * sizeof(int64_t)); }
+      for (int i = 0; i < curr.length; ++i) { curr.diffMetricsF[i] = (int64_t)curr.frame + i; }
+      env->propSetIntArray(props, PROP_TDecimateCycleFrameNums, curr.diffMetricsF, curr.length);
+      env->propSetFloatArray(props, PROP_TDecimateCycleMetrics, curr.diffMetricsN, curr.length);
+  }
   return dst;
 }
 
