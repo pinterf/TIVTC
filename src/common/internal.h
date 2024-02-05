@@ -95,6 +95,8 @@ void BitBlt(uint8_t* dstp, int dst_pitch, const uint8_t* srcp, int src_pitch, in
 
 // Frame properties set by TDecimate:
 // #define PROP_TDecimateDisplay "TDecimateDisplay"
+#define PROP_TDecimateCycleMetrics "TDecimateCycleMetrics"
+#define PROP_TDecimateCycleFrameNums "TDecimateCycleFrameNums" 
 #define PROP_TDecimateCycleStart "TDecimateCycleStart"
 #define PROP_TDecimateCycleMaxBlockDiff "TDecimateCycleMaxBlockDiff" // uint64_t[]
 #define PROP_TDecimateOriginalFrame "TDecimateOriginalFrame"
