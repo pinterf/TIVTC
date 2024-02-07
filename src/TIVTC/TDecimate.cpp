@@ -3746,6 +3746,10 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
 
 TDecimate::~TDecimate()
 {
+  if (curr.diffMetricsF != nullptr) { free(curr.diffMetricsF); curr.diffMetricsF = nullptr; }
+  if (prev.diffMetricsF != nullptr) { free(prev.diffMetricsF); prev.diffMetricsF = nullptr; }
+  if (next.diffMetricsF != nullptr) { free(next.diffMetricsF); next.diffMetricsF = nullptr; }
+ 
   if (metricsOutArray.size())
   {
     if (output.size())
