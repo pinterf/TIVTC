@@ -101,6 +101,7 @@ void BitBlt(uint8_t* dstp, int dst_pitch, const uint8_t* srcp, int src_pitch, in
 #define PROP_TDecimateCycleFrameNums "TDecimateCycleFrameNums" 
 #define PROP_TDecimateCycleFrameNumsPrev "TDecimateCycleFrameNumsPrev"
 #define PROP_TDecimateCycleFrameNumsNext "TDecimateCycleFrameNumsNext"
+#define PROP_TDecimateCycleBlendStatus "TDecimateCycleBlendStatus"
 #define PROP_TDecimateCycleStart "TDecimateCycleStart"
 #define PROP_TDecimateCycleMaxBlockDiff "TDecimateCycleMaxBlockDiff" // uint64_t[]
 #define PROP_TDecimateOriginalFrame "TDecimateOriginalFrame"
