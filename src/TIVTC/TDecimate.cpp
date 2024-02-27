@@ -58,17 +58,20 @@ PVideoFrame __stdcall TDecimate::GetFrame(int n, IScriptEnvironment *env)
           env->MakeWritable(&dst);     
       AVSMap* props = env->getFramePropsRW(dst); 
 
-      // curr cycle
+       // current cycle metrics, frame nums and blend status
       if (curr.diffMetricsF == nullptr) { curr.diffMetricsF = (int64_t*)malloc(curr.length * sizeof(int64_t)); }
       for (int i = 0; i < curr.length; ++i) { curr.diffMetricsF[i] = (int64_t)curr.frame + i; }
       env->propSetIntArray(props, PROP_TDecimateCycleFrameNums, curr.diffMetricsF, curr.length);
       env->propSetFloatArray(props, PROP_TDecimateCycleMetrics, curr.diffMetricsN, curr.length);
-      // prev cycle
+      env->propSetInt(props, PROP_TDecimateCycleBlendStatus, curr.blend, AVSPropAppendMode::PROPAPPENDMODE_REPLACE);
+      
+       // previous cycle metrics & frame nums
       if (prev.diffMetricsF == nullptr) { prev.diffMetricsF = (int64_t*)malloc(prev.length * sizeof(int64_t)); }
       for (int i = 0; i < prev.length; ++i) { prev.diffMetricsF[i] = (int64_t)prev.frame + i; }
       env->propSetIntArray(props, PROP_TDecimateCycleFrameNumsPrev, prev.diffMetricsF, prev.length);
       env->propSetFloatArray(props, PROP_TDecimateCycleMetricsPrev, prev.diffMetricsN, prev.length);
-      // next cycle
+      
+       // next cycle metrics & frame nums
       if (next.diffMetricsF == nullptr) { next.diffMetricsF = (int64_t*)malloc(next.length * sizeof(int64_t)); }
       for (int i = 0; i < next.length; ++i) { next.diffMetricsF[i] = (int64_t)next.frame + i; }
       env->propSetIntArray(props, PROP_TDecimateCycleFrameNumsNext, next.diffMetricsF, next.length);
