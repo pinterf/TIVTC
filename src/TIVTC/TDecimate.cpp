@@ -1507,7 +1507,7 @@ bool TDecimate::checkForTwoDropLongestString(Cycle &p, Cycle &c, Cycle &n)
     (c1 != c.cycleS && (c.dupArray[c1 - 1] == 1 || c.dupArray[c1 + 1] == 1))) return false;
   if ((c2 == c.cycleE - 1 && (n.dupArray[n.cycleS] == 1 || c.dupArray[c2 - 1] == 1)) ||
     (c2 != c.cycleE - 1 && (c.dupArray[c2 - 1] == 1 || c.dupArray[c2 + 1] == 1))) return false;
-  if (hybrid == 0 && noblend)
+  if ((hybrid == 0 || hybrid == 1) && noblend) // allow noblend when hybrid=1
   {
     if (c.diffMetricsU[c1] <= c.diffMetricsU[c2])
       c.decimate[c1] = c.decimate2[c1] = 1;
@@ -1642,7 +1642,7 @@ void TDecimate::mostSimilarDecDecision(Cycle &p, Cycle &c, Cycle &n, IScriptEnvi
       if (savedc1 != c.lowest[0] && savedc1 != c.lowest[1]) goto tryother;
       if (savedc2 != c.lowest[0] && savedc2 != c.lowest[1]) goto tryother;
       if (abs(savedc1 - savedc2) <= 1) goto tryother;
-      if (hybrid == 0 && noblend)
+      if ((hybrid == 0 || hybrid == 1) && noblend) //allow noblend when hybrid=1
       {
         if (c.diffMetricsU[savedc1] <= c.diffMetricsU[savedc2])
           c.decimate[savedc1] = c.decimate2[savedc1] = 1;
@@ -1790,7 +1790,7 @@ void TDecimate::findDupStrings(Cycle &p, Cycle &c, Cycle &n, IScriptEnvironment 
       }
       if (n1 == c2) usecp += 5;
     }
-    if (hybrid == 0 && noblend && usecp == 6)
+    if ((hybrid == 0 || hybrid == 1) && noblend && usecp == 6) //allow noblend when hybrid=1
     {
       if (ct1 && !ct2) usecp = 5;
       else if (!ct1 && ct2) usecp = 1;
@@ -2356,6 +2356,11 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
   if ((mode == 0 || mode == 1 || mode == 3) && cycle > 1 && cycle < 26 && !(*input))
     v = new CacheFilter(args[0].AsClip(), cycle * 4 + 1, 1, cycle, env);
   else v = args[0].AsClip();
+
+  // backwards compatibility: retain default noblend behaviour when hybrid=1
+  // args[8]=hybrid , args[31]=noblend
+  bool noblend = args[8].AsInt(0) == 1 ? args[31].AsBool(false) : args[31].AsBool(true);
+  
   v = new TDecimate(v.AsClip(), args[1].AsInt(0), args[2].AsInt(1), args[3].AsInt(5),
     args[4].AsFloat(23.976f), args[5].AsFloat((float)dup_thresh), args[6].AsFloat((float)vid_thresh),
     args[7].AsFloat(15), args[8].AsInt(0), args[9].AsInt(vidDetect), args[10].AsInt(cc),
@@ -2363,7 +2368,7 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[15].AsString(""), args[16].AsString(""), args[17].AsInt(0), args[18].AsInt(32), args[19].AsInt(32),
     args[20].AsBool(false), args[21].AsBool(false), args[22].AsInt(1), args[23].AsBool(false),
     args[24].AsBool(true), args[25].AsBool(false), chroma, args[27].AsBool(false),
-    args[28].AsInt(-200), args[29].AsBool(false), args[30].AsBool(false), args[31].AsBool(true),
+    args[28].AsInt(-200), args[29].AsBool(false), args[30].AsBool(false), noblend,
     args[32].AsBool(false), args[33].IsBool() ? (args[33].AsBool() ? 1 : 0) : -1,
     args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), 
     args[38].AsInt(0), args[39].AsInt(-1), // displayDecimation, displayOpt
