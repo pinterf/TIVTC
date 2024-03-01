@@ -79,6 +79,7 @@ public:
   int frameEO;	// frame + cycleE
   int type;		// video or film and how
   double *diffMetricsN;			// normalized metrics
+  int64_t* diffMetricsF = nullptr;   // frame numbers of normalized metrics
   uint64_t *diffMetricsU;	// unnormalized metrics
   uint64_t *diffMetricsUF;	// frame metrics (scenechange detection)
   uint64_t *tArray;			// used as temp storage when sorting

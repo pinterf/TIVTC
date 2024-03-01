@@ -851,6 +851,35 @@ G.) FRAME PROPERTY SUPPORT
       Frame properties set by TFM: TFMMatch, _Combed, TFMD2VFilm, TFMField, TFMMics, TFMPP
       Frame properties read by TFM and TDecimate: TFMMatch, TFMD2VFilm, TFMField
       Frame properties read by TFMPP: TFMField, _Combed
+      
+      Frame properties set by TDecimate:  
+         TDecimateCycleMetrics (float array): normalised metrics for all frames in current cycle
+         TDecimateCycleMetricsPrev: same as TDecimateCycleMetrics but for previous cycle
+	 TDecimateCycleMetricsNext: same as TDecimateCycleMetrics but for next cycle
+         TDecimateCycleFrameNums (int array): frame numbers corresponding to TDecimateCycleMetrics	   
+	 TDecimateCycleFrameNumsPrev: same as TDecimateCycleFrameNums but for previous cycle     
+	 TDecimateCycleFrameNumsNext: same as TDecimateCycleFrameNums but for next cycle  
+	 TDecimateCycleBlendStatus (integer): indicates if frames in the current cycle are blended:
+	     -20=undefined, 0=not blended, 1=blended, 2=not blended due to scenechange, 3=not blended due to 2 dup cycle workaround
+		  
+	 Example usage:	    
+           ScriptClip("PrintProps(last, current_frame)", after_frame=true, local=false)
+	   function PrintProps(clip c, int current_frame){
+				
+	      metrics = propGetAsArray(c, "TDecimateCycleMetrics")
+	      fnums = propGetAsArray(c, "TDecimateCycleFrameNums")
+	      blendStatus = propGetAny(c, "TDecimateCycleBlendStatus")
+				
+	      string = ""
+	      for (i=0, ArraySize(metrics)-1){		
+		 string = string + "Frame " + String(fnums[i]) + ": " + String(metrics[i], "%0.2f") + "\n" 
+              }
+					
+	      string = string + "Blend status: " + String(blendStatus) + "\n"
+				
+	      c.Text(string, lsp=0, align=7, size=20, bold=true)
+ 	   }
+
       Frame properties read by TDecimate creation: TFMPP (but if Avisynth variable "TFMPPValue" exists then the variable has priority over it)
       Frame properties never read: TFMMics
       Traditionally, TFM is using a 32 bit "hint" encoded in the lsb bits of the first 32 pixels of a frame.
