@@ -36,7 +36,7 @@
 #include "Cache.h"
 #include <unordered_map>
 
-#define VERSION "v1.0.10"
+#define VERSION "v1.0.11"
 
 // All the rest of this code was just copied from tdecimate.cpp because I'm
 // too lazy to make it work such that it could call that code.
