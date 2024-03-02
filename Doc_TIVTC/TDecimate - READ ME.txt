@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.10  -  HELP FILE  (20231210)
+                              TDecimate v1.0.11  -  HELP FILE  (20230302)
 
 
 
@@ -34,7 +34,7 @@ A.)  GENERAL INFO:
 
    syntax=>
 
-       	TDecimate(int mode, int cycleR, int cycle, float rate, float dupThresh, float vidThresh,
+        TDecimate(int mode, int cycleR, int cycle, float rate, float dupThresh, float vidThresh,
                   float sceneThresh, int hybrid, int vidDetect, int conCycle, int conCycleTP,
                   String ovr, String output, String input, String tfmIn, String mkvOut, int nt,
                   int blockx, int blocky, bool debug, bool display, int vfrDec, bool batch,
@@ -152,7 +152,7 @@ B.)  BASIC PARAMETERS:
                      is set to 4.0 (they use the usual 0 to 100 normalized scale).
 
 
-	Default:  0  (int)
+    Default:  0  (int)
 
 
     cycleR -
@@ -165,7 +165,7 @@ B.)  BASIC PARAMETERS:
            *NOTE:  all hybrid handling options only support cycleR = 1.  So if hybrid > 0
                    this value must be set to 1!
 
-	Default:  1  (int)
+    Default:  1  (int)
 
 
     cycle -
@@ -175,7 +175,7 @@ B.)  BASIC PARAMETERS:
         anything in the range 2 to (number of frames in video).  It must also be greater
         than the cycleR setting.
 
-	Default:  5  (int)
+    Default:  5  (int)
 
 
     rate -
@@ -238,7 +238,7 @@ C.)  ADVANCED PARAMETERS:
         to absolutely be duplicates.  Use display=true to see what the calculated metric values
         for the frames are and what the threshold values (translated into unnormalized values) are.
 
-	Default:  1.1  (if chroma = true)  (float) -- modes 1, 3, 5
+    Default:  1.1  (if chroma = true)  (float) -- modes 1, 3, 5
                   1.4  (if chroma = false)
 
                   0.4  (if chroma = true)  (float) -- mode 7
@@ -304,9 +304,9 @@ C.)  ADVANCED PARAMETERS:
         labels).  Please note that ovr (overrides) overrules vidDetect!
 
            0 - A        (if matches indicate video then consider it video)
-	   1 - B        (if metrics indicate video then consider it video)
-	   2 - A or B   (if either matches or metrics indicate video then consider it video)
-	   3 - A and B  (if both matches and metrics indicate video then consider it video)
+       1 - B        (if metrics indicate video then consider it video)
+       2 - A or B   (if either matches or metrics indicate video then consider it video)
+       3 - A and B  (if both matches and metrics indicate video then consider it video)
            4 - A and (B or C)  (if matches indicate video and metrics indicate video or
                                 matches indicate video and there are no local minima consider
                                 it video)
@@ -498,16 +498,18 @@ C.)  ADVANCED PARAMETERS:
 
     noblend -
 
-        Even with hybrid=0 there is a special case when tdecimate will use blend decimation, and
+        With hybrid = 0 or 1 there is a special case when tdecimate will use blend decimation, and
         that is when it detects two duplicates in a cycle, cycleR=1, and neither duplicate is next
         to a scenechange.  In such cases tdecimate will drop one of the duplicates and replace the
-        other with a blend of its neighbors.  The "noblend" parameter is used to disable this so
-        that no blending is ever done when hybrid = 0.
+        other with a blend of its neighbors.  The "noblend" parameter is used to disable this behaviour.
 
-           true - no blending when hybrid = 0
+        From TDecimate v1.0.11 (pack *v1.0.29) noblend has effect for hybrid = 1, for backward
+        compatibility its default value is different for hybrid = 0 and 1.
+
+           true - no blending in the two duplicate case when hybrid = 0 or 1
            false - use blending in the two duplicate case
 
-        Default:  true  (bool)
+        Default:  true (bool) when hybrid = 0, false (bool) when hybrid = 1
 
 
     denoise -
@@ -517,8 +519,7 @@ C.)  ADVANCED PARAMETERS:
         metrics and make it easier to tell the difference between duplicates and non-duplicates).
         It also works very well for sources with lots of dot-crawl because the denoising
         effectively cancels all dot-crawl, whereas the dot-crawl would usually inflate difference
-        values of duplicates.  Using denoising will slow things down somewhat, but it is MMX
-        optimized and pretty fast.
+        values of duplicates.  Using denoising will slow things down somewhat.
 
           true - use denoising
           false - don't
@@ -843,7 +844,7 @@ F.)  OVERRIDES:
 
 G.) FRAME PROPERTY SUPPORT
 
-      Frame property support was introduced in package 1.0.27
+      Frame property support was introduced in package 1.0.27, extended in 1.0.29
 
       Frame properties (priority over burned-into-image hints).
       Similarly to bitmapped hints, they are used when parameter "hint" is true.
@@ -851,34 +852,36 @@ G.) FRAME PROPERTY SUPPORT
       Frame properties set by TFM: TFMMatch, _Combed, TFMD2VFilm, TFMField, TFMMics, TFMPP
       Frame properties read by TFM and TDecimate: TFMMatch, TFMD2VFilm, TFMField
       Frame properties read by TFMPP: TFMField, _Combed
-      
-      Frame properties set by TDecimate:  
-         TDecimateCycleMetrics (float array): normalised metrics for all frames in current cycle
-         TDecimateCycleMetricsPrev: same as TDecimateCycleMetrics but for previous cycle
-	 TDecimateCycleMetricsNext: same as TDecimateCycleMetrics but for next cycle
-         TDecimateCycleFrameNums (int array): frame numbers corresponding to TDecimateCycleMetrics	   
-	 TDecimateCycleFrameNumsPrev: same as TDecimateCycleFrameNums but for previous cycle     
-	 TDecimateCycleFrameNumsNext: same as TDecimateCycleFrameNums but for next cycle  
-	 TDecimateCycleBlendStatus (integer): indicates if frames in the current cycle are blended:
-	     -20=undefined, 0=not blended, 1=blended, 2=not blended due to scenechange, 3=not blended due to 2 dup cycle workaround
-		  
-	 Example usage:	    
-           ScriptClip("PrintProps(last, current_frame)", after_frame=true, local=false)
-	   function PrintProps(clip c, int current_frame){
-				
-	      metrics = propGetAsArray(c, "TDecimateCycleMetrics")
-	      fnums = propGetAsArray(c, "TDecimateCycleFrameNums")
-	      blendStatus = propGetAny(c, "TDecimateCycleBlendStatus")
-				
-	      string = ""
-	      for (i=0, ArraySize(metrics)-1){		
-		 string = string + "Frame " + String(fnums[i]) + ": " + String(metrics[i], "%0.2f") + "\n" 
-              }
-					
-	      string = string + "Blend status: " + String(blendStatus) + "\n"
-				
-	      c.Text(string, lsp=0, align=7, size=20, bold=true)
- 	   }
+
+      Frame properties set by TDecimate (since TDecimate v1.0.11, pack v1.0.29):
+
+        TDecimateCycleMetrics (float array): normalised metrics for all frames in current cycle
+        TDecimateCycleMetricsPrev and TDecimateCycleMetricsNext: same as TDecimateCycleMetrics but for previous/next cycle
+
+        TDecimateCycleFrameNums (int array): frame numbers corresponding to TDecimateCycleMetrics
+        TDecimateCycleFrameNumsPrev and TDecimateCycleFrameNumsNext: same as TDecimateCycleFrameNums but for previous/next cycle
+
+        TDecimateCycleBlendStatus (integer): indicates if frames in the current cycle are blended:
+            -20=undefined, 
+            0=not blended, 
+            1=blended, 
+            2=not blended due to scenechange, 
+            3=not blended due to 2 dup cycle workaround
+
+        Example usage:
+
+            ScriptClip("PrintProps(last, current_frame)", after_frame=true, local=false)
+            function PrintProps(clip c, int current_frame){
+                metrics = propGetAsArray(c, "TDecimateCycleMetrics")
+                fnums = propGetAsArray(c, "TDecimateCycleFrameNums")
+                blendStatus = propGetAny(c, "TDecimateCycleBlendStatus")
+                s = ""
+                for (i=0, ArraySize(metrics)-1) {
+                  s = s + "Frame " + String(fnums[i]) + ": " + String(metrics[i], "%0.2f") + "\n" 
+                }
+                s = s + "Blend status: " + String(blendStatus) + "\n"
+                c.Text(s, lsp=0, align=7, size=20, bold=true)
+            }
 
       Frame properties read by TDecimate creation: TFMPP (but if Avisynth variable "TFMPPValue" exists then the variable has priority over it)
       Frame properties never read: TFMMics
@@ -903,6 +906,17 @@ G.) FRAME PROPERTY SUPPORT
 
 
 H.)  CHANGE LIST:
+
+    (20240302) (v1.0.11, in v1.0.29 pack - pinterf)
+         - TDecimate: allow noblend=true when hybrid=1, noblend default value is false when hybrid=1 to keep 
+           backward compatibility. (flossy83)
+         - TDecimate to fill new frame properties. (flossy83)
+           TDecimateCycleMetrics, TDecimateCycleMetricsPrev, TDecimateCycleMetricsNext (float arrays),
+           TDecimateCycleFrameNums, TDecimateCycleFrameNumsPrev, TDecimateCycleFrameNumsNext (int arrays),
+           TDecimateCycleBlendStatus
+           See #48: https://github.com/pinterf/TIVTC/issues/48
+         - Fix #46: TDecimate(hybrid=3) blending with wrong frame. (flossy83)
+           https://github.com/pinterf/TIVTC/issues/46
 
     (20231210) (v1.0.10, in v1.0.28 pack - pinterf)
          - Request #43: (https://github.com/pinterf/TIVTC/issues/43)

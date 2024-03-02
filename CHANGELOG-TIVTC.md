@@ -1,5 +1,16 @@
 ## TIVTC
 
+**v1.0.29 (20240302)
+- TDecimate: allow noblend=true when hybrid=1, noblend default value is false when hybrid=1 to keep 
+  backward compatibility.
+- TDecimate to fill new frame properties:
+  TDecimateCycleMetrics (float array), TDecimateCycleMetricsPrev, TDecimateCycleMetricsNext,
+  TDecimateCycleFrameNums (int array), TDecimateCycleFrameNumsPrev, TDecimateCycleFrameNumsNext,
+  TDecimateCycleBlendStatus
+  Issue #48: https://github.com/pinterf/TIVTC/issues/48
+- Fix Issue #46: TDecimate(hybrid=3) blending with wrong frame
+  https://github.com/pinterf/TIVTC/issues/46
+
 **v1.0.28 (20231210)
 - Request #43: (https://github.com/pinterf/TIVTC/issues/43)
   TDecimate debug parameters displayDecimation, displayOpt.

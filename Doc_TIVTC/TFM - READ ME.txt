@@ -901,7 +901,7 @@ F.)  OVERRIDES:
 
 G.) FRAME PROPERTY SUPPORT
 
-      Frame property support was introduced in package 1.0.27(since TFM module 1.0.8)
+      Frame property support was introduced in package 1.0.27 (since TFM module 1.0.8)
 
       Frame properties (priority over burned-into-image hints).
       Similarly to bitmapped hints, they are used when parameter "hint" is true.
@@ -909,6 +909,11 @@ G.) FRAME PROPERTY SUPPORT
       Frame properties set by TFM: TFMMatch, _Combed, TFMD2VFilm, TFMField, TFMMics, TFMPP
       Frame properties read by TFM and TDecimate: TFMMatch, TFMD2VFilm, TFMField
       Frame properties read by TFMPP: TFMField, _Combed
+      Frame properties set by TDecimate (since TDecimate v1.0.11, pack v1.0.29):
+        TDecimateCycleMetrics, TDecimateCycleMetricsPrev, TDecimateCycleMetricsNext
+        TDecimateCycleFrameNums, TDecimateCycleFrameNumsPrev, TDecimateCycleFrameNumsNext
+        TDecimateCycleBlendStatus
+        (see details in TDecimate - READ ME.txt)
       Frame properties read by TDecimate creation: TFMPP (but if Avisynth variable "TFMPPValue" exists then the variable has priority over it)
       Frame properties never read: TFMMics
       Traditionally, TFM is using a 32 bit "hint" encoded in the lsb bits of the first 32 pixels of a frame.
