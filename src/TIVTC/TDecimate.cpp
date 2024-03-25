@@ -203,7 +203,29 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
     novidjump:
       if (mode == 0)
       {
-        mostSimilarDecDecision(prev, curr, next, env);
+       if (!sceneDec) { mostSimilarDecDecision(prev, curr, next, env); }   // retain backwards compatibility 
+        else {
+
+            bool decimateSceneNeighbour = false;
+            
+            checkVideoMetrics(curr, vidThresh);
+
+            if (curr.type == 3) {   // if cycle is video by metrics
+
+                int scenePosition = curr.sceneDetect(prev, next, sceneThreshU);
+
+                if (scenePosition != -20)  // -20 = no scenechange frame in cycle
+                {
+                    for (int p = curr.cycleS; p < curr.cycleE; ++p) curr.decimate[p] = curr.decimate2[p] = 0;
+                    curr.decimate[scenePosition] = curr.decimate2[scenePosition] = 1;
+                    curr.decSet = true;
+                    decimateSceneNeighbour = true;
+                }
+            }
+
+            // if we didn't decimate a scene neighbour, use normal decimation strategy
+            if (!decimateSceneNeighbour) { mostSimilarDecDecision(prev, curr, next, env); }
+        }
       }
       else
       {
