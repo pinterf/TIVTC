@@ -277,6 +277,19 @@ C.)  ADVANCED PARAMETERS:
         Default:  15  (float)
 
 
+    sceneDec -
+
+        Sets the decimation strategy around scene changes when mode=0 and hybrid=0.
+        When set to true, if the current cycle contains a scenechange frame, and the current cycle
+        is video (eg. 30p) then the frame before the scene change frame will be decimated instead
+        of the most similar frame in the cycle.  This can help avoid stutters around scene changes
+        due to field cadence breaks in the source.  The sensitivity to scene changes can be controlled
+        with sceneThresh.  This setting doesn't need to be enabled when hybrid=1 as it is already
+        part of the default hybrid=1 behaviour.
+		
+        Default:  false  (bool)
+
+
     vidDetect -
 
         This sets what is required for single cycle video detection when hybrid > 0. Whether
