@@ -2728,7 +2728,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
   bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl, bool _m2PA,
   bool _predenoise, bool _noblend, bool _ssd, int _usehints, PClip _clip2,
-  int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, IScriptEnvironment* env) : GenericVideoFilter(_child),
+  int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, bool _sceneDec, IScriptEnvironment* env) : GenericVideoFilter(_child),
   mode(_mode),
   cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh),
   hybrid(_hybrid), vidThresh(_vidThresh),
@@ -2738,7 +2738,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   vfrDec(_vfrDec), debug(_debug), display(_display), batch(_batch), tcfv1(_tcfv1), se(_se),
   maxndl(_maxndl), chroma(_chroma), m2PA(_m2PA), exPP(_exPP),
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
-  opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt),
+  opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt), sceneDec(_sceneDec),  
   prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, nullptr)
 {
 
