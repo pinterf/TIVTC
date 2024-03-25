@@ -91,6 +91,7 @@ private:
   int conCycleTP;
   int vidDetect;
   double sceneThresh;
+  bool sceneDec; 
   int conCycle;
   std::string ovr;
   std::string input;
@@ -219,7 +220,7 @@ public:
     int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
-    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, IScriptEnvironment* env);
+    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, bool _sceneDec, IScriptEnvironment* env);
   ~TDecimate();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {
