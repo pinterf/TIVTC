@@ -2393,7 +2393,7 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[28].AsInt(-200), args[29].AsBool(false), args[30].AsBool(false), noblend,
     args[32].AsBool(false), args[33].IsBool() ? (args[33].AsBool() ? 1 : 0) : -1,
     args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), 
-    args[38].AsInt(0), args[39].AsInt(-1), // displayDecimation, displayOpt
+    args[38].AsInt(0), args[39].AsInt(-1), args[40].AsBool(false),  // arg[40] = sceneDec, defaults to false for backwards compatibility
     env);
   return v;
 }
