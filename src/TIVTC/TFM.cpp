@@ -2786,9 +2786,8 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   cthresh(_cthresh), MI(_MI), chroma(_chroma), blockx(_blockx), blocky(_blocky), y0(_y0),
   y1(_y1), d2v(_d2v), ovrDefault(_ovrDefault), flags(_flags), scthresh(_scthresh), micout(_micout),
   micmatching(_micmatching), trimIn(_trimIn), usehints(_usehints), metric(_metric),
-  batch(_batch), ubsco(_ubsco), mmsco(_mmsco), opt(_opt), cArray(nullptr, nullptr), tbuffer(nullptr, nullptr)
+  batch(_batch), ubsco(_ubsco), mmsco(_mmsco), opt(_opt), tbuffer(nullptr, nullptr)
 {
-
 
   map = cmask = NULL;
   int z, w, q = 0, b, i, count, last, fieldt, firstLine, qt;
@@ -2885,9 +2884,10 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   if (mode == 1 || mode == 2 || mode == 3 || mode == 5 || mode == 6 || mode == 7 ||
     PP > 0 || micout > 0 || micmatching > 0)
   {
-    // unique_ptr!
-    cArray = decltype(cArray) ((int *)_aligned_malloc((((vi.width + xhalf) >> xshift) + 1)*(((vi.height + yhalf) >> yshift) + 1) * 4 * sizeof(int), 16), &_aligned_free);
-;
+    const int numElements = (((vi.width + xhalf) >> xshift) + 1) * (((vi.height + yhalf) >> yshift) + 1) * 4;
+    int* buffer = static_cast<int*>(_aligned_malloc(numElements * sizeof(int), 16));
+    cArray.reset(buffer); // unique_ptr!
+
     if (!cArray) env->ThrowError("TFM:  malloc failure (cArray)!");
     cmask = new PlanarFrame(vi, true, cpuFlags);
   }

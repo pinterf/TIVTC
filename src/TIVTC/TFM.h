@@ -71,6 +71,13 @@ struct SCTRACK {
   bool sc;
 };
 
+// Custom deleter for _aligned_free
+struct AlignedDeleter {
+  void operator()(void* ptr) const {
+    _aligned_free(ptr);
+  }
+};
+
 class TFM : public GenericVideoFilter
 {
 private:
@@ -114,7 +121,7 @@ private:
   uint32_t outputCrc;
   unsigned long diffmaxsc;
   
-  std::unique_ptr<int, decltype (&_aligned_free)> cArray; // modified in GetFrame
+  std::unique_ptr<int, AlignedDeleter> cArray; // modified in GetFrame
   std::vector<int> setArray;
 
   std::vector<bool> trimArray;
