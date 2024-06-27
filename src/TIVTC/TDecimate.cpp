@@ -2717,7 +2717,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   maxndl(_maxndl), chroma(_chroma), m2PA(_m2PA), exPP(_exPP),
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
   opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt),
-  prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, nullptr)
+  prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, &AlignedDeleter)
 {
 
   mkvOutF = nullptr;
@@ -2973,7 +2973,13 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   if (mode <= 5 || mode == 7)
   {
-    diff = decltype(diff) ((uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16), &_aligned_free);
+
+    //diff = decltype(diff) ((uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16), &_aligned_free);
+
+    const int numElements = (((vi.width + blockx_half) >> blockx_shift) + 1) * (((vi.height + blocky_half) >> blocky_shift) + 1) * 4;
+    uint64_t* buffer = static_cast<uint64_t*>(_aligned_malloc(numElements * sizeof(uint64_t), 16));
+    diff.reset(buffer);
+
     if (diff == nullptr) env->ThrowError("TDecimate:  malloc failure (diff)!");
   }
   if (output.size())

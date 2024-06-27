@@ -71,11 +71,10 @@ struct SCTRACK {
   bool sc;
 };
 
-// Custom deleter for _aligned_free
-struct AlignedDeleter {
-  void operator()(void* ptr) const {
-    _aligned_free(ptr);
-  }
+// Custom deleter for _aligned_free, becasue it's a macro
+// and cannot be passed as a custom deleter address
+static void AlignedDeleter(void* ptr) {
+  _aligned_free(ptr);
 };
 
 class TFM : public GenericVideoFilter
@@ -121,7 +120,7 @@ private:
   uint32_t outputCrc;
   unsigned long diffmaxsc;
   
-  std::unique_ptr<int, AlignedDeleter> cArray; // modified in GetFrame
+  std::unique_ptr<int, decltype(&AlignedDeleter)> cArray; // modified in GetFrame
   std::vector<int> setArray;
 
   std::vector<bool> trimArray;
@@ -132,7 +131,8 @@ private:
   std::vector<uint8_t> outArray; // modified in GetFrame, but only the element corresponding to frame n, so multithreaded access is fine
   std::vector<uint8_t> d2vfilmarray;
 
-  std::unique_ptr<uint8_t, decltype (&_aligned_free)> tbuffer; // absdiff buffer // modified in GetFrame
+  //std::unique_ptr<uint8_t, decltype (&_aligned_free)> tbuffer; // absdiff buffer // modified in GetFrame
+  std::unique_ptr<uint8_t, decltype(&AlignedDeleter)> tbuffer; // absdiff buffer // modified in GetFrame
   int tpitchy, tpitchuv;
 
   std::vector<int> moutArray; // modified in GetFrame, but only the element corresponding to frame n

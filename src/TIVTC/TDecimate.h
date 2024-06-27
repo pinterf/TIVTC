@@ -38,6 +38,12 @@
 
 #define VERSION "v1.0.11"
 
+// Custom deleter for _aligned_free, becasue it's a macro
+// and cannot be passed as a custom deleter address
+static void AlignedDeleter(void *ptr) {
+  _aligned_free(ptr);
+};
+
 // All the rest of this code was just copied from tdecimate.cpp because I'm
 // too lazy to make it work such that it could call that code.
 // pinterf 2020: moved the three versions to common codebase again: CalcMetricsExtracted().
@@ -127,7 +133,7 @@ private:
   double fps, mkvfps, mkvfps2;
   bool useTFMPP, cve, ecf, fullInfo;
   bool usehints, useclip2;
-  std::unique_ptr<uint64_t, decltype (&_aligned_free)> diff;
+  std::unique_ptr<uint64_t, decltype(&AlignedDeleter)> diff;
   std::vector<uint64_t> metricsArray, metricsOutArray, mode2_metrics;
   std::vector<int> aLUT, mode2_decA, mode2_order;
   std::unordered_map<int, std::pair<int, int>> frame_duration_info;
