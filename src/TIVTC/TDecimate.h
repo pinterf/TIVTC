@@ -28,6 +28,7 @@
 #include <math.h>
 #include <memory>
 #include <vector>
+#include <string>
 #include "internal.h"
 #include "Font.h"
 #include "Cycle.h"

@@ -36,7 +36,7 @@ From the 'build' folder under project root:
     del ..\CMakeCache.txt
     cmake .. -G "MinGW Makefiles" -DENABLE_INTEL_SIMD:bool=on
     @rem test: cmake .. -G "MinGW Makefiles" -DENABLE_INTEL_SIMD:bool=off
-    cmake --build . --config Release  
+    cmake --build . --config Release
 
 ### Linux build instructions
 
@@ -44,10 +44,10 @@ From the 'build' folder under project root:
 
       git clone https://github.com/pinterf/TIVTC
       cd TIVTC/src
-      cmake -B build -S .
+      cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -B build -S .
       cmake --build build
 
-  Useful hints:        
+  Useful hints:
 
   build after clean:
 
