@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.11  -  HELP FILE  (20230302)
+                              TDecimate v1.0.12  -  HELP FILE  (20250519)
 
 
 
@@ -40,7 +40,7 @@ A.)  GENERAL INFO:
                   int blockx, int blocky, bool debug, bool display, int vfrDec, bool batch,
                   bool tcfv1, bool se, bool chroma, bool exPP, int maxndl, bool m2PA,
                   bool denoise, bool noblend, bool ssd, int hint, PClip clip2, int sdlim, int opt,
-                  String orgOut, int displayDecimation, int displayOpt)
+                  String orgOut, int displayDecimation, int displayOpt, PClip dclip)
 
    Frame property support was introduced in 1.0.9 (1.0.27 package)
    See Section G.)
@@ -521,10 +521,32 @@ C.)  ADVANCED PARAMETERS:
         effectively cancels all dot-crawl, whereas the dot-crawl would usually inflate difference
         values of duplicates.  Using denoising will slow things down somewhat.
 
+        When an already denoised external clip has to be used, use dclip parameter.
+
           true - use denoising
           false - don't
 
         Default:  false (bool)
+
+
+    dclip -
+
+        Specifies an external clip that TDecimate will use for gathering metrics instead of running it on the
+        input clip.  The input clip (or clip2) is still used for decimating.  The "dclip" clip 
+        is simply used for calculating between frames (calcMetric).
+
+        Using dclip is an alternative way of passing a denoised clip to TDecimate,
+        instead of providing a pre-denoised original clip and clip2. With this, hints and
+        properties of an original clip can be safe.
+
+        Parameter "denoise" can still be active, and is applied on the "dclip" clip additionally.
+
+        Can be used for modes 0, 1, 4 and 7.
+
+        The "dclip" clip format must match with the input clip.
+
+        Default:  null (PClip)
+
 
 
      ssd -
@@ -558,10 +580,10 @@ C.)  ADVANCED PARAMETERS:
      clip2 -
 
         Allows specification of a second clip from which to take frames. Metric calculation
-        and decimation are still done on the input clip, but the frames that tdecimate
-        returns are from clip2.  Clip2 must have the same number of frames are the input clip
-        and be in YUY2 or YV12 colorspace (it does not have to have the same colorspace as
-        the input clip).
+        is still done on the input or "dclip" clip and decimation is still done on the input clip, 
+        but the frames that tdecimate returns are from clip2. 
+        Clip2 must have the same number of frames are the input clip,
+        it does not have to have the same colorspace as the input clip.
 
         Default:  null (PClip)
 
@@ -906,6 +928,10 @@ G.) FRAME PROPERTY SUPPORT
 
 
 H.)  CHANGE LIST:
+
+    (20250519) (v1.0.12, in v1.0.30 pack - pinterf)
+         - TDecimate: add dclip parameter - a denoised clip for metrics calculation only
+           See #27: https://github.com/pinterf/TIVTC/issues/27
 
     (20240302) (v1.0.11, in v1.0.29 pack - pinterf)
          - TDecimate: allow noblend=true when hybrid=1, noblend default value is false when hybrid=1 to keep 

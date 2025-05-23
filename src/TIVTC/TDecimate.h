@@ -37,7 +37,7 @@
 #include "Cache.h"
 #include <unordered_map>
 
-#define VERSION "v1.0.11"
+#define VERSION "v1.0.12"
 
 // Custom deleter for _aligned_free, becasue it's a macro
 // and cannot be passed as a custom deleter address
@@ -148,6 +148,7 @@ private:
 #else
   char outputFull[PATH_MAX + 1];
 #endif
+  PClip dclip;
 
   void init_mode_5(IScriptEnvironment* env);
   void rerunFromStart(int s, const VideoInfo& vi, IScriptEnvironment *env);
@@ -226,7 +227,9 @@ public:
     int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
-    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, IScriptEnvironment* env);
+    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, 
+    PClip _dclip,
+    IScriptEnvironment* env);
   ~TDecimate();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {

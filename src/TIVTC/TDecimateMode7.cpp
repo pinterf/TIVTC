@@ -55,11 +55,22 @@ PVideoFrame TDecimate::GetFrameMode7(int n, IScriptEnvironment *env, const Video
         {
           int blockNI, blocksI;
           uint64_t metricF;
-          PVideoFrame frame1 = child->GetFrame(i - 1, env);
-          PVideoFrame frame2 = child->GetFrame(i, env);
-          metricsOutArray[i << 1] =
-            calcMetric(frame1, frame2,
+          uint64_t metric_out;
+
+          if (dclip) {
+            PVideoFrame prve = dclip->GetFrame(i > 0 ? i - 1 : 0, env);
+            PVideoFrame srce = dclip->GetFrame(i, env);
+            metric_out = calcMetric(prve, srce, 
               vi, blockNI, blocksI, metricF, env, false);
+          }
+          else {
+            PVideoFrame frame1 = child->GetFrame(i - 1, env);
+            PVideoFrame frame2 = child->GetFrame(i, env);
+            metric_out =
+              calcMetric(frame1, frame2,
+                vi, blockNI, blocksI, metricF, env, false);
+          }
+          metricsOutArray[i << 1] = metric_out;
         }
       }
     }

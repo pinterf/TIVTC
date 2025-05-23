@@ -1,5 +1,9 @@
 ## TIVTC
 
+**v1.0.30 (20250519)
+- TDecimate: add dclip parameter - a denoised clip for metrics calculation only.
+  See #27: https://github.com/pinterf/TIVTC/issues/27
+
 **v1.0.29 (20240302)
 - TDecimate: allow noblend=true when hybrid=1, noblend default value is false when hybrid=1 to keep 
   backward compatibility.
