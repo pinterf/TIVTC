@@ -1,4 +1,7 @@
 ## TDeint
+**v1.10 (20250519) - pinterf**
+- Fix #57: TDeint emtn parameter to expect the same frame count as the original for mode 1.
+
 **v1.9 (20231209) - pinterf**
 
 - Fix C reference code of YUY2+luma-only: check_combing_c_Metric1 metrics

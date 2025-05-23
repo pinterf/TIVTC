@@ -799,13 +799,21 @@ PVideoFrame TDecimate::GetFrameMode3(int n, IScriptEnvironment *env, const Video
 
 PVideoFrame TDecimate::GetFrameMode4(int n, IScriptEnvironment *env, const VideoInfo &vi)
 {
-  PVideoFrame prv = child->GetFrame(n > 0 ? n - 1 : 0, env);
   PVideoFrame src = child->GetFrame(n, env);
   int blockN = -20, xblocks;
   uint64_t metricU = UINT64_MAX, metricF = UINT64_MAX;
   getOvrFrame(n, metricU, metricF);
-  if (metricU == UINT64_MAX || metricF == UINT64_MAX || display)
-    metricU = calcMetric(prv, src, vi, blockN, xblocks, metricF, env, true);
+  if (metricU == UINT64_MAX || metricF == UINT64_MAX || display) {
+    if (dclip) {
+      PVideoFrame prve = dclip->GetFrame(n > 0 ? n - 1 : 0, env);
+      PVideoFrame srce = dclip->GetFrame(n, env);
+      metricU = calcMetric(prve, srce, vi, blockN, xblocks, metricF, env, true);
+    }
+    else {
+      PVideoFrame prv = child->GetFrame(n > 0 ? n - 1 : 0, env);
+      metricU = calcMetric(prv, src, vi, blockN, xblocks, metricF, env, true);
+    }
+  }
   double metricN = (metricU*100.0) / MAX_DIFF;
   if (debug)
   {
@@ -997,8 +1005,15 @@ void TDecimate::calcMetricPreBuf(int n1, int n2, int pos, const VideoInfo &vit, 
     (nbuf.diffMetricsUF[pos] == UINT64_MAX && scene))
   {
     src = child->GetFrame(n2, env);
-    PVideoFrame frame = child->GetFrame(n1, env);
-    nbuf.diffMetricsU[pos] = calcMetric(frame, src, vit, blockNI, xblocksI, metricF, env, scene);
+    if (dclip) {
+      PVideoFrame prve = dclip->GetFrame(n1, env);
+      PVideoFrame srce = dclip->GetFrame(n2, env);
+      nbuf.diffMetricsU[pos] = calcMetric(prve, srce, vit, blockNI, xblocksI, metricF, env, scene);
+    }
+    else {
+      PVideoFrame frame = child->GetFrame(n1, env);
+      nbuf.diffMetricsU[pos] = calcMetric(frame, src, vit, blockNI, xblocksI, metricF, env, scene);
+    }
     nbuf.diffMetricsN[pos] = (nbuf.diffMetricsU[pos] * 100.0) / MAX_DIFF;
     if (scene) nbuf.diffMetricsUF[pos] = metricF;
   }
@@ -2393,7 +2408,9 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[28].AsInt(-200), args[29].AsBool(false), args[30].AsBool(false), noblend,
     args[32].AsBool(false), args[33].IsBool() ? (args[33].AsBool() ? 1 : 0) : -1,
     args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), 
-    args[38].AsInt(0), args[39].AsInt(-1), args[40].AsBool(false),  // arg[40] = sceneDec, defaults to false for backwards compatibility
+    args[38].AsInt(0), args[39].AsInt(-1), // displayDecimation, displayOpt
+    args[40].IsClip() ? args[40].AsClip() : NULL, // dclip for mode 0147
+    args[41].AsBool(false),  // arg[41] = sceneDec, defaults to false for backwards compatibility
     env);
   return v;
 }
@@ -2728,7 +2745,9 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
   bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl, bool _m2PA,
   bool _predenoise, bool _noblend, bool _ssd, int _usehints, PClip _clip2,
-  int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, bool _sceneDec, IScriptEnvironment* env) : GenericVideoFilter(_child),
+  int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, 
+  PClip _dclip, bool _sceneDec, 
+  IScriptEnvironment* env) : GenericVideoFilter(_child),
   mode(_mode),
   cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh),
   hybrid(_hybrid), vidThresh(_vidThresh),
@@ -2738,8 +2757,9 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   vfrDec(_vfrDec), debug(_debug), display(_display), batch(_batch), tcfv1(_tcfv1), se(_se),
   maxndl(_maxndl), chroma(_chroma), m2PA(_m2PA), exPP(_exPP),
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
-  opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt), sceneDec(_sceneDec),  
-  prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, nullptr)
+  opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt),
+  prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, &AlignedDeleter),
+  dclip(_dclip), sceneDec(_sceneDec)  
 {
 
   mkvOutF = nullptr;
@@ -2839,6 +2859,17 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
     useclip2 = true;
   }
   else useclip2 = false;
+
+  if (dclip)
+  {
+    const VideoInfo& vi1 = dclip->GetVideoInfo();
+    if (vi1.height != vi.height || vi1.width != vi.width || vi1.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TDecimate:  width and height and bit depth of dclip clip must equal that of the input clip!");
+    if (!vi.IsSameColorspace(vi1))
+      env->ThrowError("TDecimate:  colorspace of dclip clip doesn't match that of the input clip!");
+    if (vi.num_frames != vi1.num_frames)
+      env->ThrowError("TDecimate:  number of frames in dclip clip doesn't match that of the input clip!");
+  }
   if (debug)
   {
     sprintf(buf, "TDecimate:  %s by tritical\n", VERSION);
@@ -2995,7 +3026,13 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   }
   if (mode <= 5 || mode == 7)
   {
-    diff = decltype(diff) ((uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16), &_aligned_free);
+
+    //diff = decltype(diff) ((uint64_t *)_aligned_malloc((((vi.width + blockx_half) >> blockx_shift) + 1)*(((vi.height + blocky_half) >> blocky_shift) + 1) * 4 * sizeof(uint64_t), 16), &_aligned_free);
+
+    const int numElements = (((vi.width + blockx_half) >> blockx_shift) + 1) * (((vi.height + blocky_half) >> blocky_shift) + 1) * 4;
+    uint64_t* buffer = static_cast<uint64_t*>(_aligned_malloc(numElements * sizeof(uint64_t), 16));
+    diff.reset(buffer);
+
     if (diff == nullptr) env->ThrowError("TDecimate:  malloc failure (diff)!");
   }
   if (output.size())

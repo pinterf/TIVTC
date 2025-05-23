@@ -28,6 +28,7 @@
 #include <math.h>
 #include <memory>
 #include <vector>
+#include <string>
 #include "internal.h"
 #include "Font.h"
 #include "Cycle.h"
@@ -36,7 +37,13 @@
 #include "Cache.h"
 #include <unordered_map>
 
-#define VERSION "v1.0.11"
+#define VERSION "v1.0.12"
+
+// Custom deleter for _aligned_free, becasue it's a macro
+// and cannot be passed as a custom deleter address
+static void AlignedDeleter(void *ptr) {
+  _aligned_free(ptr);
+};
 
 // All the rest of this code was just copied from tdecimate.cpp because I'm
 // too lazy to make it work such that it could call that code.
@@ -128,7 +135,7 @@ private:
   double fps, mkvfps, mkvfps2;
   bool useTFMPP, cve, ecf, fullInfo;
   bool usehints, useclip2;
-  std::unique_ptr<uint64_t, decltype (&_aligned_free)> diff;
+  std::unique_ptr<uint64_t, decltype(&AlignedDeleter)> diff;
   std::vector<uint64_t> metricsArray, metricsOutArray, mode2_metrics;
   std::vector<int> aLUT, mode2_decA, mode2_order;
   std::unordered_map<int, std::pair<int, int>> frame_duration_info;
@@ -142,6 +149,7 @@ private:
 #else
   char outputFull[PATH_MAX + 1];
 #endif
+  PClip dclip;
 
   void init_mode_5(IScriptEnvironment* env);
   void rerunFromStart(int s, const VideoInfo& vi, IScriptEnvironment *env);
@@ -220,7 +228,9 @@ public:
     int _nt, int _blockx, int _blocky, bool _debug, bool _display, int _vfrDec,
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
-    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, bool _sceneDec, IScriptEnvironment* env);
+    PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, 
+    PClip _dclip, bool _sceneDec, 
+    IScriptEnvironment* env);
   ~TDecimate();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {

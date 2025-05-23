@@ -25,6 +25,7 @@
 
 #include <vector>
 #include <math.h>
+#include <string>
 #define TFMPP_INCLUDED
 #ifndef TFM_INCLUDED
 #include "TFM.h"
@@ -46,7 +47,7 @@ void maskClip2_SSE2(const uint8_t* srcp, const uint8_t* dntp,
 template<typename pixel_t>
 #if defined(GCC) || defined(CLANG)
 __attribute__((__target__("sse4.1")))
-#endif 
+#endif
 void maskClip2_SSE4(const uint8_t* srcp, const uint8_t* dntp,
   const uint8_t* maskp, uint8_t* dstp, int src_pitch, int dnt_pitch,
   int msk_pitch, int dst_pitch, int width, int height);

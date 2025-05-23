@@ -404,8 +404,7 @@ TDeinterlace::TDeinterlace(PClip _child, int _mode, int _order, int _field, int 
       env->ThrowError("TDeint: no RGB format allowed (emtn)!");
     if (!vi.IsSameColorspace(vi1))
       env->ThrowError("TDeint:  colorspace of emtn clip doesn't match that of the input clip!");
-    if ((mode == 0 && vi.num_frames != vi1.num_frames) ||
-      (mode == 1 && vi.num_frames * 2 != vi1.num_frames))
+    if (vi.num_frames != vi1.num_frames)
       env->ThrowError("TDeint:  number of frames in emtn clip doesn't match that of the input clip!");
     emtn->SetCacheHints(CACHE_GENERIC, 5);
   }

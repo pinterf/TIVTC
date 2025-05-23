@@ -12,6 +12,7 @@ Extracted and simplified to 1 single 10x20 font from Avisynth+ source code
 #include <sstream>
 #include <unordered_map>
 #include <array>
+#include <cstdint>
 
 
 namespace fixed_font_info_h {
