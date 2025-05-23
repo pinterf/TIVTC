@@ -60,7 +60,7 @@ kbd       { color: #808000; font-family: Verdana, Arial, Helvetica, sans-serif; 
   <h2>Abstract</h2>
   <b>author: </b>    tritical<br>
   <b>new color spaces, high bit depth:</b>   pinterf<br>
-  <br><b>version:</b> v1.8<br>
+  <br><b>version:</b> v1.10<br>
   <b>download (current):</b>   <a href="https://github.com/pinterf/TIVTC/">https://github.com/pinterf/TIVTC/</a>
   <br><b>download (mod base v1.1):</b>   <a href="http://bengal.missouri.edu/~kes25c/">http://bengal.missouri.edu/~kes25c/</a>
   <br><b>category:</b>   Deinterlacing &amp; Pulldown Removal
@@ -644,7 +644,7 @@ tdeint(order=1, full=false, clip2=orig)
       <li>70 - Use [1 2 1] blend of pixels from prev/curr/next
     </ul>
     <p>
-      Behavoir is undefined for other values, but they should end up being treated internally
+      Behavior is undefined for other values, but they should end up being treated internally
       as though they were 60.<br>
       Mask clip is always a 8 bit clip.
     </p>
@@ -876,6 +876,15 @@ tswitch(c1=last,c2=last.sharpen())</pre>
 
 
   <h2>Changelog</h2>
+  <p>
+    v1.10 (20250519) - pinterf<br>
+    + Fix #57: TDeint emtn parameter to expect the same frame count as the original for mode 1.
+
+  <p>
+    v1.9 (20231209) - pinterf<br>
+    + Fix C reference code of YUY2+luma-only: check_combing_c_Metric1 metrics.
+      Probably no one had problems with it on Intel, since it's implemented in SSE2 as well.
+
   <p>
     v1.8 (20201214) - pinterf<br>
     + TDeinterlace: for greyscale input 'chroma' parameter is ignored, and always treated as false.

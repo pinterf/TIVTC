@@ -5,8 +5,8 @@
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,9,0,0
- PRODUCTVERSION 1,9,0,0
+ FILEVERSION 1,10,0,0
+ PRODUCTVERSION 1,10,0,0
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -21,10 +21,10 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "FileDescription", "TDeint v1.9 for AviSynth"
-            VALUE "FileVersion", "1, 9, 0, 0"
-            VALUE "LegalCopyright", "Copyright (C) 2004-2007 Kevin Stone, 2017-2023 et al"
-            VALUE "ProductVersion", "1, 9, 0, 0"
+            VALUE "FileDescription", "TDeint v1.10 for AviSynth"
+            VALUE "FileVersion", "1, 10, 0, 0"
+            VALUE "LegalCopyright", "Copyright (C) 2004-2007 Kevin Stone, 2017-2025 et al"
+            VALUE "ProductVersion", "1, 10, 0, 0"
         END
     END
     BLOCK "VarFileInfo"
