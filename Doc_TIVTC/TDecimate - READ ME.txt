@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.12  -  HELP FILE  (20250519)
+                              TDecimate v1.0.12  -  HELP FILE  (20250523)
 
 
 
@@ -286,7 +286,9 @@ C.)  ADVANCED PARAMETERS:
         due to field cadence breaks in the source.  The sensitivity to scene changes can be controlled
         with sceneThresh.  This setting doesn't need to be enabled when hybrid=1 as it is already
         part of the default hybrid=1 behaviour.
-		
+
+        For more info visit https://github.com/pinterf/TIVTC/pull/50
+
         Default:  false  (bool)
 
 
@@ -942,9 +944,11 @@ G.) FRAME PROPERTY SUPPORT
 
 H.)  CHANGE LIST:
 
-    (20250519) (v1.0.12, in v1.0.30 pack - pinterf)
+    (20250523) (v1.0.12, in v1.0.30 pack - pinterf)
          - TDecimate: add dclip parameter - a denoised clip for metrics calculation only
            See #27: https://github.com/pinterf/TIVTC/issues/27
+         - TDecimate: Allow hybrid=1 scenechange decimation strategy when hybrid=0, new parameter "sceneDec"
+           See #50: https://github.com/pinterf/TIVTC/pull/50 (flossy83)
 
     (20240302) (v1.0.11, in v1.0.29 pack - pinterf)
          - TDecimate: allow noblend=true when hybrid=1, noblend default value is false when hybrid=1 to keep 
