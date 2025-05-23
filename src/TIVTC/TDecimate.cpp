@@ -203,7 +203,29 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
     novidjump:
       if (mode == 0)
       {
-        mostSimilarDecDecision(prev, curr, next, env);
+       if (!sceneDec) { mostSimilarDecDecision(prev, curr, next, env); }   // retain backwards compatibility 
+        else {
+
+            bool decimateSceneNeighbour = false;
+            
+            checkVideoMetrics(curr, vidThresh);
+
+            if (curr.type == 3) {   // if cycle is video by metrics
+
+                int scenePosition = curr.sceneDetect(prev, next, sceneThreshU);
+
+                if (scenePosition != -20)  // -20 = no scenechange frame in cycle
+                {
+                    for (int p = curr.cycleS; p < curr.cycleE; ++p) curr.decimate[p] = curr.decimate2[p] = 0;
+                    curr.decimate[scenePosition] = curr.decimate2[scenePosition] = 1;
+                    curr.decSet = true;
+                    decimateSceneNeighbour = true;
+                }
+            }
+
+            // if we didn't decimate a scene neighbour, use normal decimation strategy
+            if (!decimateSceneNeighbour) { mostSimilarDecDecision(prev, curr, next, env); }
+        }
       }
       else
       {
@@ -2388,6 +2410,7 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), 
     args[38].AsInt(0), args[39].AsInt(-1), // displayDecimation, displayOpt
     args[40].IsClip() ? args[40].AsClip() : NULL, // dclip for mode 0147
+    args[41].AsBool(false),  // arg[41] = sceneDec, defaults to false for backwards compatibility
     env);
   return v;
 }
@@ -2723,7 +2746,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl, bool _m2PA,
   bool _predenoise, bool _noblend, bool _ssd, int _usehints, PClip _clip2,
   int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, 
-  PClip _dclip,
+  PClip _dclip, bool _sceneDec, 
   IScriptEnvironment* env) : GenericVideoFilter(_child),
   mode(_mode),
   cycleR(_cycleR), cycle(_cycle), rate(_rate), dupThresh(_dupThresh),
@@ -2736,7 +2759,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
   opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt),
   prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, &AlignedDeleter),
-  dclip(_dclip)
+  dclip(_dclip), sceneDec(_sceneDec)  
 {
 
   mkvOutF = nullptr;
