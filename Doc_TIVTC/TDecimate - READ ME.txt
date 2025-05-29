@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.12  -  HELP FILE  (20250523)
+                              TDecimate v1.0.12  -  HELP FILE  (20250527)
 
 
 
@@ -58,6 +58,8 @@ B.)  BASIC PARAMETERS:
                      N are controlled via the cycleR and cycle parameters.  Blend decimation
                      of video (30p) is supported in the this mode (hybrid = 1), as well as
                      blending of 24p into 30p (hybrid = 3).
+                     Set sceneDec=True when hybrid=0 and you want to avoid stutters around 
+                     scene changes.
 
 
            Mode 1 =  Exactly like mode 0, except instead of decimating the M most similar
@@ -67,6 +69,8 @@ B.)  BASIC PARAMETERS:
                      frames are repeated 2, 3 or 4 times in a row, and also supports blend
                      decimation of video (30p) with hybrid = 1, as well as blending of 24p
                      into 30p (hybrid = 3).
+                     Set sceneDec=True when hybrid=0 and you want to avoid stutters around 
+                     scene changes.
 
 
            Mode 2 =  This mode uses a separate decimation algorithm that can achieve any
@@ -270,16 +274,16 @@ C.)  ADVANCED PARAMETERS:
     sceneThresh -
 
         Sets the threshold for detecting scene changes when using blend decimation for video
-        sections (hybrid = 1) or blend conversion for 24p->30p (hybrid = 3).  This value is a
-        % of maximum change for the luma plane.  Good values are between 10 and 15.  Must be
-        in the range 0 to 100.
+        sections (hybrid = 0 and sceneDec=True, or hybrid = 1) or blend conversion for 24p->30p
+        (hybrid = 3).  This value is a % of maximum change for the luma plane.  Good values are 
+        between 10 and 15.  Must be in the range 0 to 100.
 
         Default:  15  (float)
 
 
     sceneDec -
 
-        Sets the decimation strategy around scene changes when mode=0 and hybrid=0.
+        Sets the decimation strategy around scene changes when mode=0 or 1 and hybrid=0.
         When set to true, if the current cycle contains a scenechange frame, and the current cycle
         is video (eg. 30p) then the frame before the scene change frame will be decimated instead
         of the most similar frame in the cycle.  This can help avoid stutters around scene changes
@@ -287,7 +291,8 @@ C.)  ADVANCED PARAMETERS:
         with sceneThresh.  This setting doesn't need to be enabled when hybrid=1 as it is already
         part of the default hybrid=1 behaviour.
 
-        For more info visit https://github.com/pinterf/TIVTC/pull/50
+        For more info visit https://github.com/pinterf/TIVTC/pull/50 and 
+        https://github.com/pinterf/TIVTC/issues/27#issuecomment-2915891603
 
         Default:  false  (bool)
 
@@ -944,11 +949,12 @@ G.) FRAME PROPERTY SUPPORT
 
 H.)  CHANGE LIST:
 
-    (20250523) (v1.0.12, in v1.0.30 pack - pinterf)
+    (20250527) (v1.0.12, in v1.0.30 pack - pinterf)
          - TDecimate: add dclip parameter - a denoised clip for metrics calculation only
            See #27: https://github.com/pinterf/TIVTC/issues/27
          - TDecimate: Allow hybrid=1 scenechange decimation strategy when hybrid=0, new parameter "sceneDec"
            See #50: https://github.com/pinterf/TIVTC/pull/50 (flossy83)
+           Both for mode=0 and 1.
 
     (20240302) (v1.0.11, in v1.0.29 pack - pinterf)
          - TDecimate: allow noblend=true when hybrid=1, noblend default value is false when hybrid=1 to keep 
