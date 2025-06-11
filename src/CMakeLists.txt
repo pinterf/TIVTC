@@ -199,6 +199,10 @@ ELSE()
   ENDIF()
 ENDIF()
 
+find_package (Git)
+if (!GIT_FOUND)
+  message (STATUS "GIT not found")
+endif ()
 add_subdirectory("TIVTC")
 add_subdirectory("TDeint")
 
