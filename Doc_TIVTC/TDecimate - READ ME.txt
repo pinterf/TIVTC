@@ -297,6 +297,21 @@ C.)  ADVANCED PARAMETERS:
         Default:  false  (bool)
 
 
+    lowDec -
+    		
+    		Sets an alternative decimation strategy when using mode=1.
+    		When set to true: if there are no strings of duplicates in the current cycle,
+    		and no strings are split across the current cycle and its neighbour cycles,
+    		then fall back to mode=0 behaviour (decimate lowest in cycle).
+    		This may help with dirty sources where duplicates cannot always be detected with 100% accuracy.
+    		The sensitivity for detecting duplicates can be controlled with dupThresh,
+    		eg. for a dirty source, try increasing dupThresh to 2.2 or 4.4 in extreme cases.
+    		In the case where sceneDec and lowDec are both enabled and the current cycle has no duplicates,
+    		sceneDec will take priority.
+    		
+    		Default: false (bool)
+
+
     vidDetect -
 
         This sets what is required for single cycle video detection when hybrid > 0. Whether
