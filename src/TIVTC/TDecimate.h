@@ -238,7 +238,7 @@ public:
     bool _batch, bool _tcfv1, bool _se, bool _chroma, bool _exPP, int _maxndl,
     bool _m2PA, bool _predenoise, bool _noblend, bool _ssd, int _usehints,
     PClip _clip2, int _sdlim, int _opt, const char* _orgOut, int _displayDecimation, int _displayOpt, 
-    PClip _dclip, bool _sceneDec, 
+    PClip _dclip, bool _sceneDec, bool _lowDec,
     IScriptEnvironment* env);
   ~TDecimate();
 
