@@ -230,10 +230,57 @@ PVideoFrame TDecimate::GetFrameMode01(int n, IScriptEnvironment* env, const Vide
       {
         // mode 1
         if (!decimateSceneNeighbour) {
-          prev.setDups(dupThresh);
-          curr.setDups(dupThresh);
-          next.setDups(dupThresh);
-          findDupStrings(prev, curr, next, env);
+            
+            if (!lowDec){  // retain backwards compatibility              
+                prev.setDups(dupThresh);
+                curr.setDups(dupThresh);
+                next.setDups(dupThresh);
+                findDupStrings(prev, curr, next, env);
+            }         
+            else {              
+                // detect dupes                      
+                prev.setDups(dupThresh);
+                curr.setDups(dupThresh);
+                next.setDups(dupThresh);
+
+                // debug
+                lowDecDebug0=prev.dupArray[prev.length - 1]; lowDecDebug1=curr.dupArray[0];
+                lowDecDebug2=curr.dupArray[1]; lowDecDebug3=curr.dupArray[2]; lowDecDebug4=curr.dupArray[3];
+                lowDecDebug5=curr.dupArray[4]; lowDecDebug6=next.dupArray[0]; lowDecDebug7 = -1;
+
+                // detect if current cycle contains a string of 2 or more dupes       
+                bool cycleHasDupString = false;
+                for (int p = curr.cycleS; p < curr.cycleE - 1; ++p) { // loops p=0,1,2,3 for cycle length 5       
+                    if (curr.dupArray[p] == 1 && curr.dupArray[p + 1] == 1) { cycleHasDupString = true; }
+                }
+       
+                int useDecMode = 1;  // 1 = default mode 1 behaviour - decimate longest remaining string
+                                     // 0 = default mode 0 behaviour - decimate lowest in cycle
+                              
+                // switch to mode 0 behaviour if no dupe strings found in current cycle & none split across curr & neighbour
+                if (!cycleHasDupString
+                && !(prev.dupArray[prev.length - 1] == 1 && curr.dupArray[0] == 1)
+                && !(curr.dupArray[curr.length - 1] == 1 && next.dupArray[0] == 1)){
+                    useDecMode = 0; }
+
+                // mark frame(s) for decimation    
+                if (useDecMode == 1) {
+                    findDupStrings(prev, curr, next, env);
+                    lowDecDebug7 = 1;
+                }
+                else {
+                    // reset dupes
+                    for (int p = curr.cycleS; p < curr.cycleE; ++p) {
+                        curr.dupArray[p] = -20; prev.dupArray[p] = -20; next.dupArray[p] = -20;
+                    }
+                    curr.dupCount = -20; curr.dupsSet = false;
+                    prev.dupCount = -20; prev.dupsSet = false;
+                    next.dupCount = -20; next.dupsSet = false;
+
+                    mostSimilarDecDecision(prev, curr, next, env);  // decimate lowest in cycle
+                    lowDecDebug7 = 0;
+                }
+            }
         }
       }
       if (curr.blend == 3)
@@ -2412,7 +2459,8 @@ AVSValue __cdecl Create_TDecimate(AVSValue args, void* user_data, IScriptEnviron
     args[34].IsClip() ? args[34].AsClip() : NULL, args[35].AsInt(0), args[36].AsInt(4), args[37].AsString(""), 
     args[38].AsInt(0), args[39].AsInt(-1), // displayDecimation, displayOpt
     args[40].IsClip() ? args[40].AsClip() : NULL, // dclip for mode 0147
-    args[41].AsBool(false),  // arg[41] = sceneDec, defaults to false for backwards compatibility
+    args[41].AsBool(false),  // args[41] = sceneDec, defaults to false for backwards compatibility
+    args[42].AsBool(false),  // args[42] = lowDec, defaults to false for backwards compatibility
     env);
   return v;
 }
@@ -2761,7 +2809,7 @@ TDecimate::TDecimate(PClip _child, int _mode, int _cycleR, int _cycle, double _r
   noblend(_noblend), predenoise(_predenoise), ssd(_ssd), sdlim(_sdlim),
   opt(_opt), clip2(_clip2), orgOut(_orgOut), displayDecimation(_displayDecimation), displayOpt(_displayOpt),
   prev(5, 0), curr(5, 0), next(5, 0), nbuf(5, 0), diff(nullptr, &AlignedDeleter),
-  dclip(_dclip), sceneDec(_sceneDec)  
+  dclip(_dclip), sceneDec(_sceneDec), lowDec(_lowDec)  
 {
 
   mkvOutF = nullptr;
