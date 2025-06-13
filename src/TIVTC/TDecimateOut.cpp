@@ -339,8 +339,9 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
   // display top with extra statistics for displayDecimationDefined case
   if (!displayDecimationDefined)
     sprintf(buf, "Mode: %d  Cycle: %d  CycleR: %d  Hybrid: %d", mode, cycle, cycleR, hybrid);
-    // confirm sceneDec is set correctly for backwards compatibility
-    // sprintf(buf, "Mode: %d  Cycle: %d  CycleR: %d  Hybrid: %d sceneDec: %d", mode, cycle, cycleR, hybrid, sceneDec);
+    // debug sceneDec and lowDec
+    // sprintf(buf, "Mode:%d Cycle:%d CycleR:%d Hybrid:%d sceneDec:%d lowDec:%d (%d%d%d%d%d%d%d:%d)", mode, cycle, cycleR, hybrid,
+    // sceneDec, lowDec, lowDecDebug0, lowDecDebug1, lowDecDebug2, lowDecDebug3, lowDecDebug4, lowDecDebug5, lowDecDebug6, lowDecDebug7);
   else
     sprintf(buf, "Mode: %d  Cycle: %d  CycleR: %d  Hybrid: %d  #ofDecimations: %d (%d:%d)", mode, cycle, cycleR, hybrid, 
       num_of_decimations_in_display, num_of_decimations_till_display_end, cycleR - num_of_decimations_till_display_end);
