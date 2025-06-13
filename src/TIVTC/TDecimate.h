@@ -98,7 +98,16 @@ private:
   int conCycleTP;
   int vidDetect;
   double sceneThresh;
-  bool sceneDec; 
+  bool sceneDec;
+  bool lowDec;  
+  int lowDecDebug0 = -1;
+  int lowDecDebug1 = -1;
+  int lowDecDebug2 = -1;
+  int lowDecDebug3 = -1;
+  int lowDecDebug4 = -1;
+  int lowDecDebug5 = -1;
+  int lowDecDebug6 = -1;
+  int lowDecDebug7 = -1;
   int conCycle;
   std::string ovr;
   std::string input;
