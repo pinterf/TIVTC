@@ -1,6 +1,6 @@
 
 
-                                  TFM v1.0.8  -  HELP FILE  (20220915)
+                                  TFM v1.0.9  -  HELP FILE  (20251119-WIP)
 
 
 
@@ -32,12 +32,12 @@ A.)  GENERAL INFO:
 
    syntax=>
 
-       TFM(int order, int field, int mode, int PP. string ovr, string input, string output,
+       TFM(int order, int field, int mode, int PP, string ovr, string input, string output,
             string outputC, bool debug, bool display, int slow, bool mChroma, int cNum,
             int cthresh, int MI, bool chroma, int blockx, int blocky, int y0, int y1,
             int mthresh, PClip clip2, string d2v, int ovrDefault, int flags, double scthresh,
             int micout, int micmatching, string trimIn, int hint, int metric, bool batch,
-            bool ubsco, bool mmsco, int opt)
+            bool ubsco, bool mmsco, int opt, PClip dclip)
 
 
       While TFM does have quite a few parameters, I have tried to categorize the settings so
@@ -61,7 +61,11 @@ B.)  BASIC PARAMETERS:
         Sets the field order of the clip. The field order must be correctly set for
         accurate field matching to occur. Possible values:
 
-           -1 = auto (use avisynth's internal parity value)
+           -1 = auto
+                - if "_FieldBased" frame property exists:
+                  * 0 (bff) if _FieldBased = 1 (BottomFieldFirst)
+                  * 1 (tff) if _FieldBased = 2 (TopFieldFirst) or 0 (Progressive)
+                - no frame property found: use avisynth's internal parity value
             0 = bottom field first (bff)
             1 = top field first (tff)
 
@@ -403,6 +407,17 @@ C.)  ADVANCED PARAMETERS:
 
          Default:  NULL  (PClip)
 
+
+     dclip -
+
+         An optional denoised clip used only for matching and decision when specified.
+         What is the difference compared to using clip2?
+         clip2 is used in the post-processing as a custom source for deinterlaced frames,
+         while dclip is used only for matching and analysis.
+         For testing purposes try use simple horizontal only blur to the clip 
+         Blur(1.58,0), since vertical blur will mess with the fields.
+
+         Default:  NULL  (PClip)
 
 
 D.)  FILE INPUT/OUTPUT PARAMETERS:
@@ -937,6 +952,9 @@ G.) FRAME PROPERTY SUPPORT
 
 
 H.)  CHANGE LIST:
+    20251119  v1.0.9
+        - Add dclip to TFM for denoised clip usage in matching only
+
     20220511  v1.0.8 (part of v1.0.27 package)
         - Fixes, frame property support
 

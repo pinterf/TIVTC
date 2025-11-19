@@ -52,7 +52,7 @@
 #ifdef VERSION
 #undef VERSION
 #endif
-#define VERSION "v1.0.8"
+#define VERSION "v1.0.9"
 
 template<int planarType>
 void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask);
@@ -151,6 +151,8 @@ private:
   PlanarFrame* map;
   PlanarFrame *cmask;
 
+  PClip dclip;
+
   template<typename pixel_t>
   void buildDiffMapPlane_Planar(const uint8_t *prvp, const uint8_t *nxtp,
     uint8_t *dstp, int prv_pitch, int nxt_pitch, int dst_pitch, int Height,
@@ -180,6 +182,12 @@ private:
   template<typename pixel_t>
   int compareFieldsSlow2_core(PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, int match1,
     int match2, int& norm1, int& norm2, int& mtn1, int& mtn2, const VideoInfo& vi, int n);
+
+  void createWeaveFrame_dual(
+    PVideoFrame& dst, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+    PVideoFrame& dst_d, PVideoFrame& prv_d, PVideoFrame& src_d, PVideoFrame& nxt_d,
+    int match, int& cfrm, IScriptEnvironment* env, const VideoInfo& vi,
+    bool is_dual) const;
 
   void createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
     PVideoFrame &nxt, int match, int &cfrm, IScriptEnvironment* env, const VideoInfo &vi) const;
@@ -229,9 +237,22 @@ private:
   void micChange(int n, int m1, int m2, PVideoFrame &dst, PVideoFrame &prv,
     PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env, const VideoInfo &vi, int &fmatch,
     int &combed, int &cfrm);
+  void micChange_dual(int n, int m1, int m2,
+    PVideoFrame& dst, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+    PVideoFrame& dst_d, PVideoFrame& prv_d, PVideoFrame& src_d, PVideoFrame& nxt_d,
+    IScriptEnvironment* env, const VideoInfo& vi, int& fmatch,
+    int& combed, int& cfrm, bool is_dual);
   void checkmm(int &cmatch, int m1, int m2, PVideoFrame &dst, int &dfrm, PVideoFrame &tmp, int &tfrm,
     PVideoFrame &prv, PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env, const VideoInfo &vi, int n,
     int *blockN, int &xblocks, int *mics);
+  void checkmm_dual(int& cmatch, int m1, int m2,
+    PVideoFrame& dst, int& dfrm, PVideoFrame& tmp, int& tfrm,
+    PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+    IScriptEnvironment* env, const VideoInfo& vi, int n,
+    int* blockN, int& xblocks, int* mics,
+    PVideoFrame& dst_d, PVideoFrame& tmp_d,
+    PVideoFrame& prv_d, PVideoFrame& src_d, PVideoFrame& nxt_d,
+    bool is_dual);
 
   // O.K. common parts with TDeint
   // fixme: hbd!
@@ -249,7 +270,7 @@ public:
     bool _mChroma, int _cNum, int _cthresh, int _MI, bool _chroma, int _blockx, int _blocky,
     int _y0, int _y1, const char* _d2v, int _ovrDefault, int _flags, double _scthresh, int _micout,
     int _micmatching, const char* _trimIn, bool _usehints, int _metric, bool _batch, bool _ubsco,
-    bool _mmsco, int _opt, IScriptEnvironment* env);
+    bool _mmsco, int _opt, PClip _dclip, IScriptEnvironment* env);
   ~TFM();
 
   int __stdcall SetCacheHints(int cachehints, int frame_range) override {

@@ -53,7 +53,7 @@ AVSValue __cdecl Create_IsCombedTIVTC(AVSValue args, void* user_data, IScriptEnv
   TFM *f = new TFM(args[0].AsClip(), -1, -1, 1, 5, "", "", "", "", false, false, false, false,
     15, args[1].AsInt(9), args[2].AsInt(80), chroma, args[4].AsInt(16),
     args[5].AsInt(16), 0, 0, "", 0, 0, 12.0, 0, 0, "", false, args[6].AsInt(0), false, false, false,
-    args[7].AsInt(4), env);
+    args[7].AsInt(4), NULL, env);
   AVSValue IsCombedTIVTC = f->ConditionalIsCombedTIVTC(n, env);
   delete f;
   return IsCombedTIVTC;

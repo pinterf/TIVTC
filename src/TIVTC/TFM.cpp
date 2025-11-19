@@ -38,13 +38,33 @@ enum _FieldBased {
 
 PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
 {
+  // optional denoised clip, which implies dual (denoised and original) processing
+  const bool is_dual = dclip == nullptr ? false : true;
+
   if (n < 0) n = 0;
   else if (n > nfrms) n = nfrms;
   PVideoFrame prv = child->GetFrame(n > 0 ? n - 1 : 0, env);
   PVideoFrame src = child->GetFrame(n, env);
   PVideoFrame nxt = child->GetFrame(n < nfrms ? n + 1 : nfrms, env);
+  PVideoFrame prv_d, src_d, nxt_d;
+  if(is_dual) {
+    prv_d = dclip->GetFrame(n > 0 ? n - 1 : 0, env);
+    src_d = dclip->GetFrame(n, env);
+    nxt_d = dclip->GetFrame(n < nfrms ? n + 1 : nfrms, env);
+  } else {
+    prv_d = prv;
+    src_d = src;
+    nxt_d = nxt;
+  }
   PVideoFrame dst = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
   PVideoFrame tmp = env->NewVideoFrame(vi);
+  PVideoFrame dst_d;
+  PVideoFrame tmp_d;
+  if (is_dual) {
+    // frame props come from the original src, not from the denoised one
+    dst_d = has_at_least_v8 ? env->NewVideoFrameP(vi, &src) : env->NewVideoFrame(vi);
+    tmp_d = env->NewVideoFrame(vi);
+  }
   int dfrm = -20, tfrm = -20;
   int mmatch1, nmatch1, nmatch2, mmatch2, fmatch, tmatch;
   int combed = -1, tcombed = -1, xblocks = -20;
@@ -90,12 +110,15 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
     OutputDebugString(buf);
   }
   if (getMatchOvr(n, fmatch, combed, d2vmatch,
-    flags == 5 ? checkSceneChange(prv, src, nxt, n) : false))
+    flags == 5 ? checkSceneChange(prv_d, src_d, nxt_d, n) : false))
   {
-    createWeaveFrame(dst, prv, src, nxt, fmatch, dfrm, env, vi);
+    createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, fmatch, dfrm, env, vi, is_dual);
     if (PP > 0 && combed == -1)
     {
-      if (checkCombed(dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh))
+      // This must be called only once for dst_d 
+      // which is either dclip or the original when no dclip
+      // writes blockN, xblocks and mics and cmask PlanarFrame internally
+      if (checkCombed(is_dual ? dst_d : dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh))
       {
         if (d2vmatch)
         {
@@ -115,14 +138,22 @@ PVideoFrame __stdcall TFM::GetFrame(int n, IScriptEnvironment* env)
       {
         if (mics[i] == -20 && (i < 3 || micout > 1))
         {
-          createWeaveFrame(tmp, prv, src, nxt, i, tfrm, env, vi);
-          checkCombed(tmp, n, vi, i, blockN, xblocks, mics, true, chroma, cthresh);
+          createWeaveFrame_dual(tmp, prv, src, nxt, tmp_d, prv_d, src_d, nxt_d, i, tfrm, env, vi, is_dual);
+          // checkCombed always checks the denoised clip (which is the original when no dclip)
+          // Must be called only once, never in dual mode, it sets global state.
+          // - blockN[5] array is output parameter filled by checkCombedPlanar_core
+          // - xblocks is output reference parameter used later by writeDisplay
+          // - mics[5] array is output parameter filled by checkCombedPlanar_core
+          // - updates cmask class variable as well, do we need to duplicate it as well
+          checkCombed(is_dual ? tmp_d : tmp, n, vi, i, blockN, xblocks, mics, true, chroma, cthresh);
         }
       }
     }
     fileOut(fmatch, combed, d2vfilm, n, mics[fmatch], mics);
-    if (display) writeDisplay(dst, vi, n, fmatch, combed, true, blockN[fmatch], xblocks,
-      d2vmatch, mics, prv, src, nxt, env);
+    // always display on the final clip
+    if (display)
+      writeDisplay(dst, vi, n, fmatch, combed, true, blockN[fmatch], xblocks,
+        d2vmatch, mics, prv_d, src_d, nxt_d, env);
     if (debug)
     {
       char buft[20];
@@ -175,41 +206,50 @@ d2vCJump:
     int thrdT = field^order ? 0 : 2;
     int frthT = field^order ? 4 : 3;
     tcombed = 0;
-    if (!slow) fmatch = compareFields(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
-    else fmatch = compareFieldsSlow(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+    if (!slow) fmatch = compareFields(prv_d, src_d, nxt_d, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+    else fmatch = compareFieldsSlow(prv_d, src_d, nxt_d, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+    // checkmm changes internal state, so it has to be called only once.
+    // We have to pass _d versions as well: prev_d, src_d, nxt_d, dst_d and tmp_d
     if (micmatching > 0)
-      checkmm(fmatch, 1, frstT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics);
-    createWeaveFrame(dst, prv, src, nxt, fmatch, dfrm, env, vi);
-    if (checkCombed(dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh))
+      checkmm_dual(fmatch, 1, frstT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics,
+        dst_d, tmp_d, prv_d, src_d, nxt_d, is_dual);
+    createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, fmatch, dfrm, env, vi, is_dual);
+    if (checkCombed(is_dual ? dst_d : dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh))
     {
       tcombed = 2;
-      if (ubsco) isSC = checkSceneChange(prv, src, nxt, n);
-      if (isSC) createWeaveFrame(tmp, prv, src, nxt, scndT, tfrm, env, vi);
-      if (isSC && !checkCombed(tmp, n, vi, scndT, blockN, xblocks, mics, false, chroma, cthresh))
+      if (ubsco) isSC = checkSceneChange(prv_d, src_d, nxt_d, n);
+      if (isSC) createWeaveFrame_dual(tmp, prv, src, nxt, tmp_d, prv_d, src_d, nxt_d, scndT, tfrm, env, vi, is_dual);
+      if (isSC && !checkCombed(is_dual ? tmp_d : tmp, n, vi, scndT, blockN, xblocks, mics, false, chroma, cthresh))
       {
         fmatch = scndT;
         tcombed = 0;
         copyFrame(dst, tmp, vi);
+        if (is_dual)
+          copyFrame(dst_d, tmp_d, vi);
         dfrm = fmatch;
       }
       else
       {
-        createWeaveFrame(tmp, prv, src, nxt, thrdT, tfrm, env, vi);
-        if (!checkCombed(tmp, n, vi, thrdT, blockN, xblocks, mics, false, chroma, cthresh))
+        createWeaveFrame_dual(tmp, prv, src, nxt, tmp_d, prv_d, src_d, nxt_d, thrdT, tfrm, env, vi, is_dual);
+        if (!checkCombed(is_dual ? tmp_d : tmp, n, vi, thrdT, blockN, xblocks, mics, false, chroma, cthresh))
         {
           fmatch = thrdT;
           tcombed = 0;
           copyFrame(dst, tmp, vi);
+          if (is_dual)
+            copyFrame(dst_d, tmp_d, vi);
           dfrm = fmatch;
         }
         else
         {
-          if (isSC) createWeaveFrame(tmp, prv, src, nxt, frthT, tfrm, env, vi);
-          if (isSC && !checkCombed(tmp, n, vi, frthT, blockN, xblocks, mics, false, chroma, cthresh))
+          if (isSC) createWeaveFrame_dual(tmp, prv, src, nxt, tmp_d, prv_d, src_d, nxt_d, frthT, tfrm, env, vi, is_dual);
+          if (isSC && !checkCombed(is_dual ? tmp_d : tmp, n, vi, frthT, blockN, xblocks, mics, false, chroma, cthresh))
           {
             fmatch = frthT;
             tcombed = 0;
             copyFrame(dst, tmp, vi);
+            if (is_dual)
+              copyFrame(dst_d, tmp_d, vi);
             dfrm = fmatch;
           }
         }
@@ -226,33 +266,33 @@ d2vCJump:
     }
     combed = 0;
     bool combed1 = false, combed2 = false;
-    if (!slow) fmatch = compareFields(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
-    else fmatch = compareFieldsSlow(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
-    createWeaveFrame(dst, prv, src, nxt, 1, dfrm, env, vi);
-    combed1 = checkCombed(dst, n, vi, 1, blockN, xblocks, mics, false, chroma, cthresh);
-    createWeaveFrame(dst, prv, src, nxt, frstT, dfrm, env, vi);
-    combed2 = checkCombed(dst, n, vi, frstT, blockN, xblocks, mics, false, chroma, cthresh);
+    if (!slow) fmatch = compareFields(prv_d, src_d, nxt_d, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+    else fmatch = compareFieldsSlow(prv_d, src_d, nxt_d, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+    createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, 1, dfrm, env, vi, is_dual);
+    combed1 = checkCombed(is_dual ? dst_d : dst, n, vi, 1, blockN, xblocks, mics, false, chroma, cthresh);
+    createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, frstT, dfrm, env, vi, is_dual);
+    combed2 = checkCombed(is_dual ? dst_d : dst, n, vi, frstT, blockN, xblocks, mics, false, chroma, cthresh);
     if (!combed1 && !combed2)
     {
-      createWeaveFrame(dst, prv, src, nxt, fmatch, dfrm, env, vi);
+      createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, fmatch, dfrm, env, vi, is_dual);
       if (field == 0) mode7_field = 1;
       else mode7_field = 0;
     }
     else if (!combed2 && combed1)
     {
-      createWeaveFrame(dst, prv, src, nxt, frstT, dfrm, env, vi);
+      createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, frstT, dfrm, env, vi, is_dual);
       mode7_field = 1;
       fmatch = frstT;
     }
     else if (!combed1 && combed2)
     {
-      createWeaveFrame(dst, prv, src, nxt, 1, dfrm, env, vi);
+      createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, 1, dfrm, env, vi, is_dual);
       mode7_field = 0;
       fmatch = 1;
     }
     else
     {
-      createWeaveFrame(dst, prv, src, nxt, 1, dfrm, env, vi);
+      createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, 1, dfrm, env, vi, is_dual);
       combed = 2;
       field = mode7_field;
       fmatch = 1;
@@ -261,24 +301,26 @@ d2vCJump:
   else
   {
     if (!slow) 
-      fmatch = compareFields(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+      fmatch = compareFields(prv_d, src_d, nxt_d, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
     else 
-      fmatch = compareFieldsSlow(prv, src, nxt, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+      fmatch = compareFieldsSlow(prv_d, src_d, nxt_d, 1, frstT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
     if (micmatching > 0)
-      checkmm(fmatch, 1, frstT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics);
-    createWeaveFrame(dst, prv, src, nxt, fmatch, dfrm, env, vi);
-    if (mode > 3 || (mode > 0 && checkCombed(dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh)))
+      checkmm_dual(fmatch, 1, frstT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics, 
+        dst_d, tmp_d, prv_d, src_d, nxt_d, is_dual);
+    createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, fmatch, dfrm, env, vi, is_dual);
+    if (mode > 3 || (mode > 0 && checkCombed(is_dual ? dst_d : dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh)))
     {
       if (mode < 4) tcombed = 2;
       if (mode != 2)
       {
-        if (!slow) 
-          tmatch = compareFields(prv, src, nxt, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
-        else 
-          tmatch = compareFieldsSlow(prv, src, nxt, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+        if (!slow)
+          tmatch = compareFields(prv_d, src_d, nxt_d, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+        else
+          tmatch = compareFieldsSlow(prv_d, src_d, nxt_d, fmatch, scndT, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
         if (micmatching > 0)
-          checkmm(tmatch, fmatch, scndT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics);
-        createWeaveFrame(dst, prv, src, nxt, fmatch, dfrm, env, vi);
+          checkmm_dual(tmatch, fmatch, scndT, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics, 
+              dst_d, tmp_d, prv_d, src_d, nxt_d, is_dual);
+        createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, fmatch, dfrm, env, vi, is_dual);
       }
       else tmatch = scndT;
       if (tmatch == scndT)
@@ -286,41 +328,46 @@ d2vCJump:
         if (mode > 3)
         {
           fmatch = tmatch;
-          createWeaveFrame(dst, prv, src, nxt, fmatch, dfrm, env, vi);
+          createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, fmatch, dfrm, env, vi, is_dual);
         }
-        else if (mode != 2 || !ubsco || checkSceneChange(prv, src, nxt, n))
+        else if (mode != 2 || !ubsco || checkSceneChange(prv_d, src_d, nxt_d, n))
         {
-          createWeaveFrame(tmp, prv, src, nxt, tmatch, tfrm, env, vi);
-          if (!checkCombed(tmp, n, vi, tmatch, blockN, xblocks, mics, false, chroma, cthresh))
+          createWeaveFrame_dual(tmp, prv, src, nxt, tmp_d, prv_d, src_d, nxt_d, tmatch, tfrm, env, vi, is_dual);
+          if (!checkCombed(is_dual ? tmp_d : tmp, n, vi, tmatch, blockN, xblocks, mics, false, chroma, cthresh))
           {
             fmatch = tmatch;
             tcombed = 0;
             copyFrame(dst, tmp, vi);
+            if (is_dual)
+              copyFrame(dst_d, tmp_d, vi);
             dfrm = fmatch;
           }
         }
       }
-      if ((mode == 3 && tcombed == 2) || (mode == 5 && checkCombed(dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh)))
+      if ((mode == 3 && tcombed == 2) || (mode == 5 && checkCombed(is_dual ? dst_d : dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh)))
       {
         tcombed = 2;
-        if (!ubsco || checkSceneChange(prv, src, nxt, n))
+        if (!ubsco || checkSceneChange(prv_d, src_d, nxt_d, n))
         {
           if (!slow) 
-            tmatch = compareFields(prv, src, nxt, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+            tmatch = compareFields(prv_d, src_d, nxt_d, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
           else 
-            tmatch = compareFieldsSlow(prv, src, nxt, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
+            tmatch = compareFieldsSlow(prv_d, src_d, nxt_d, 3, 4, nmatch1, nmatch2, mmatch1, mmatch2, vi, n);
           if (micmatching > 0)
-            checkmm(tmatch, 3, 4, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics);
-          createWeaveFrame(tmp, prv, src, nxt, tmatch, tfrm, env, vi);
-          if (!checkCombed(tmp, n, vi, tmatch, blockN, xblocks, mics, false, chroma, cthresh))
+            checkmm_dual(tmatch, 3, 4, dst, dfrm, tmp, tfrm, prv, src, nxt, env, vi, n, blockN, xblocks, mics, 
+              dst_d, tmp_d, prv_d, src_d, nxt_d, is_dual);
+          createWeaveFrame_dual(tmp, prv, src, nxt, tmp_d, prv_d, src_d, nxt_d, tmatch, tfrm, env, vi,is_dual);
+          if (!checkCombed(is_dual ? tmp_d : tmp, n, vi, tmatch, blockN, xblocks, mics, false, chroma, cthresh))
           {
             fmatch = tmatch;
             tcombed = 0;
             copyFrame(dst, tmp, vi);
+            if (is_dual)
+              copyFrame(dst_d, tmp_d, vi);
             dfrm = fmatch;
           }
           else
-            createWeaveFrame(dst, prv, src, nxt, fmatch, dfrm, env, vi);
+            createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, fmatch, dfrm, env, vi, is_dual);
         }
       }
       if (mode == 5 && tcombed == -1) tcombed = 0;
@@ -329,25 +376,25 @@ d2vCJump:
     if (combed == -1 && PP > 0) combed = tcombed;
     if (PP > 0 && combed == -1)
     {
-      if (checkCombed(dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh)) combed = 2;
+      if (checkCombed(is_dual ? dst_d : dst, n, vi, fmatch, blockN, xblocks, mics, false, chroma, cthresh)) combed = 2;
       else combed = 0;
     }
     if (dfrm != fmatch)
       env->ThrowError("TFM:  internal error (dfrm!=fmatch).  Please report this.\n");
   }
   if (micout > 0 || (micmatching > 0 && mics[fmatch] > 15 && mode != 7 && !(micmatching == 2 && (mode == 0 || mode == 4))
-    && (!mmsco || checkSceneChange(prv, src, nxt, n))))
+    && (!mmsco || checkSceneChange(prv_d, src_d, nxt_d, n))))
   {
     for (int i = 0; i < 5; ++i)
     {
       if (mics[i] == -20 && (i < 3 || micout > 1 || micmatching > 0))
       {
-        createWeaveFrame(tmp, prv, src, nxt, i, tfrm, env, vi);
-        checkCombed(tmp, n, vi, i, blockN, xblocks, mics, true, chroma, cthresh);
+        createWeaveFrame_dual(tmp, prv, src, nxt, tmp_d, prv_d, src_d, nxt_d, i, tfrm, env, vi, is_dual);
+        checkCombed(is_dual ? tmp_d : tmp, n, vi, i, blockN, xblocks, mics, true, chroma, cthresh);
       }
     }
     if (micmatching > 0 && mode != 7 && mics[fmatch] > 15 &&
-      (!mmsco || checkSceneChange(prv, src, nxt, n)))
+      (!mmsco || checkSceneChange(prv_d, src_d, nxt_d, n)))
     {
       int i, j, temp1, temp2, order1[5], order2[5] = { 0, 1, 2, 3, 4 };
       for (i = 0; i < 5; ++i) order1[i] = mics[i];
@@ -378,15 +425,15 @@ d2vCJump:
           if (!((order2[0] == 4 && lmatch == 0 && !xfield && (order2[1] == 0 || order2[2] == 0)) ||
             (order2[0] == 3 && lmatch == 2 && xfield && (order2[1] == 2 || order2[2] == 2))))
           {
-            micChange(n, fmatch, order2[0], dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, order2[0], dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
           }
         }
         if (order1[0] * 4 < order1[1] && abs(order1[0] - order1[1]) > 30 &&
           order1[0] < MI && order1[1] >= MI && order2[0] != fmatch)
         {
-          micChange(n, fmatch, order2[0], dst, prv, src, nxt, env, vi,
-            fmatch, combed, dfrm);
+          micChange_dual(n, fmatch, order2[0], dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+            fmatch, combed, dfrm, is_dual);
         }
       }
       else if (micmatching == 2 || micmatching == 3)
@@ -397,16 +444,17 @@ d2vCJump:
           try2 = try1 == 2 ? 0 : 2;
           minm = std::min(mics[1], mics[try1]);
           if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && try2 != fmatch)
-            micChange(n, fmatch, try2, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, try2, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
         }
         else if (mode == 2) // p/c + u
         {
           try2 = try1 == 2 ? 3 : 4;
           minm = std::min(mics[1], mics[try1]);
-          if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && try2 != fmatch)
-            micChange(n, fmatch, try2, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+          if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && try2 != fmatch) {
+            micChange_dual(n, fmatch, try2, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
+          }
         }
         else if (mode == 3) // p/c + n + u/b
         {
@@ -417,14 +465,14 @@ d2vCJump:
           if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && try2 != fmatch &&
             fmatch != 3 && fmatch != 4)
           {
-            micChange(n, fmatch, try2, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, try2, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
             minm = mics[try2];
           }
           else if (fmatch == try2) minm = std::min(mics[try2], minm);
           if (mint * 3 < minm && mint < MI && abs(mint - minm) >= 30 && fmatch != 3 && fmatch != 4)
-            micChange(n, fmatch, try3, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, try3, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
         }
         else if (mode == 5) // p/c/n + u/b
         {
@@ -432,8 +480,8 @@ d2vCJump:
           mint = std::min(mics[3], mics[4]);
           try3 = try1 == 2 ? (mint == mics[3] ? 3 : 4) : (mint == mics[4] ? 4 : 3);
           if (mint * 3 < minm && mint < MI && abs(mint - minm) >= 30 && fmatch != 3 && fmatch != 4)
-            micChange(n, fmatch, try3, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, try3, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
         }
         else if (mode == 6) // p/c + u + n + b
         {
@@ -444,22 +492,22 @@ d2vCJump:
           if (mics[try2] * 3 < minm && mics[try2] < MI && abs(mics[try2] - minm) >= 30 && fmatch != try2 &&
             fmatch != try3 && fmatch != try4)
           {
-            micChange(n, fmatch, try2, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, try2, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
             minm = mics[try2];
           }
           else if (fmatch == try2) minm = std::min(mics[try2], minm);
           if (mics[try3] * 3 < minm && mics[try3] < MI && abs(mics[try3] - minm) >= 30 && fmatch != try3 &&
             fmatch != try4)
           {
-            micChange(n, fmatch, try3, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, try3, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
             minm = mics[try3];
           }
           else if (fmatch == try3) minm = std::min(mics[try3], minm);
           if (mics[try4] * 3 < minm && mics[try4] < MI && abs(mics[try4] - minm) >= 30 && fmatch != try4)
-            micChange(n, fmatch, try4, dst, prv, src, nxt, env, vi,
-              fmatch, combed, dfrm);
+            micChange_dual(n, fmatch, try4, dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, env, vi,
+              fmatch, combed, dfrm, is_dual);
         }
         if (micmatching == 3) { goto othertest; }
       }
@@ -468,7 +516,7 @@ d2vCJump:
   d2vfilm = d2vduplicate(fmatch, combed, n);
   fileOut(fmatch, combed, d2vfilm, n, mics[fmatch], mics);
   if (display) writeDisplay(dst, vi, n, fmatch, combed, false, blockN[fmatch], xblocks,
-    d2vmatch, mics, prv, src, nxt, env);
+    d2vmatch, mics, prv_d, src_d, nxt_d, env);
   if (debug)
   {
     char buft[20];
@@ -514,6 +562,83 @@ d2vCJump:
   lastMatch.field = field;
   lastMatch.combed = combed;
   return dst;
+}
+
+void TFM::checkmm_dual(int& cmatch, int m1, int m2,
+  PVideoFrame& dst, int& dfrm, PVideoFrame& tmp, int& tfrm,
+  PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, 
+  IScriptEnvironment* env, const VideoInfo& vi, int n,
+  int* blockN, int& xblocks, int* mics,
+  PVideoFrame& dst_d, PVideoFrame& tmp_d,
+  PVideoFrame& prv_d, PVideoFrame& src_d, PVideoFrame& nxt_d,
+  bool is_dual)
+{
+  if (cmatch != m1)
+  {
+    int tx = m1;
+    m1 = m2;
+    m2 = tx;
+  }
+  if (dfrm == m1)
+    checkCombed(is_dual ? dst_d : dst, n, vi, m1, blockN, xblocks, mics, false, chroma, cthresh);
+  else if (tfrm == m1)
+    checkCombed(is_dual ? tmp_d : tmp, n, vi, m1, blockN, xblocks, mics, false, chroma, cthresh);
+  else
+  {
+    if (tfrm != m2)
+    {
+      createWeaveFrame_dual(
+        tmp, prv, src, nxt, 
+        tmp_d, prv_d, src_d, nxt_d,
+        m1, tfrm, env, vi, is_dual);
+      checkCombed(is_dual ? tmp_d : tmp, n, vi, m1, blockN, xblocks, mics, false, chroma, cthresh);
+    }
+    else
+    {
+      createWeaveFrame_dual(
+        dst, prv, src, nxt, 
+        dst_d, prv_d, src_d, nxt_d,
+        m1, dfrm, env, vi, is_dual);
+      checkCombed(is_dual ? dst_d : dst, n, vi, m1, blockN, xblocks, mics, false, chroma, cthresh);
+    }
+  }
+  if (mics[m1] < 30)
+    return;
+  if (dfrm == m2)
+    checkCombed(is_dual ? dst_d : dst, n, vi, m2, blockN, xblocks, mics, false, chroma, cthresh);
+  else if (tfrm == m2)
+    checkCombed(is_dual ? tmp_d : tmp, n, vi, m2, blockN, xblocks, mics, false, chroma, cthresh);
+  else
+  {
+    if (tfrm != m1)
+    {
+      createWeaveFrame_dual(
+        tmp, prv, src, nxt, 
+        tmp_d, prv_d, src_d, nxt_d,
+        m2, tfrm, env, vi, is_dual);
+      checkCombed(is_dual ? tmp_d : tmp, n, vi, m2, blockN, xblocks, mics, false, chroma, cthresh);
+    }
+    else
+    {
+      createWeaveFrame_dual(
+        dst, prv, src, nxt, 
+        dst_d, prv_d, src_d, nxt_d,
+        m2, dfrm, env, vi, is_dual);
+      checkCombed(is_dual ? dst_d : dst, n, vi, m2, blockN, xblocks, mics, false, chroma, cthresh);
+    }
+  }
+  if ((mics[m2] * 3 < mics[m1] || (mics[m2] * 2 < mics[m1] && mics[m1] > MI)) &&
+    abs(mics[m2] - mics[m1]) >= 30 && mics[m2] < MI)
+  {
+    if (debug)
+    {
+      sprintf(buf, "TFM:  frame %d  - micmatching override:  %c (%d) to %c (%d)\n", n,
+        MTC(m1), mics[m1], MTC(m2), mics[m2]);
+      OutputDebugString(buf);
+    }
+    cmatch = m2;
+  }
+
 }
 
 void TFM::checkmm(int &cmatch, int m1, int m2, PVideoFrame &dst, int &dfrm, PVideoFrame &tmp, int &tfrm,
@@ -590,6 +715,24 @@ void TFM::micChange(int n, int m1, int m2, PVideoFrame &dst, PVideoFrame &prv,
   createWeaveFrame(dst, prv, src, nxt, m2, cfrm, env, vi);
 }
 
+void TFM::micChange_dual(int n, int m1, int m2, 
+  PVideoFrame& dst, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt, 
+  PVideoFrame& dst_d, PVideoFrame& prv_d, PVideoFrame& src_d, PVideoFrame& nxt_d,
+  IScriptEnvironment* env, const VideoInfo& vi, int& fmatch,
+  int& combed, int& cfrm, bool is_dual)
+{
+  if (debug)
+  {
+    sprintf(buf, "TFM:  frame %d  - micmatching override:  %c to %c\n", n,
+      MTC(m1), MTC(m2));
+    OutputDebugString(buf);
+  }
+  fmatch = m2;
+  combed = 0;
+  createWeaveFrame_dual(dst, prv, src, nxt, dst_d, prv_d, src_d, nxt_d, m2, cfrm, env, vi, is_dual);
+}
+
+// prv, src, nxt are the denoised frames when dclip is used
 void TFM::writeDisplay(PVideoFrame &dst, const VideoInfo& vi_disp, int n, int fmatch, int combed, bool over,
   int blockN, int xblocks, bool d2vmatch, int *mics, PVideoFrame &prv,
   PVideoFrame &src, PVideoFrame &nxt, IScriptEnvironment *env)
@@ -2592,6 +2735,21 @@ bool TFM::checkSceneChange_core(PVideoFrame &prv, PVideoFrame &src, PVideoFrame 
   return false;
 }
 
+void TFM::createWeaveFrame_dual(
+  PVideoFrame& dst, PVideoFrame& prv, PVideoFrame& src, PVideoFrame& nxt,
+  PVideoFrame& dst_d, PVideoFrame& prv_d, PVideoFrame& src_d, PVideoFrame& nxt_d,
+  int match, int& cfrm, IScriptEnvironment* env, const VideoInfo& vi,
+  bool is_dual) const
+{
+  int cfrm_before = cfrm; // this is updated in the first call
+  createWeaveFrame(dst, prv, src, nxt, match, cfrm, env, vi);
+  if (is_dual)
+    createWeaveFrame(dst_d, prv_d, src_d, nxt_d, match, cfrm_before, env, vi);
+}
+
+
+// Finally "cfrm" will always be set to "match" after this function
+// dst is updated only if cfrm != match
 void TFM::createWeaveFrame(PVideoFrame &dst, PVideoFrame &prv, PVideoFrame &src,
   PVideoFrame &nxt, int match, int &cfrm, IScriptEnvironment * env, const VideoInfo &vi) const
 {
@@ -2760,7 +2918,7 @@ AVSValue __cdecl Create_TFM(AVSValue args, void* user_data, IScriptEnvironment* 
     args[18].AsInt(16), args[19].AsInt(0), args[20].AsInt(0), args[23].AsString(""), args[24].AsInt(0),
     args[25].AsInt(4), args[26].AsFloat(12.0), args[27].AsInt(0), args[28].AsInt(1), args[29].AsString(""),
     args[30].AsBool(true), args[31].AsInt(0), args[32].AsBool(false), args[33].AsBool(true),
-    args[34].AsBool(true), args[35].AsInt(4), env);
+    args[34].AsBool(true), args[35].AsInt(4), args[36].IsClip() ? args[36].AsClip() : NULL, env);
   if (!args[4].IsInt() || args[4].AsInt() >= 2)
   {
     if (!args[4].IsInt() || args[4].AsInt() > 4)
@@ -2768,9 +2926,10 @@ AVSValue __cdecl Create_TFM(AVSValue args, void* user_data, IScriptEnvironment* 
       try { v = env->Invoke("InternalCache", v).AsClip(); }
       catch (IScriptEnvironment::NotFound) {}
     }
-    v = new TFMPP(v.AsClip(), args[4].AsInt(6), args[21].AsInt(5), args[5].AsString(""),
-      args[10].AsBool(false), (args[22].IsClip() ? args[22].AsClip() : NULL),
-      args[30].AsBool(true), args[35].AsInt(4), env);
+    v = new TFMPP(v.AsClip(), args[4].AsInt(6) /* PP */, args[21].AsInt(5) /* mthresh */, args[5].AsString("") /* ovr */,
+      args[10].AsBool(false) /* display */,
+      args[22].IsClip() ? args[22].AsClip() : NULL /* clip2 */,
+      args[30].AsBool(true) /* hint */, args[35].AsInt(4) /* opt */ , env);
   }
   return v;
 }
@@ -2780,13 +2939,14 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   int _slow, bool _mChroma, int _cNum, int _cthresh, int _MI, bool _chroma, int _blockx,
   int _blocky, int _y0, int _y1, const char* _d2v, int _ovrDefault, int _flags, double _scthresh,
   int _micout, int _micmatching, const char* _trimIn, bool _usehints, int _metric, bool _batch,
-  bool _ubsco, bool _mmsco, int _opt, IScriptEnvironment* env) : GenericVideoFilter(_child),
+  bool _ubsco, bool _mmsco, int _opt, PClip _dclip, IScriptEnvironment* env) : GenericVideoFilter(_child),
   order(_order), field(_field), mode(_mode), PP(_PP), ovr(_ovr), input(_input), output(_output),
   outputC(_outputC), debug(_debug), display(_display), slow(_slow), mChroma(_mChroma), cNum(_cNum),
   cthresh(_cthresh), MI(_MI), chroma(_chroma), blockx(_blockx), blocky(_blocky), y0(_y0),
   y1(_y1), d2v(_d2v), ovrDefault(_ovrDefault), flags(_flags), scthresh(_scthresh), micout(_micout),
   micmatching(_micmatching), trimIn(_trimIn), usehints(_usehints), metric(_metric),
-  batch(_batch), ubsco(_ubsco), mmsco(_mmsco), opt(_opt), cArray(nullptr, &AlignedDeleter), tbuffer(nullptr, &AlignedDeleter)
+  batch(_batch), ubsco(_ubsco), mmsco(_mmsco), opt(_opt), cArray(nullptr, &AlignedDeleter), tbuffer(nullptr, &AlignedDeleter),
+  dclip(_dclip)
 {
 
   map = cmask = NULL;
@@ -2846,6 +3006,16 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
     env->ThrowError("TFM:  metric must be set to 0 or 1!");
   if (scthresh < 0.0 || scthresh > 100.0)
     env->ThrowError("TFM:  scthresh must be between 0.0 and 100.0 (inclusive)!");
+  if (dclip)
+  {
+    const VideoInfo& vi1 = dclip->GetVideoInfo();
+    if (vi1.height != vi.height || vi1.width != vi.width || vi1.BitsPerComponent() != vi.BitsPerComponent())
+      env->ThrowError("TFM:  width and height and bit depth of dclip clip must equal that of the input clip!");
+    if (!vi.IsSameColorspace(vi1))
+      env->ThrowError("TFM:  colorspace of dclip clip doesn't match that of the input clip!");
+    if (vi.num_frames != vi1.num_frames)
+      env->ThrowError("TFM:  number of frames in dclip clip doesn't match that of the input clip!");
+  }
   if (debug)
   {
     sprintf(buf, "TFM:  %s by tritical\n", VERSION);
