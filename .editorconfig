@@ -1,0 +1,38 @@
+root = true
+
+# NOTE: editorconfig-core-c has a hardcoded limitation of 50 chars per .ini section name
+
+# --- 1. Ignore folder: src\include\ ---
+# Use 'unset' to effectively ignore/disable all formatting rules
+# for files within this specific directory and its subdirectories.
+[src/include/**]
+indent_style = unset
+indent_size = unset
+trim_trailing_whitespace = unset
+end_of_line = unset
+insert_final_newline = unset
+charset = unset
+
+# --- Default rules for C/C++ source and header files ---
+[*.{cpp,h,hpp,c,asm}]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
+end_of_line = crlf
+insert_final_newline = true
+charset = utf-8
+
+# --- Rules for Markdown files ---
+[*.md]
+indent_style = space
+trim_trailing_whitespace = false
+charset = utf-8
+
+# --- 2. Add rule for *.txt files (e.g., READMEs) --- yes, historically tabsize is 3
+[*.txt]
+indent_style = space
+indent_size = 3
+trim_trailing_whitespace = false
+end_of_line = crlf
+insert_final_newline = false
+charset = utf-8
