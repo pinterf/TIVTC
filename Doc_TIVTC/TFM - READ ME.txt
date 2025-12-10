@@ -89,6 +89,9 @@ B.)  BASIC PARAMETERS:
         fields that follows a specific pattern.  Mode 7 requires linear access to work correctly
         because what match/field are used depends on previous match decisions.
 
+        By default, modes 2, 3, 5, 6 won't detect u/b matches 99% of the time since by default 
+        ubsco=true which limits u/b matches to scenechanges only.
+
         Possible settings are:
 
             0 = 2-way match                                                          (p/c)
@@ -786,11 +789,19 @@ F.)  OVERRIDES:
                 on the same line and the given pattern will be repeated over the length
                 of the range.
 
-         p = match to previous field
-         c = match to current field
-         n = match to next field
-         b = match to previous field  (matches from opposite parity field)
-         u = match to next field      (matches from opposite parity field)
+         If the current frame is top field first:
+         c = match top of current to bottom of current
+         p = match top of current to bottom of previous
+         n = match top of current to bottom of next
+         b = match bottom of current to top of previous
+         u = match bottom of current to top of next
+
+         If the current frame is bottom field first:
+         c = match bottom of current to top of current
+         p = match bottom of current to top of previous
+         n = match bottom of current to top of next
+         b = match top of current to bottom of previous
+         u = match top of current to bottom of next
 
 
       combed frame codes:
