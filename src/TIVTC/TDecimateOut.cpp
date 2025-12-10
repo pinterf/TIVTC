@@ -190,7 +190,7 @@ void TDecimate::displayOutput(IScriptEnvironment* env, PVideoFrame &dst, int n,
   int ret, bool film, double amount1, double amount2, int f1, int f2, const VideoInfo &vi_disp)
 {
   int y = 0;
-  char tempBuf[40];
+  char tempBuf[60];
   sprintf(buf, "TDecimate %s by tritical", VERSION);
 
   constexpr auto FONT_WIDTH = 10; // info_h
