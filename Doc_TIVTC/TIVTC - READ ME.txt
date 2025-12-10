@@ -21,11 +21,11 @@ INFO:
        For more info about using each of the filters/functions consult the individual readme files.
 
 
-  current filter versions:  TFM             v1.0.8     (17 January 2008 - 15 September 2022)
+  current filter versions:  TFM             v1.0.9     (17 January 2008 - 9 November 2025)
                             TDecimate       v1.0.12    (28 September 2007 - 10 December 2025)
                             MergeHints      v1.3       (22 October 2006 - 11 June 2020)
                             FieldDiff       v1.5       (23 March 2006 - 14 December 2020)
-                            FrameDiff       v1.11       (21 November 2007 - 11 May 2023)
+                            FrameDiff       v1.11      (21 November 2007 - 11 May 2023)
                             ShowcombedTIVTC v1.4       (23 March 2006 - 14 December 2020)
                             RequestLinear   v1.4       (21 November 2007 - 20 October 2020)
                             TFMPP           v1.0.4     (refreshed 15 September 2022)

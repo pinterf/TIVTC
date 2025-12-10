@@ -963,7 +963,7 @@ G.) FRAME PROPERTY SUPPORT
 
 
 H.)  CHANGE LIST:
-    20251119  v1.0.9
+    20251119  v1.0.9 (part of v1.0.30 package)
         - Add dclip to TFM for denoised clip usage in matching only
 
     20220511  v1.0.8 (part of v1.0.27 package)
