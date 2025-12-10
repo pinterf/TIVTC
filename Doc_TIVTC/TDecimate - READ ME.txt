@@ -1,6 +1,6 @@
 
 
-                              TDecimate v1.0.12  -  HELP FILE  (20250527)
+                              TDecimate v1.0.12  -  HELP FILE  (20251210)
 
 
 
@@ -299,17 +299,18 @@ C.)  ADVANCED PARAMETERS:
 
     lowDec -
 
-	Sets an alternative decimation strategy when using mode=1.
-	When set to true: if no frame in the current cycle is part of any string of dupes,
-	then fall back to mode=0 behaviour (lowest metric in cycle).
-	This may help with dirty sources where duplicates cannot always be detected with 100% accuracy,
-	since the frame with the lowest metric is often found in the string of dupes anyway.
-	The sensitivity for detecting duplicates can be controlled with dupThresh, eg. for a dirty source
-	try increasing dupThresh to 2.2 or 4.4 in extreme cases.
-	In the case where sceneDec and lowDec are both enabled and the current cycle has no duplicates,
-	sceneDec will take priority.
-			
-	Default: false (bool)
+        Sets an alternative decimation strategy when using mode=1.
+        When set to true: if no frame in the current cycle is part of any string of dupes,
+        then fall back to mode=0 behaviour (lowest metric in cycle).
+        This may help with dirty sources where duplicates cannot always be detected with 100% accuracy,
+        since the frame with the lowest metric is often found in the string of dupes anyway.
+        The sensitivity for detecting duplicates can be controlled with dupThresh, eg. for a dirty source
+        try increasing dupThresh to 2.2 or 4.4 in extreme cases.
+        In the case where sceneDec and lowDec are both enabled and the current cycle has no duplicates,
+        sceneDec will take priority. 
+        See PR #58.
+
+        Default: false (bool)
 
 
     vidDetect -
@@ -964,12 +965,14 @@ G.) FRAME PROPERTY SUPPORT
 
 H.)  CHANGE LIST:
 
-    (20250527) (v1.0.12, in v1.0.30 pack - pinterf)
+    (20251210) (v1.0.12, in v1.0.30 pack - pinterf)
          - TDecimate: add dclip parameter - a denoised clip for metrics calculation only
            See #27: https://github.com/pinterf/TIVTC/issues/27
          - TDecimate: Allow hybrid=1 scenechange decimation strategy when hybrid=0, new parameter "sceneDec"
            See #50: https://github.com/pinterf/TIVTC/pull/50 (flossy83)
            Both for mode=0 and 1.
+         - TDecimate: Alternate strategy for TDecimate mode 1, lowDec parameter
+           See #58: https://github.com/pinterf/TIVTC/pull/58 (flossy83)
 
     (20240302) (v1.0.11, in v1.0.29 pack - pinterf)
          - TDecimate: allow noblend=true when hybrid=1, noblend default value is false when hybrid=1 to keep 

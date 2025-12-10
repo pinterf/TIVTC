@@ -1,12 +1,14 @@
 ## TIVTC
 
-**v1.0.30 (20251119) - WIP
+**v1.0.30 (20251210)
 - TDecimate: add dclip parameter - a denoised clip for metrics calculation only.
   See #27: https://github.com/pinterf/TIVTC/issues/27
 - TDecimate: Allow hybrid=1 scenechange decimation strategy when hybrid=0, new parameter "sceneDec"
   For mode 0 and 1.
   See #50: https://github.com/pinterf/TIVTC/pull/50 (flossy83)
   See also #27 for mode 1 extension
+- TDecimate: Alternate strategy for TDecimate mode 1, lowDec parameter
+  See #58: https://github.com/pinterf/TIVTC/pull/58 (flossy83)
 - TFM: (#27) add dclip as an optional denoised clip for analyzing
 
 **v1.0.29 (20240302)
