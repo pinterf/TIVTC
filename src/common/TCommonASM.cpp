@@ -897,9 +897,26 @@ void check_combing_c_Metric1(const pixel_t* srcp, uint8_t* cmkp, int width, int 
 
   for (int y = 0; y < height; ++y)
   {
-    for (int x = 0; x < width; x += increment)
+    // Do first and last line
+    if ((safeint_t)(srcp[0] - srcpp[0]) * (srcp[0] - srcpn[0]) > cthreshsq)
+      cmkp[0] = 0xFF;
+    if ((safeint_t)(srcp[width - 1] - srcpp[width - 1]) * (srcp[width - 1] - srcpn[width - 1]) > cthreshsq)
+      cmkp[width - 1] = 0xFF;
+
+    for (int x = 1; x < width-1; x += increment)
     {
+      // Vertical combing check
       if ((safeint_t)(srcp[x] - srcpp[x]) * (srcp[x] - srcpn[x]) > cthreshsq)
+        cmkp[x] = 0xFF;
+
+      // Skip diagonals if vertical lines suspected
+      if((srcp[x] - srcp[x+increment])*(srcp[x] - srcp[x-increment]) > cthreshsq)
+        continue;
+
+      // Additional diagonal combing checks
+      if ((safeint_t)(srcp[x] - srcpp[x+increment]) * (srcp[x] - srcpn[x-increment]) > cthreshsq)
+        cmkp[x] = 0xFF;
+      if ((safeint_t)(srcp[x] - srcpp[x-increment]) * (srcp[x] - srcpn[x+increment]) > cthreshsq)
         cmkp[x] = 0xFF;
     }
     srcpp += src_pitch;
