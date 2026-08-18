@@ -60,7 +60,7 @@ kbd       { color: #808000; font-family: Verdana, Arial, Helvetica, sans-serif; 
   <h2>Abstract</h2>
   <b>author: </b>    tritical<br>
   <b>new color spaces, high bit depth:</b>   pinterf<br>
-  <br><b>version:</b> v1.11<br>
+  <br><b>version:</b> v1.12<br>
   <b>download (current):</b>   <a href="https://github.com/pinterf/TIVTC/">https://github.com/pinterf/TIVTC/</a>
   <br><b>download (mod base v1.1):</b>   <a href="http://bengal.missouri.edu/~kes25c/">http://bengal.missouri.edu/~kes25c/</a>
   <br><b>category:</b>   Deinterlacing &amp; Pulldown Removal
@@ -878,10 +878,15 @@ tswitch(c1=last,c2=last.sharpen())</pre>
   <h2>Changelog</h2>
 
   <p>
+    v1.12 (20260818) - pinterf<br>
+    + Fix #62 crash at hbd regression in SSE4.1 and AVX2 implementation for slow=1 and slow=2 (buildDiffMapPlane_Planar from TDeinterlace::subtractFields1/2)
+
+
+  <p>
     v1.11 (20260304) - pinterf<br>
     + Add SSE4.1 and AVX2 implementation for slow=1 and slow=2 (buildDiffMapPlane_Planar from TDeinterlace::subtractFields1/2)
-  
-  
+
+
   <p>
     v1.10 (20250519) - pinterf<br>
     + Fix #57: TDeint emtn parameter to expect the same frame count as the original for mode 1.

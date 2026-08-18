@@ -52,7 +52,7 @@
 #ifdef VERSION
 #undef VERSION
 #endif
-#define VERSION "v1.0.10"
+#define VERSION "v1.0.11"
 
 template<int planarType>
 void FillCombedPlanarUpdateCmaskByUV(PlanarFrame* cmask);

@@ -1,6 +1,6 @@
 
 
-                                  TFM v1.0.10  -  HELP FILE  (20260304)
+                                  TFM v1.0.11  -  HELP FILE  (20260304)
 
 
 
@@ -963,6 +963,9 @@ G.) FRAME PROPERTY SUPPORT
 
 
 H.)  CHANGE LIST:
+    20260818  v1.0.11 (part of v1.0.32 package)
+        - Fix hbd crash, regression in buildDiffMapPlane_Planar
+
     20260304  v1.0.10 (part of v1.0.31 package)
         - slow > 0: SSE4.1 and AVX2 implementation (buildDiffMapPlane_Planar from TFM::compareFieldsSlow)
 

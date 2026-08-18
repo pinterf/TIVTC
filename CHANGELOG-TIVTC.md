@@ -1,4 +1,6 @@
 ## TIVTC
+**v1.0.32 (20260818)
+- Fix #62: regression in slow > 0: buildDiffMapPlane_Planar
 
 **v1.0.31 (20260304)
 - Optimize slow > 0: SSE4.1 and AVX2 implementation (buildDiffMapPlane_Planar from TFM::compareFieldsSlow)

@@ -1,4 +1,8 @@
 ## TDeint
+**v1.12 (20260816) - pinterf**
+
+- Fix #62: regression in SSE4.1 and AVX2 implementation for slow=1 and slow=2 (buildDiffMapPlane_Planar from TDeinterlace::subtractFields1/2) 
+
 **v1.11 (20260304) - pinterf**
 
 + Add SSE4.1 and AVX2 implementation for slow=1 and slow=2 (buildDiffMapPlane_Planar from TDeinterlace::subtractFields1/2) 
