@@ -3141,21 +3141,22 @@ TFM::TFM(PClip _child, int _order, int _field, int _mode, int _PP, const char* _
   //   dpnn = tbuffer + tpitch * 3    ← starts 3 rows in
   //
   // Each y += 2 iteration advances all five pointers by tpitch.
-  // The loop runs for (Height - 4) / 2 iterations (y = 2, 4, ..., Height-4),
-  // so dpnn reaches at most:
+  // The loop runs for (Height - 4) / 2 iterations (y = 2, 4, ..., Height-4).
   //
-  //   tbuffer + tpitch * (3 + (Height - 4) / 2 - 1)
-  //   = tbuffer + tpitch * (Height / 2 - 1 + 1)
-  //   = tbuffer + tpitch * (Height / 2)     [for even Height, 0-based last row]
+  // BoolRowRing::rotate() prefetches the boolean row for dpnn one iteration
+  // _ahead_ of use (it builds slot 4 from the row the _next_ iteration will see).
+  // On the second-to-last row (y = Height-6), it prefetches the row for the
+  // last iteration (y = Height-4), reading raw tbuffer data at row index
+  // Height/2, i.e. _one element past_ the last valid row (0-based rows 0..Height/2-1).
   //
-  // i.e. exactly row index (Height/2 - 1), the last row of the allocation,
-  // because brows.rotate() — which is the only call that reads u8_dpnn — is
-  // skipped on the final iteration via the guard:
-  //
-  //   if (y + 2 < Height - 2) brows.rotate(u8_dpnn, Width);
-  //
-  // Therefore Height/2 rows are sufficient with no extra guard rows needed.
-  const int numElements = (vi.height >> 1) * tpitchy;
+  // This prefetch read happens unconditionally, even though the scalar
+  // algorithm's own "if (y != Height - 4)" guard means that row's data is
+  // never actually used for the last iteration (lower2 is forced to 0).
+  // The ring buffer's read-ahead design still does the raw memory read,
+  // so we must allocate Height/2 + 1 rows, not just Height/2.
+  // The extra line prevents access violation (over-read) in BuildBoolRow_u16
+  // on e.g. 1920x1080 high bit depth sources.
+  const int numElements = ((vi.height >> 1) + 1) * tpitchy;
   uint8_t* buffer = static_cast<uint8_t*>(_aligned_malloc(numElements * sizeof(uint8_t), ALIGN_BUF));
   tbuffer.reset(buffer);
 
